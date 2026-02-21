@@ -29,5 +29,8 @@
         "typescript-eslint": "^8.55.0",
         "vitest": "^4.0.18"
     },
-    "packageManager": "pnpm@10.23.0"
+    "packageManager": "pnpm@10.23.0",
+    "dependencies": {
+        "typebox": "^1.1.0"
+    }
 }

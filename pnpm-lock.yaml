@@ -6,6 +6,10 @@ settings:
 
 importers:
     .:
+        dependencies:
+            typebox:
+                specifier: ^1.1.0
+                version: 1.1.0
         devDependencies:
             "@types/node":
                 specifier: ^25.2.3
@@ -1419,6 +1423,12 @@ packages:
             }
         engines: { node: ">= 0.8.0" }
 
+    typebox@1.1.0:
+        resolution:
+            {
+                integrity: sha512-towL214nlIjQ9dlLFxOsI5XLd18oWAti+uuuWp45NLgWDFBkgS45S+pRKu7Ai9LCisrHAojEl7k6kYStI/xZpQ==,
+            }
+
     typescript-eslint@8.56.0:
         resolution:
             {
@@ -2306,6 +2316,8 @@ snapshots:
     type-check@0.4.0:
         dependencies:
             prelude-ls: 1.2.1
+
+    typebox@1.1.0: {}
 
     typescript-eslint@8.56.0(eslint@9.39.3)(typescript@5.9.3):
         dependencies:
