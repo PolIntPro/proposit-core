@@ -1,10 +1,21 @@
 import type {
     TArgument,
+    TLogicalOperatorType,
     TPropositionalExpression,
-    TPropositionalRelation,
     TPropositionalVariable,
 } from "./schemata"
-import { createRelationUUID, DefaultMap } from "./utils"
+import { DefaultMap } from "./utils"
+
+function getOrCreate<K, V>(map: Map<K, V>, key: K, mkDefault: () => V): V {
+    const existing = map.get(key)
+    if (existing !== undefined) {
+        return existing
+    }
+
+    const value = mkDefault()
+    map.set(key, value)
+    return value
+}
 
 interface IVariableManager {
     addVariable(variable: TPropositionalVariable): void
@@ -47,9 +58,14 @@ class VariableManager implements IVariableManager {
         if (!variable) {
             return undefined
         }
+
         this.variables.delete(variableId)
         this.variableSymbols.delete(variable.symbol)
         return variable
+    }
+
+    public hasVariable(variableId: string): boolean {
+        return this.variables.has(variableId)
     }
 }
 
@@ -60,15 +76,15 @@ interface IExpressionManager {
 
 class ExpressionManager implements IExpressionManager {
     private expressions: Map<string, TPropositionalExpression>
-    private childExpressionIds: DefaultMap<string | null, Set<string>>
+    private childExpressionIdsByParentId: Map<string | null, Set<string>>
+    private childPositionsByParentId: Map<string | null, Set<number>>
 
     constructor(initialExpressions: TPropositionalExpression[] = []) {
         this.expressions = new Map()
-        this.childExpressionIds = new DefaultMap(() => new Set())
+        this.childExpressionIdsByParentId = new Map()
+        this.childPositionsByParentId = new Map()
 
-        for (const expression of initialExpressions) {
-            this.addExpression(expression)
-        }
+        this.loadInitialExpressions(initialExpressions)
     }
 
     public toArray(): TPropositionalExpression[] {
@@ -81,85 +97,208 @@ class ExpressionManager implements IExpressionManager {
                 `Expression with ID "${expression.id}" already exists.`
             )
         }
+        if (expression.parentId === expression.id) {
+            throw new Error(
+                `Expression "${expression.id}" cannot be its own parent.`
+            )
+        }
+
+        if (expression.parentId !== null) {
+            const parent = this.expressions.get(expression.parentId)
+            if (!parent) {
+                throw new Error(
+                    `Parent expression "${expression.parentId}" does not exist.`
+                )
+            }
+            if (parent.type !== "operator") {
+                throw new Error(
+                    `Parent expression "${expression.parentId}" is not an operator expression.`
+                )
+            }
+
+            this.assertChildLimit(parent.operator, expression.parentId)
+        }
+
+        if (expression.position !== null) {
+            const positions = getOrCreate(
+                this.childPositionsByParentId,
+                expression.parentId,
+                () => new Set()
+            )
+            if (positions.has(expression.position)) {
+                throw new Error(
+                    `Position ${expression.position} is already used under parent "${expression.parentId}".`
+                )
+            }
+            positions.add(expression.position)
+        }
+
         this.expressions.set(expression.id, expression)
-        this.childExpressionIds.get(expression.parentId).add(expression.id)
+        getOrCreate(
+            this.childExpressionIdsByParentId,
+            expression.parentId,
+            () => new Set()
+        ).add(expression.id)
     }
 
     public removeExpression(expressionId: string) {
-        const expression = this.expressions.get(expressionId)
-        if (!expression) {
+        const rootExpression = this.expressions.get(expressionId)
+        if (!rootExpression) {
             return undefined
         }
-        this.expressions.delete(expressionId)
-        this.childExpressionIds.get(expression.parentId).delete(expressionId)
-        return expression
+
+        const toRemove = new Set<string>()
+        const stack = [expressionId]
+        while (stack.length > 0) {
+            const currentId = stack.pop()
+            if (!currentId || toRemove.has(currentId)) {
+                continue
+            }
+
+            toRemove.add(currentId)
+            const children = this.childExpressionIdsByParentId.get(currentId)
+            if (!children) {
+                continue
+            }
+            for (const childId of children) {
+                stack.push(childId)
+            }
+        }
+
+        for (const id of toRemove) {
+            const expression = this.expressions.get(id)
+            if (!expression) {
+                continue
+            }
+
+            this.expressions.delete(id)
+            this.childExpressionIdsByParentId
+                .get(expression.parentId)
+                ?.delete(id)
+
+            if (expression.position !== null) {
+                this.childPositionsByParentId
+                    .get(expression.parentId)
+                    ?.delete(expression.position)
+            }
+
+            this.childExpressionIdsByParentId.delete(id)
+            this.childPositionsByParentId.delete(id)
+        }
+
+        return rootExpression
     }
-}
 
-interface IRelationManager {
-    addRelation(relation: TPropositionalRelation): void
-    removeRelation(relationId: string): TPropositionalRelation | undefined
-}
+    public hasVariableReference(variableId: string): boolean {
+        for (const expression of this.expressions.values()) {
+            if (
+                expression.type === "variable" &&
+                expression.variableId === variableId
+            ) {
+                return true
+            }
+        }
+        return false
+    }
 
-class RelationManager implements IRelationManager {
-    private relations: Map<string, TPropositionalRelation>
-    private relationsBySourceId: DefaultMap<string, Set<string>>
-    private relationsByTargetId: DefaultMap<string, Set<string>>
+    private loadInitialExpressions(
+        initialExpressions: TPropositionalExpression[]
+    ) {
+        if (initialExpressions.length === 0) {
+            return
+        }
 
-    constructor(initialRelations: TPropositionalRelation[] = []) {
-        this.relations = new Map()
-        this.relationsBySourceId = new DefaultMap(() => new Set())
-        this.relationsByTargetId = new DefaultMap(() => new Set())
+        const pending = new Map<string, TPropositionalExpression>(
+            initialExpressions.map((expression) => [expression.id, expression])
+        )
 
-        for (const relation of initialRelations) {
-            this.addRelation(relation)
+        let progressed = true
+        while (pending.size > 0 && progressed) {
+            progressed = false
+
+            for (const [id, expression] of Array.from(pending.entries())) {
+                if (
+                    expression.parentId !== null &&
+                    !this.expressions.has(expression.parentId)
+                ) {
+                    continue
+                }
+
+                this.addExpression(expression)
+                pending.delete(id)
+                progressed = true
+            }
+        }
+
+        if (pending.size > 0) {
+            const unresolved = Array.from(pending.keys()).join(", ")
+            throw new Error(
+                `Could not resolve parent relationships for expressions: ${unresolved}.`
+            )
         }
     }
 
-    public toArray(): TPropositionalRelation[] {
-        return Array.from(this.relations.values())
-    }
+    private assertChildLimit(
+        operator: TLogicalOperatorType,
+        parentExpressionId: string
+    ): void {
+        const childCount =
+            this.childExpressionIdsByParentId.get(parentExpressionId)?.size ?? 0
 
-    public addRelation(relation: TPropositionalRelation) {
-        const id = createRelationUUID(relation)
-        if (this.relations.has(id)) {
-            throw new Error(`Relation with ID "${id}" already exists.`)
+        if (operator === "not" && childCount >= 1) {
+            throw new Error(
+                `Operator expression "${parentExpressionId}" with "not" can only have one child.`
+            )
         }
-        this.relations.set(id, relation)
-        this.relationsBySourceId.get(relation.sourceId).add(id)
-        this.relationsByTargetId.get(relation.targetId).add(id)
-    }
-
-    public removeRelation(relationId: string) {
-        const relation = this.relations.get(relationId)
-        if (!relation) {
-            return undefined
+        if ((operator === "implies" || operator === "iff") && childCount >= 2) {
+            throw new Error(
+                `Operator expression "${parentExpressionId}" with "${operator}" can only have two children.`
+            )
         }
-        this.relations.delete(relationId)
-        this.relationsBySourceId.get(relation.sourceId).delete(relationId)
-        this.relationsByTargetId.get(relation.targetId).delete(relationId)
-        return relation
     }
 }
 
-export class ArgumentEngine
-    implements IVariableManager, IExpressionManager, IRelationManager
-{
+export class ArgumentEngine implements IVariableManager, IExpressionManager {
     private argument: TArgument
     private variables: VariableManager
     private expressions: ExpressionManager
-    private relations: RelationManager
+
+    private expressionsByVariableId: DefaultMap<string, Set<string>>
 
     constructor(
         argument: TArgument,
         variables: TPropositionalVariable[] = [],
-        expressions: TPropositionalExpression[] = [],
-        relations: TPropositionalRelation[] = []
+        expressions: TPropositionalExpression[] = []
     ) {
         this.argument = { ...argument }
+
+        for (const variable of variables) {
+            this.assertBelongsToArgument(
+                variable.argumentId,
+                variable.argumentVersion
+            )
+        }
+        for (const expression of expressions) {
+            this.assertBelongsToArgument(
+                expression.argumentId,
+                expression.argumentVersion
+            )
+        }
+
         this.variables = new VariableManager(variables)
         this.expressions = new ExpressionManager(expressions)
-        this.relations = new RelationManager(relations)
+        this.expressionsByVariableId = new DefaultMap(() => new Set())
+
+        for (const expression of expressions) {
+            if (
+                expression.type === "variable" &&
+                !this.variables.hasVariable(expression.variableId)
+            ) {
+                throw new Error(
+                    `Variable expression "${expression.id}" references non-existent variable "${expression.variableId}".`
+                )
+            }
+        }
     }
 
     public getArgument(): TArgument {
@@ -167,26 +306,66 @@ export class ArgumentEngine
     }
 
     public addVariable(variable: TPropositionalVariable) {
+        this.assertBelongsToArgument(
+            variable.argumentId,
+            variable.argumentVersion
+        )
         this.variables.addVariable(variable)
     }
 
     public removeVariable(variableId: string) {
+        if (this.expressions.hasVariableReference(variableId)) {
+            throw new Error(
+                `Variable "${variableId}" cannot be removed because it is referenced by one or more expressions.`
+            )
+        }
         return this.variables.removeVariable(variableId)
     }
 
     public addExpression(expression: TPropositionalExpression) {
+        this.assertBelongsToArgument(
+            expression.argumentId,
+            expression.argumentVersion
+        )
+        if (
+            expression.type === "variable" &&
+            !this.variables.hasVariable(expression.variableId)
+        ) {
+            throw new Error(
+                `Variable expression "${expression.id}" references non-existent variable "${expression.variableId}".`
+            )
+        }
         this.expressions.addExpression(expression)
+        if (expression.type === "variable") {
+            this.expressionsByVariableId
+                .get(expression.variableId)
+                .add(expression.id)
+        }
     }
 
     public removeExpression(expressionId: string) {
-        return this.expressions.removeExpression(expressionId)
+        const expr = this.expressions.removeExpression(expressionId)
+        if (expr?.type === "variable") {
+            this.expressionsByVariableId
+                .get(expr.variableId)
+                ?.delete(expressionId)
+        }
+        return expr
     }
 
-    public addRelation(relation: TPropositionalRelation) {
-        this.relations.addRelation(relation)
-    }
-
-    public removeRelation(relationId: string) {
-        return this.relations.removeRelation(relationId)
+    private assertBelongsToArgument(
+        argumentId: string,
+        argumentVersion: number
+    ) {
+        if (argumentId !== this.argument.id) {
+            throw new Error(
+                `Entity argumentId "${argumentId}" does not match engine argument ID "${this.argument.id}".`
+            )
+        }
+        if (argumentVersion !== this.argument.version) {
+            throw new Error(
+                `Entity argumentVersion "${argumentVersion}" does not match engine argument version "${this.argument.version}".`
+            )
+        }
     }
 }

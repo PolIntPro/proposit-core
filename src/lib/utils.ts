@@ -1,21 +1,3 @@
-import type { TPropositionalRelation } from "./schemata"
-
-export function createRelationUUID(
-    relation: Pick<TPropositionalRelation, "sourceId" | "targetId">
-): string {
-    return `${relation.sourceId}:${relation.targetId}`
-}
-
-export function parseRelationUUID(
-    uuid: string
-): Pick<TPropositionalRelation, "sourceId" | "targetId"> {
-    const [sourceId, targetId] = uuid.split(":")
-    return {
-        sourceId,
-        targetId,
-    }
-}
-
 type DefaultValueFactory<K, V> = (key?: K) => V
 export class DefaultMap<K, V> extends Map<K, V> {
     private mkDefault: DefaultValueFactory<K, V>
