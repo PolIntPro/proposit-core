@@ -67,6 +67,10 @@ class VariableManager implements IVariableManager {
     public hasVariable(variableId: string): boolean {
         return this.variables.has(variableId)
     }
+
+    public getVariable(variableId: string): TPropositionalVariable | undefined {
+        return this.variables.get(variableId)
+    }
 }
 
 interface IExpressionManager {
@@ -199,6 +203,42 @@ class ExpressionManager implements IExpressionManager {
             }
         }
         return false
+    }
+
+    public getExpression(
+        expressionId: string
+    ): TPropositionalExpression | undefined {
+        return this.expressions.get(expressionId)
+    }
+
+    public getChildExpressions(
+        parentId: string | null
+    ): TPropositionalExpression[] {
+        const childIds = this.childExpressionIdsByParentId.get(parentId)
+        if (!childIds || childIds.size === 0) {
+            return []
+        }
+
+        const children: TPropositionalExpression[] = []
+        for (const childId of childIds) {
+            const child = this.expressions.get(childId)
+            if (child) {
+                children.push(child)
+            }
+        }
+
+        return children.sort((a, b) => {
+            if (a.position === null && b.position === null) {
+                return a.id.localeCompare(b.id)
+            }
+            if (a.position === null) {
+                return 1
+            }
+            if (b.position === null) {
+                return -1
+            }
+            return a.position - b.position
+        })
     }
 
     private loadInitialExpressions(
@@ -351,6 +391,64 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 ?.delete(expressionId)
         }
         return expr
+    }
+
+    public toDisplayString(): string {
+        const premises = this.expressions.getChildExpressions(null)
+        return premises
+            .map((premise) => this.toDisplayStringForExpression(premise.id))
+            .join("\n")
+    }
+
+    private toDisplayStringForExpression(expressionId: string): string {
+        const expression = this.expressions.getExpression(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" was not found.`)
+        }
+
+        if (expression.type === "variable") {
+            const variable = this.variables.getVariable(expression.variableId)
+            if (!variable) {
+                throw new Error(
+                    `Variable "${expression.variableId}" for expression "${expressionId}" was not found.`
+                )
+            }
+            return variable.symbol
+        }
+
+        const children = this.expressions.getChildExpressions(expression.id)
+        if (expression.operator === "not") {
+            if (children.length === 0) {
+                return "NOT (?)"
+            }
+            return `NOT (${this.toDisplayStringForExpression(children[0].id)})`
+        }
+
+        if (children.length === 0) {
+            return "(?)"
+        }
+
+        const renderedChildren = children.map((child) =>
+            this.toDisplayStringForExpression(child.id)
+        )
+
+        const operatorSymbol = this.toDisplayOperator(expression.operator)
+        return `(${renderedChildren.join(` ${operatorSymbol} `)})`
+    }
+
+    private toDisplayOperator(operator: TLogicalOperatorType): string {
+        switch (operator) {
+            case "and":
+                return "AND"
+            case "or":
+                return "OR"
+            case "implies":
+                return "->"
+            case "iff":
+                return "<->"
+            case "not":
+                return "NOT"
+        }
     }
 
     private assertBelongsToArgument(
