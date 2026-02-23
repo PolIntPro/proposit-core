@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { ArgumentEngine } from "../src/lib/index"
 import type {
     TArgument,
+    TPremise,
     TPropositionalExpression,
     TPropositionalVariable,
 } from "../src/lib/schemata"
@@ -1020,6 +1021,30 @@ describe("stress test", () => {
             id: "new-premise-0",
         })
     })
+
+    it("all expressions appear in exactly one premise", () => {
+        const { eng, allExpressions } = buildStress()
+        const counts = premiseExpressionCounts(eng.getPremises())
+        for (const expr of allExpressions) {
+            expect(counts.get(expr.id)).toBe(1)
+        }
+    })
+
+    it("all referenced variables appear in at least one premise", () => {
+        const { eng, referencedVarIds } = buildStress()
+        const premises = eng.getPremises()
+
+        const variableIdsInPremises = new Set<string>()
+        for (const premise of premises) {
+            for (const variable of premise.variables) {
+                variableIdsInPremises.add(variable.id)
+            }
+        }
+
+        for (const varId of referencedVarIds) {
+            expect(variableIdsInPremises.has(varId)).toBe(true)
+        }
+    })
 })
 
 // ---------------------------------------------------------------------------
@@ -1164,5 +1189,166 @@ describe("formula", () => {
             })
         )
         expect(eng.toDisplayString()).toBe("((P) ∧ Q)")
+    })
+})
+
+// ---------------------------------------------------------------------------
+// getPremises
+// ---------------------------------------------------------------------------
+
+/** Collect all expression IDs across all premises into a count map. */
+function premiseExpressionCounts(premises: TPremise[]): Map<string, number> {
+    const counts = new Map<string, number>()
+    for (const premise of premises) {
+        for (const expr of premise.expressions) {
+            counts.set(expr.id, (counts.get(expr.id) ?? 0) + 1)
+        }
+    }
+    return counts
+}
+
+describe("getPremises", () => {
+    it("returns an empty array when no expressions exist", () => {
+        const eng = engineWithVars()
+        expect(eng.getPremises()).toEqual([])
+    })
+
+    it("returns a constraint premise for a non-inference operator root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        const premises = eng.getPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].type).toBe("constraint")
+    })
+
+    it("returns an inference premise for an implies root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-impl", "implies"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-impl",
+                position: 0,
+            })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-impl",
+                position: 1,
+            })
+        )
+        const premises = eng.getPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].type).toBe("inference")
+    })
+
+    it("returns an inference premise for an iff root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-iff", "iff"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-iff", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-iff", position: 1 })
+        )
+        const premises = eng.getPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].type).toBe("inference")
+    })
+
+    it("returns a constraint premise for a formula root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id, { parentId: "f-1" }))
+        const premises = eng.getPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].type).toBe("constraint")
+    })
+
+    it("returns a constraint premise for a bare variable root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const premises = eng.getPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].type).toBe("constraint")
+    })
+
+    it("includes all expressions in the premise", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        const { expressions } = eng.getPremises()[0]
+        const ids = expressions.map((e) => e.id).sort()
+        expect(ids).toEqual(["expr-p", "expr-q", "op-and"].sort())
+    })
+
+    it("includes the referenced variables without duplicates", () => {
+        const eng = engineWithVars()
+        // P appears twice, Q once
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeVarExpr("expr-p1", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-p2", VAR_P.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 2 })
+        )
+        const { variables } = eng.getPremises()[0]
+        const varIds = variables.map((v) => v.id).sort()
+        expect(varIds).toEqual([VAR_P.id, VAR_Q.id].sort())
+    })
+
+    it("returns multiple premises for multiple root expressions", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        eng.addExpression(makeVarExpr("expr-q", VAR_Q.id))
+        expect(eng.getPremises()).toHaveLength(2)
+    })
+
+    it("updates the cache when an expression is added", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        expect(eng.getPremises()[0].expressions).toHaveLength(1)
+
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and" })
+        )
+        expect(eng.getPremises()[0].expressions).toHaveLength(2)
+    })
+
+    it("updates the cache when a root expression is removed", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        eng.addExpression(makeVarExpr("expr-q", VAR_Q.id))
+        expect(eng.getPremises()).toHaveLength(2)
+
+        eng.removeExpression("expr-p")
+        expect(eng.getPremises()).toHaveLength(1)
+    })
+
+    it("returns the same array reference on repeated calls without mutations", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const first = eng.getPremises()
+        const second = eng.getPremises()
+        expect(first).toBe(second)
     })
 })

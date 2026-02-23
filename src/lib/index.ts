@@ -1,6 +1,7 @@
 import type {
     TArgument,
     TLogicalOperatorType,
+    TPremise,
     TPropositionalExpression,
     TPropositionalVariable,
 } from "./schemata"
@@ -596,6 +597,7 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
     private expressions: ExpressionManager
 
     private expressionsByVariableId: DefaultMap<string, Set<string>>
+    private premisesCache: TPremise[] = []
 
     /**
      * Creates a new `ArgumentEngine` bound to the given argument.
@@ -643,6 +645,8 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 )
             }
         }
+
+        this.rebuildPremises()
     }
 
     /**
@@ -717,6 +721,7 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 .get(expression.variableId)
                 .add(expression.id)
         }
+        this.rebuildPremises()
     }
 
     /**
@@ -737,6 +742,7 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 .get(removed.variableId)
                 ?.delete(expressionId)
         }
+        this.rebuildPremises()
         return removed
     }
 
@@ -794,6 +800,7 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 .get(expression.variableId)
                 .add(expression.id)
         }
+        this.rebuildPremises()
     }
 
     /**
@@ -864,6 +871,58 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
             case "not":
                 return "¬"
         }
+    }
+
+    /**
+     * Returns all premises currently tracked in the argument. Each premise
+     * groups a root expression and its entire descendant subtree together with
+     * the variables those expressions reference.
+     *
+     * The result is pre-computed and updated automatically whenever the
+     * expression tree changes; calling this method is always O(1).
+     */
+    public getPremises(): TPremise[] {
+        return this.premisesCache
+    }
+
+    private rebuildPremises(): void {
+        const roots = this.expressions.getChildExpressions(null)
+        this.premisesCache = roots.map((root) => {
+            const expressions = this.collectSubtree(root.id)
+
+            const variableIds = new Set<string>()
+            for (const expr of expressions) {
+                if (expr.type === "variable") {
+                    variableIds.add(expr.variableId)
+                }
+            }
+            const variables = Array.from(variableIds)
+                .map((id) => this.variables.getVariable(id))
+                .filter((v): v is TPropositionalVariable => v !== undefined)
+
+            const type: "inference" | "constraint" =
+                root.type === "operator" &&
+                (root.operator === "implies" || root.operator === "iff")
+                    ? "inference"
+                    : "constraint"
+
+            return { type, variables, expressions }
+        })
+    }
+
+    private collectSubtree(rootId: string): TPropositionalExpression[] {
+        const result: TPropositionalExpression[] = []
+        const stack = [rootId]
+        while (stack.length > 0) {
+            const id = stack.pop()!
+            const expr = this.expressions.getExpression(id)
+            if (!expr) continue
+            result.push(expr)
+            for (const child of this.expressions.getChildExpressions(id)) {
+                stack.push(child.id)
+            }
+        }
+        return result
     }
 
     private assertBelongsToArgument(

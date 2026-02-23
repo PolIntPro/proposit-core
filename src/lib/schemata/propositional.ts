@@ -93,3 +93,25 @@ export const PropositionalVariableSchema = Type.Object({
 })
 
 export type TPropositionalVariable = Static<typeof PropositionalVariableSchema>
+
+export const PremiseSchema = Type.Object({
+    variables: Type.Array(PropositionalVariableSchema, {
+        description: "All variables referenced in this premise.",
+    }),
+    expressions: Type.Array(PropositionalExpressionSchema, {
+        description:
+            "All expressions that are part of this premise, including sub-expressions. The root of the premise will have a null parentId.",
+    }),
+    type: Type.Union([
+        Type.Literal("inference", {
+            description:
+                "A premise whose core operator is one of inference like implies or iff",
+        }),
+        Type.Literal("constraint", {
+            description:
+                "A premise without an inference operator, it restricts the possible valuations of variables but is not part of the chain of logical reasoning.",
+        }),
+    ]),
+})
+
+export type TPremise = Static<typeof PremiseSchema>
