@@ -469,16 +469,23 @@ describe("removeExpression", () => {
 
     it("frees the position so it can be reused after removal", () => {
         const eng = engineWithVars()
+        // Use three children so removing one leaves two — no collapse occurs.
         eng.addExpression(makeOpExpr("op-1", "and"))
         eng.addExpression(
             makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1", position: 1 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-3", VAR_R.id, { parentId: "op-1", position: 2 })
         )
         eng.removeExpression("expr-1")
 
         // Position 0 should be available again
         expect(() =>
             eng.addExpression(
-                makeVarExpr("expr-2", VAR_Q.id, {
+                makeVarExpr("expr-4", VAR_P.id, {
                     parentId: "op-1",
                     position: 0,
                 })
@@ -494,6 +501,143 @@ describe("removeExpression", () => {
 
         const removed = eng.removeExpression("op-1")
         expect(removed).toMatchObject({ id: "op-1", type: "operator" })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// removeExpression — operator collapse
+// ---------------------------------------------------------------------------
+
+describe("removeExpression — operator collapse", () => {
+    it("removes a childless operator when its only child is removed", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-not", "not"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-not" })
+        )
+
+        eng.removeExpression("expr-p")
+
+        // op-not had 0 children remaining and must have been auto-deleted
+        expect(eng.removeExpression("op-not")).toBeUndefined()
+        expect(eng.toDisplayString()).toBe("")
+    })
+
+    it("promotes the surviving child when a binary operator loses one child", () => {
+        const eng = engineWithVars()
+        // op-and (root) → [expr-p (pos 0), expr-q (pos 1)]
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+
+        eng.removeExpression("expr-p")
+
+        // op-and had 1 child left → it is removed, expr-q is promoted to root
+        expect(eng.removeExpression("op-and")).toBeUndefined()
+        // expr-q is now the root
+        expect(eng.toDisplayString()).toBe("Q")
+    })
+
+    it("cascades collapse up multiple levels", () => {
+        const eng = engineWithVars()
+        // op-outer (and, root) → [op-inner (not, pos 0) → expr-p, expr-q (pos 1)]
+        eng.addExpression(makeOpExpr("op-outer", "and"))
+        eng.addExpression(
+            makeOpExpr("op-inner", "not", { parentId: "op-outer", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-inner" })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-outer",
+                position: 1,
+            })
+        )
+
+        // Remove expr-p → op-inner (0 children) is deleted
+        // → op-outer now has 1 child (expr-q) → op-outer is deleted, expr-q promoted to root
+        eng.removeExpression("expr-p")
+
+        expect(eng.removeExpression("op-inner")).toBeUndefined()
+        expect(eng.removeExpression("op-outer")).toBeUndefined()
+        expect(eng.toDisplayString()).toBe("Q")
+    })
+
+    it("promotes the surviving child to a non-root slot (nested collapse)", () => {
+        const eng = engineWithVars()
+        // op-root (or, root) → [op-and (pos 0) → [expr-p (pos 0), expr-q (pos 1)], expr-r (pos 1)]
+        eng.addExpression(makeOpExpr("op-root", "or"))
+        eng.addExpression(
+            makeOpExpr("op-and", "and", { parentId: "op-root", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-root",
+                position: 1,
+            })
+        )
+
+        // Remove expr-p → op-and has 1 child (expr-q)
+        // op-and is removed; expr-q is promoted into op-and's slot under op-root (pos 0)
+        // op-root now has 2 children: expr-q (pos 0) and expr-r (pos 1) — no further collapse
+        eng.removeExpression("expr-p")
+
+        expect(eng.removeExpression("op-and")).toBeUndefined()
+        // op-root still exists with expr-q and expr-r as children
+        expect(eng.toDisplayString()).toBe("(Q ∨ R)")
+    })
+
+    it("does not collapse an operator that still has two or more children", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, { parentId: "op-and", position: 2 })
+        )
+
+        eng.removeExpression("expr-p")
+
+        // op-and still has expr-q and expr-r — must survive
+        expect(eng.toDisplayString()).toBe("(Q ∧ R)")
+    })
+
+    it("promotes the surviving child of implies to the root", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-implies", "implies"))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-implies",
+                position: 0,
+            })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-implies",
+                position: 1,
+            })
+        )
+
+        eng.removeExpression("expr-p")
+
+        // op-implies is removed; expr-q (the consequent) is promoted to root
+        expect(eng.removeExpression("op-implies")).toBeUndefined()
+        expect(eng.toDisplayString()).toBe("Q")
     })
 })
 
