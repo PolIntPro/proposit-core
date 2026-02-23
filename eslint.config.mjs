@@ -47,5 +47,11 @@ export default defineConfig([
             "@typescript-eslint/consistent-type-definitions": "off",
         },
     },
+    // .mjs files (e.g. this config file) are not part of the TypeScript project,
+    // so type-aware rules cannot be applied to them.
+    {
+        files: ["*.mjs"],
+        extends: [tseslint.configs.disableTypeChecked],
+    },
     globalIgnores(["dist/", "node_modules/"]),
 ])

@@ -212,7 +212,7 @@ class ExpressionManager implements IExpressionManager {
         if (operatorId === null) return
 
         const operator = this.expressions.get(operatorId)
-        if (!operator || operator.type !== "operator") return
+        if (operator?.type !== "operator") return
 
         const children = this.getChildExpressions(operatorId)
 
@@ -480,8 +480,7 @@ class ExpressionManager implements IExpressionManager {
 
         // 8. The left node must not be an implies/iff expression (which must remain a root).
         if (
-            leftNode &&
-            leftNode.type === "operator" &&
+            leftNode?.type === "operator" &&
             (leftNode.operator === "implies" || leftNode.operator === "iff")
         ) {
             throw new Error(
@@ -491,8 +490,7 @@ class ExpressionManager implements IExpressionManager {
 
         // 9. The right node must not be an implies/iff expression (which must remain a root).
         if (
-            rightNode &&
-            rightNode.type === "operator" &&
+            rightNode?.type === "operator" &&
             (rightNode.operator === "implies" || rightNode.operator === "iff")
         ) {
             throw new Error(

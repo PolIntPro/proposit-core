@@ -1,1 +1,2 @@
-export const healthcheck = (): string => "ok"
+export { ArgumentEngine } from "./lib/index"
+export * from "./lib/schemata"
