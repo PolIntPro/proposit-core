@@ -19,6 +19,185 @@ function getOrCreate<K, V>(map: Map<K, V>, key: K, makeDefault: () => V): V {
     return value
 }
 
+export type TPremiseRole = "supporting" | "conclusion"
+
+export interface TArgumentRoleState {
+    supportingPremiseIds: string[]
+    conclusionPremiseId?: string
+}
+
+export interface TArgumentEngineData {
+    argument: TArgument
+    premises: TPremise[]
+    roles: TArgumentRoleState
+}
+
+export type TVariableAssignment = Record<string, boolean>
+
+export type TValidationSeverity = "error" | "warning"
+
+export type TValidationCode =
+    | "ARGUMENT_NO_CONCLUSION"
+    | "ARGUMENT_CONCLUSION_NOT_FOUND"
+    | "ARGUMENT_SUPPORTING_PREMISE_NOT_FOUND"
+    | "ARGUMENT_ROLE_OVERLAP"
+    | "ARGUMENT_VARIABLE_ID_SYMBOL_MISMATCH"
+    | "ARGUMENT_VARIABLE_SYMBOL_AMBIGUOUS"
+    | "PREMISE_EMPTY"
+    | "PREMISE_ROOT_MISSING"
+    | "PREMISE_ROOT_MISMATCH"
+    | "EXPR_CHILD_COUNT_INVALID"
+    | "EXPR_BINARY_POSITIONS_INVALID"
+    | "EXPR_VARIABLE_UNDECLARED"
+    | "ASSIGNMENT_MISSING_VARIABLE"
+    | "ASSIGNMENT_UNKNOWN_VARIABLE"
+
+export interface TValidationIssue {
+    code: TValidationCode
+    severity: TValidationSeverity
+    message: string
+    premiseId?: string
+    expressionId?: string
+    variableId?: string
+}
+
+export interface TValidationResult {
+    ok: boolean
+    issues: TValidationIssue[]
+}
+
+export interface TDirectionalVacuity {
+    antecedentTrue: boolean
+    consequentTrue: boolean
+    implicationValue: boolean
+    isVacuouslyTrue: boolean
+    fired: boolean
+}
+
+export type TPremiseInferenceDiagnostic =
+    | {
+          kind: "implies"
+          premiseId: string
+          rootExpressionId: string
+          leftValue: boolean
+          rightValue: boolean
+          rootValue: boolean
+          antecedentTrue: boolean
+          consequentTrue: boolean
+          isVacuouslyTrue: boolean
+          fired: boolean
+          firedAndHeld: boolean
+      }
+    | {
+          kind: "iff"
+          premiseId: string
+          rootExpressionId: string
+          leftValue: boolean
+          rightValue: boolean
+          rootValue: boolean
+          leftToRight: TDirectionalVacuity
+          rightToLeft: TDirectionalVacuity
+          bothSidesTrue: boolean
+          bothSidesFalse: boolean
+      }
+
+export interface TPremiseEvaluationResult {
+    premiseId: string
+    premiseType: "inference" | "constraint"
+    rootExpressionId?: string
+    rootValue?: boolean
+    expressionValues: Record<string, boolean>
+    variableValues: Record<string, boolean>
+    inferenceDiagnostic?: TPremiseInferenceDiagnostic
+}
+
+export interface TArgumentEvaluationOptions {
+    strictUnknownAssignmentKeys?: boolean
+    includeExpressionValues?: boolean
+    includeDiagnostics?: boolean
+    validateFirst?: boolean
+}
+
+export interface TArgumentEvaluationResult {
+    ok: boolean
+    validation?: TValidationResult
+    assignment?: TVariableAssignment
+    referencedVariableIds?: string[]
+    conclusion?: TPremiseEvaluationResult
+    supportingPremises?: TPremiseEvaluationResult[]
+    constraintPremises?: TPremiseEvaluationResult[]
+    isAdmissibleAssignment?: boolean
+    allSupportingPremisesTrue?: boolean
+    conclusionTrue?: boolean
+    isCounterexample?: boolean
+    preservesTruthUnderAssignment?: boolean
+}
+
+export interface TValidityCheckOptions {
+    mode?: "firstCounterexample" | "exhaustive"
+    maxVariables?: number
+    maxAssignmentsChecked?: number
+    includeCounterexampleEvaluations?: boolean
+    validateFirst?: boolean
+}
+
+export interface TCounterexample {
+    assignment: TVariableAssignment
+    result: TArgumentEvaluationResult
+}
+
+export interface TValidityCheckResult {
+    ok: boolean
+    validation?: TValidationResult
+    isValid?: boolean
+    checkedVariableIds?: string[]
+    numAssignmentsChecked?: number
+    numAdmissibleAssignments?: number
+    counterexamples?: TCounterexample[]
+    truncated?: boolean
+}
+
+function makeValidationResult(issues: TValidationIssue[]): TValidationResult {
+    return {
+        ok: issues.every((issue) => issue.severity !== "error"),
+        issues,
+    }
+}
+
+function makeErrorIssue(
+    issue: Omit<TValidationIssue, "severity">
+): TValidationIssue {
+    return { severity: "error", ...issue }
+}
+
+function sortedCopyById<T extends { id: string }>(items: T[]): T[] {
+    return [...items]
+        .map((item) => ({ ...item }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+}
+
+function implicationValue(antecedent: boolean, consequent: boolean): boolean {
+    return !antecedent || consequent
+}
+
+function buildDirectionalVacuity(
+    antecedentTrue: boolean,
+    consequentTrue: boolean
+): TDirectionalVacuity {
+    const implication = implicationValue(antecedentTrue, consequentTrue)
+    return {
+        antecedentTrue,
+        consequentTrue,
+        implicationValue: implication,
+        isVacuouslyTrue: !antecedentTrue,
+        fired: antecedentTrue,
+    }
+}
+
+function sortedUnique(values: Iterable<string>): string[] {
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+}
+
 class VariableManager {
     private variables: Map<string, TPropositionalVariable>
     private variableSymbols: Set<string>
@@ -780,6 +959,372 @@ export class PremiseManager {
         return this.expressions.getExpression(id)
     }
 
+    public getId(): string {
+        return this.id
+    }
+
+    public getTitle(): string | undefined {
+        return this.title
+    }
+
+    public getRootExpressionId(): string | undefined {
+        return this.rootExpressionId
+    }
+
+    public getRootExpression(): TPropositionalExpression | undefined {
+        if (this.rootExpressionId === undefined) {
+            return undefined
+        }
+        const expr = this.expressions.getExpression(this.rootExpressionId)
+        return expr ? { ...expr } : undefined
+    }
+
+    public getVariables(): TPropositionalVariable[] {
+        return sortedCopyById(this.variables.toArray())
+    }
+
+    public getExpressions(): TPropositionalExpression[] {
+        return sortedCopyById(this.expressions.toArray())
+    }
+
+    public getChildExpressions(
+        parentId: string | null
+    ): TPropositionalExpression[] {
+        return this.expressions.getChildExpressions(parentId).map((expr) => ({
+            ...expr,
+        }))
+    }
+
+    public getPremiseType(): "inference" | "constraint" {
+        const root = this.getRootExpression()
+        return root?.type === "operator" &&
+            (root.operator === "implies" || root.operator === "iff")
+            ? "inference"
+            : "constraint"
+    }
+
+    public validateEvaluability(): TValidationResult {
+        const issues: TValidationIssue[] = []
+        const roots = this.expressions.getChildExpressions(null)
+
+        if (this.expressions.toArray().length === 0) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_EMPTY",
+                    message: `Premise "${this.id}" has no expressions to evaluate.`,
+                    premiseId: this.id,
+                })
+            )
+            return makeValidationResult(issues)
+        }
+
+        if (roots.length === 0) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISSING",
+                    message: `Premise "${this.id}" has expressions but no root expression.`,
+                    premiseId: this.id,
+                })
+            )
+        }
+
+        if (this.rootExpressionId === undefined) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISSING",
+                    message: `Premise "${this.id}" does not have rootExpressionId set.`,
+                    premiseId: this.id,
+                })
+            )
+        } else if (!this.expressions.getExpression(this.rootExpressionId)) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISMATCH",
+                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
+                    premiseId: this.id,
+                    expressionId: this.rootExpressionId,
+                })
+            )
+        } else if (roots[0] && roots[0].id !== this.rootExpressionId) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISMATCH",
+                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
+                    premiseId: this.id,
+                    expressionId: this.rootExpressionId,
+                })
+            )
+        }
+
+        for (const expr of this.expressions.toArray()) {
+            if (
+                expr.type === "variable" &&
+                !this.variables.hasVariable(expr.variableId)
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_VARIABLE_UNDECLARED",
+                        message: `Expression "${expr.id}" references undeclared variable "${expr.variableId}".`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                        variableId: expr.variableId,
+                    })
+                )
+            }
+
+            if (expr.type !== "operator" && expr.type !== "formula") {
+                continue
+            }
+
+            const children = this.expressions.getChildExpressions(expr.id)
+
+            if (expr.type === "formula") {
+                if (children.length !== 1) {
+                    issues.push(
+                        makeErrorIssue({
+                            code: "EXPR_CHILD_COUNT_INVALID",
+                            message: `Formula expression "${expr.id}" must have exactly 1 child; found ${children.length}.`,
+                            premiseId: this.id,
+                            expressionId: expr.id,
+                        })
+                    )
+                }
+                continue
+            }
+
+            if (expr.operator === "not" && children.length !== 1) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (not) must have exactly 1 child; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (
+                (expr.operator === "implies" || expr.operator === "iff") &&
+                children.length !== 2
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (${expr.operator}) must have exactly 2 children; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (
+                (expr.operator === "and" || expr.operator === "or") &&
+                children.length < 2
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (${expr.operator}) must have at least 2 children; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (expr.operator === "implies" || expr.operator === "iff") {
+                const childPositions = new Set(
+                    children.map((child) => child.position)
+                )
+                if (!childPositions.has(0) || !childPositions.has(1)) {
+                    issues.push(
+                        makeErrorIssue({
+                            code: "EXPR_BINARY_POSITIONS_INVALID",
+                            message: `Operator "${expr.id}" (${expr.operator}) must have children at positions 0 and 1.`,
+                            premiseId: this.id,
+                            expressionId: expr.id,
+                        })
+                    )
+                }
+            }
+        }
+
+        return makeValidationResult(issues)
+    }
+
+    public evaluate(
+        assignment: TVariableAssignment,
+        options?: {
+            strictUnknownKeys?: boolean
+            requireExactCoverage?: boolean
+        }
+    ): TPremiseEvaluationResult {
+        const validation = this.validateEvaluability()
+        if (!validation.ok) {
+            throw new Error(
+                `Premise "${this.id}" is not evaluable: ${validation.issues
+                    .map((issue) => issue.code)
+                    .join(", ")}`
+            )
+        }
+
+        const rootExpressionId = this.rootExpressionId!
+        const referencedVariableIds = sortedUnique(
+            this.expressions
+                .toArray()
+                .filter(
+                    (expr): expr is TPropositionalExpression<"variable"> =>
+                        expr.type === "variable"
+                )
+                .map((expr) => expr.variableId)
+        )
+
+        const missingVariableIds = referencedVariableIds.filter(
+            (variableId) => !(variableId in assignment)
+        )
+        if (missingVariableIds.length > 0) {
+            throw new Error(
+                `Missing assignment values for variables: ${missingVariableIds.join(", ")}`
+            )
+        }
+
+        if (options?.strictUnknownKeys || options?.requireExactCoverage) {
+            const knownVariableIds = new Set(referencedVariableIds)
+            const unknownKeys = Object.keys(assignment).filter(
+                (variableId) => !knownVariableIds.has(variableId)
+            )
+            if (unknownKeys.length > 0) {
+                throw new Error(
+                    `Assignment contains unknown variable IDs for premise "${this.id}": ${unknownKeys.join(", ")}`
+                )
+            }
+        }
+
+        const expressionValues: Record<string, boolean> = {}
+        const evaluateExpression = (expressionId: string): boolean => {
+            const expression = this.expressions.getExpression(expressionId)
+            if (!expression) {
+                throw new Error(`Expression "${expressionId}" was not found.`)
+            }
+
+            if (expression.type === "variable") {
+                const value = assignment[expression.variableId]
+                expressionValues[expression.id] = value
+                return value
+            }
+
+            const children = this.expressions.getChildExpressions(expression.id)
+            let value: boolean
+
+            if (expression.type === "formula") {
+                value = evaluateExpression(children[0].id)
+                expressionValues[expression.id] = value
+                return value
+            }
+
+            switch (expression.operator) {
+                case "not":
+                    value = !evaluateExpression(children[0].id)
+                    break
+                case "and":
+                    value = children.every((child) =>
+                        evaluateExpression(child.id)
+                    )
+                    break
+                case "or":
+                    value = children.some((child) =>
+                        evaluateExpression(child.id)
+                    )
+                    break
+                case "implies": {
+                    const left = children.find((child) => child.position === 0)
+                    const right = children.find((child) => child.position === 1)
+                    value = implicationValue(
+                        evaluateExpression(left!.id),
+                        evaluateExpression(right!.id)
+                    )
+                    break
+                }
+                case "iff": {
+                    const left = children.find((child) => child.position === 0)
+                    const right = children.find((child) => child.position === 1)
+                    value =
+                        evaluateExpression(left!.id) ===
+                        evaluateExpression(right!.id)
+                    break
+                }
+            }
+
+            expressionValues[expression.id] = value
+            return value
+        }
+
+        const rootValue = evaluateExpression(rootExpressionId)
+        const variableValues: Record<string, boolean> = {}
+        for (const variableId of referencedVariableIds) {
+            variableValues[variableId] = assignment[variableId]
+        }
+
+        let inferenceDiagnostic: TPremiseInferenceDiagnostic | undefined
+        if (this.getPremiseType() === "inference") {
+            const root = this.expressions.getExpression(rootExpressionId)
+            if (root?.type === "operator") {
+                const children = this.expressions.getChildExpressions(root.id)
+                const left = children.find((child) => child.position === 0)
+                const right = children.find((child) => child.position === 1)
+                if (left && right) {
+                    const leftValue = expressionValues[left.id]
+                    const rightValue = expressionValues[right.id]
+                    if (root.operator === "implies") {
+                        inferenceDiagnostic = {
+                            kind: "implies",
+                            premiseId: this.id,
+                            rootExpressionId,
+                            leftValue,
+                            rightValue,
+                            rootValue,
+                            antecedentTrue: leftValue,
+                            consequentTrue: rightValue,
+                            isVacuouslyTrue: !leftValue,
+                            fired: leftValue,
+                            firedAndHeld: leftValue && rightValue,
+                        }
+                    } else if (root.operator === "iff") {
+                        const leftToRight = buildDirectionalVacuity(
+                            leftValue,
+                            rightValue
+                        )
+                        const rightToLeft = buildDirectionalVacuity(
+                            rightValue,
+                            leftValue
+                        )
+                        inferenceDiagnostic = {
+                            kind: "iff",
+                            premiseId: this.id,
+                            rootExpressionId,
+                            leftValue,
+                            rightValue,
+                            rootValue,
+                            leftToRight,
+                            rightToLeft,
+                            bothSidesTrue: leftValue && rightValue,
+                            bothSidesFalse: !leftValue && !rightValue,
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            premiseId: this.id,
+            premiseType: this.getPremiseType(),
+            rootExpressionId,
+            rootValue,
+            expressionValues,
+            variableValues,
+            inferenceDiagnostic,
+        }
+    }
+
     /**
      * Returns a human-readable string of this premise's expression tree using
      * standard logical notation (∧ ∨ ¬ → ↔).  Missing operands are rendered
@@ -800,7 +1345,7 @@ export class PremiseManager {
      * operator, `"constraint"` otherwise (including when the premise is empty).
      */
     public toData(): TPremise {
-        const expressions = this.expressions.toArray()
+        const expressions = this.getExpressions()
 
         const referencedVariableIds = new Set<string>()
         for (const expr of expressions) {
@@ -811,17 +1356,8 @@ export class PremiseManager {
         const variables = Array.from(referencedVariableIds)
             .map((id) => this.variables.getVariable(id))
             .filter((v): v is TPropositionalVariable => v !== undefined)
-
-        const root =
-            this.rootExpressionId !== undefined
-                ? this.expressions.getExpression(this.rootExpressionId)
-                : undefined
-
-        const type: "inference" | "constraint" =
-            root?.type === "operator" &&
-            (root.operator === "implies" || root.operator === "iff")
-                ? "inference"
-                : "constraint"
+            .map((v) => ({ ...v }))
+            .sort((a, b) => a.id.localeCompare(b.id))
 
         return {
             id: this.id,
@@ -829,7 +1365,7 @@ export class PremiseManager {
             rootExpressionId: this.rootExpressionId,
             variables,
             expressions,
-            type,
+            type: this.getPremiseType(),
         }
     }
 
@@ -938,14 +1474,18 @@ export class PremiseManager {
 export class ArgumentEngine {
     private argument: TArgument
     private premises: Map<string, PremiseManager>
+    private supportingPremiseIds: Set<string>
+    private conclusionPremiseId: string | undefined
 
     constructor(argument: TArgument) {
         this.argument = { ...argument }
         this.premises = new Map()
+        this.supportingPremiseIds = new Set()
+        this.conclusionPremiseId = undefined
     }
 
     public getArgument(): TArgument {
-        return this.argument
+        return { ...this.argument }
     }
 
     public createPremise(title?: string): PremiseManager {
@@ -957,9 +1497,537 @@ export class ArgumentEngine {
 
     public removePremise(premiseId: string): void {
         this.premises.delete(premiseId)
+        this.supportingPremiseIds.delete(premiseId)
+        if (this.conclusionPremiseId === premiseId) {
+            this.conclusionPremiseId = undefined
+        }
     }
 
     public getPremise(premiseId: string): PremiseManager | undefined {
         return this.premises.get(premiseId)
+    }
+
+    public hasPremise(premiseId: string): boolean {
+        return this.premises.has(premiseId)
+    }
+
+    public listPremiseIds(): string[] {
+        return Array.from(this.premises.keys()).sort((a, b) =>
+            a.localeCompare(b)
+        )
+    }
+
+    public listPremises(): PremiseManager[] {
+        return this.listPremiseIds()
+            .map((id) => this.premises.get(id))
+            .filter((pm): pm is PremiseManager => pm !== undefined)
+    }
+
+    public getRoleState(): TArgumentRoleState {
+        return {
+            supportingPremiseIds: sortedUnique(this.supportingPremiseIds),
+            conclusionPremiseId: this.conclusionPremiseId,
+        }
+    }
+
+    public setConclusionPremise(premiseId: string): void {
+        if (!this.hasPremise(premiseId)) {
+            throw new Error(`Premise "${premiseId}" does not exist.`)
+        }
+        if (this.supportingPremiseIds.has(premiseId)) {
+            throw new Error(
+                `Premise "${premiseId}" is already a supporting premise and cannot also be the conclusion.`
+            )
+        }
+        this.conclusionPremiseId = premiseId
+    }
+
+    public clearConclusionPremise(): void {
+        this.conclusionPremiseId = undefined
+    }
+
+    public getConclusionPremise(): PremiseManager | undefined {
+        if (this.conclusionPremiseId === undefined) {
+            return undefined
+        }
+        return this.premises.get(this.conclusionPremiseId)
+    }
+
+    public addSupportingPremise(premiseId: string): void {
+        if (!this.hasPremise(premiseId)) {
+            throw new Error(`Premise "${premiseId}" does not exist.`)
+        }
+        if (this.conclusionPremiseId === premiseId) {
+            throw new Error(
+                `Premise "${premiseId}" is the conclusion and cannot also be supporting.`
+            )
+        }
+        this.supportingPremiseIds.add(premiseId)
+    }
+
+    public removeSupportingPremise(premiseId: string): void {
+        this.supportingPremiseIds.delete(premiseId)
+    }
+
+    public listSupportingPremises(): PremiseManager[] {
+        return sortedUnique(this.supportingPremiseIds)
+            .map((id) => this.premises.get(id))
+            .filter((pm): pm is PremiseManager => pm !== undefined)
+    }
+
+    public toData(): TArgumentEngineData {
+        return {
+            argument: { ...this.argument },
+            premises: this.listPremises().map((pm) => pm.toData()),
+            roles: this.getRoleState(),
+        }
+    }
+
+    public exportState(): TArgumentEngineData {
+        return this.toData()
+    }
+
+    public collectReferencedVariables(): {
+        variableIds: string[]
+        byId: Record<string, { symbol: string; premiseIds: string[] }>
+        bySymbol: Record<
+            string,
+            { variableIds: string[]; premiseIds: string[] }
+        >
+    } {
+        const byIdTmp = new Map<
+            string,
+            { symbols: Set<string>; premiseIds: Set<string> }
+        >()
+        const bySymbolTmp = new Map<
+            string,
+            { variableIds: Set<string>; premiseIds: Set<string> }
+        >()
+
+        for (const premise of this.listPremises()) {
+            const premiseId = premise.getId()
+            const varsById = new Map(
+                premise.getVariables().map((v) => [v.id, v])
+            )
+            for (const expr of premise.getExpressions()) {
+                if (expr.type !== "variable") continue
+                const variable = varsById.get(expr.variableId)
+                if (!variable) continue
+
+                const byIdEntry = getOrCreate(byIdTmp, variable.id, () => ({
+                    symbols: new Set<string>(),
+                    premiseIds: new Set<string>(),
+                }))
+                byIdEntry.symbols.add(variable.symbol)
+                byIdEntry.premiseIds.add(premiseId)
+
+                const bySymbolEntry = getOrCreate(
+                    bySymbolTmp,
+                    variable.symbol,
+                    () => ({
+                        variableIds: new Set<string>(),
+                        premiseIds: new Set<string>(),
+                    })
+                )
+                bySymbolEntry.variableIds.add(variable.id)
+                bySymbolEntry.premiseIds.add(premiseId)
+            }
+        }
+
+        const byId: Record<string, { symbol: string; premiseIds: string[] }> =
+            {}
+        for (const [variableId, entry] of Array.from(byIdTmp.entries()).sort(
+            (a, b) => a[0].localeCompare(b[0])
+        )) {
+            byId[variableId] = {
+                symbol: sortedUnique(entry.symbols)[0] ?? "",
+                premiseIds: sortedUnique(entry.premiseIds),
+            }
+        }
+
+        const bySymbol: Record<
+            string,
+            { variableIds: string[]; premiseIds: string[] }
+        > = {}
+        for (const [symbol, entry] of Array.from(bySymbolTmp.entries()).sort(
+            (a, b) => a[0].localeCompare(b[0])
+        )) {
+            bySymbol[symbol] = {
+                variableIds: sortedUnique(entry.variableIds),
+                premiseIds: sortedUnique(entry.premiseIds),
+            }
+        }
+
+        return {
+            variableIds: sortedUnique(byIdTmp.keys()),
+            byId,
+            bySymbol,
+        }
+    }
+
+    public validateEvaluability(): TValidationResult {
+        const issues: TValidationIssue[] = []
+
+        if (this.conclusionPremiseId === undefined) {
+            issues.push(
+                makeErrorIssue({
+                    code: "ARGUMENT_NO_CONCLUSION",
+                    message: "Argument has no designated conclusion premise.",
+                })
+            )
+        } else if (!this.premises.has(this.conclusionPremiseId)) {
+            issues.push(
+                makeErrorIssue({
+                    code: "ARGUMENT_CONCLUSION_NOT_FOUND",
+                    message: `Conclusion premise "${this.conclusionPremiseId}" does not exist.`,
+                    premiseId: this.conclusionPremiseId,
+                })
+            )
+        }
+
+        for (const premiseId of sortedUnique(this.supportingPremiseIds)) {
+            if (!this.premises.has(premiseId)) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "ARGUMENT_SUPPORTING_PREMISE_NOT_FOUND",
+                        message: `Supporting premise "${premiseId}" does not exist.`,
+                        premiseId,
+                    })
+                )
+            }
+        }
+
+        if (
+            this.conclusionPremiseId !== undefined &&
+            this.supportingPremiseIds.has(this.conclusionPremiseId)
+        ) {
+            issues.push(
+                makeErrorIssue({
+                    code: "ARGUMENT_ROLE_OVERLAP",
+                    message: `Premise "${this.conclusionPremiseId}" cannot be both supporting and conclusion.`,
+                    premiseId: this.conclusionPremiseId,
+                })
+            )
+        }
+
+        const idToSymbols = new Map<string, Set<string>>()
+        const symbolToIds = new Map<string, Set<string>>()
+        for (const premise of this.listPremises()) {
+            const varById = new Map(
+                premise.getVariables().map((v) => [v.id, v])
+            )
+            for (const expr of premise.getExpressions()) {
+                if (expr.type !== "variable") continue
+                const variable = varById.get(expr.variableId)
+                if (!variable) continue
+                getOrCreate(idToSymbols, variable.id, () => new Set()).add(
+                    variable.symbol
+                )
+                getOrCreate(symbolToIds, variable.symbol, () => new Set()).add(
+                    variable.id
+                )
+            }
+        }
+
+        for (const [variableId, symbols] of idToSymbols) {
+            if (symbols.size > 1) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "ARGUMENT_VARIABLE_ID_SYMBOL_MISMATCH",
+                        message: `Variable ID "${variableId}" is used with multiple symbols: ${sortedUnique(symbols).join(", ")}.`,
+                        variableId,
+                    })
+                )
+            }
+        }
+
+        for (const [symbol, ids] of symbolToIds) {
+            if (ids.size > 1) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "ARGUMENT_VARIABLE_SYMBOL_AMBIGUOUS",
+                        message: `Variable symbol "${symbol}" is used with multiple IDs: ${sortedUnique(ids).join(", ")}.`,
+                    })
+                )
+            }
+        }
+
+        for (const premise of this.listPremises()) {
+            const premiseValidation = premise.validateEvaluability()
+            issues.push(...premiseValidation.issues)
+        }
+
+        return makeValidationResult(issues)
+    }
+
+    public evaluate(
+        assignment: TVariableAssignment,
+        options?: TArgumentEvaluationOptions
+    ): TArgumentEvaluationResult {
+        const validateFirst = options?.validateFirst ?? true
+        if (validateFirst) {
+            const validation = this.validateEvaluability()
+            if (!validation.ok) {
+                return {
+                    ok: false,
+                    validation,
+                }
+            }
+        }
+
+        const conclusion = this.getConclusionPremise()
+        if (!conclusion) {
+            return {
+                ok: false,
+                validation: makeValidationResult([
+                    makeErrorIssue({
+                        code: "ARGUMENT_NO_CONCLUSION",
+                        message:
+                            "Argument has no designated conclusion premise.",
+                    }),
+                ]),
+            }
+        }
+
+        const supportingPremises = this.listSupportingPremises()
+        const roleIds = new Set<string>([
+            conclusion.getId(),
+            ...supportingPremises.map((pm) => pm.getId()),
+        ])
+        const constraintPremises = this.listPremises().filter(
+            (pm) =>
+                !roleIds.has(pm.getId()) && pm.getPremiseType() === "constraint"
+        )
+
+        const allRelevantPremises = [
+            conclusion,
+            ...supportingPremises,
+            ...constraintPremises,
+        ]
+        const referencedVariableIds = sortedUnique(
+            allRelevantPremises.flatMap((pm) =>
+                pm
+                    .getExpressions()
+                    .filter(
+                        (expr): expr is TPropositionalExpression<"variable"> =>
+                            expr.type === "variable"
+                    )
+                    .map((expr) => expr.variableId)
+            )
+        )
+
+        try {
+            const evalOpts = {
+                strictUnknownKeys:
+                    options?.strictUnknownAssignmentKeys ?? false,
+            }
+            const conclusionEvaluation = conclusion.evaluate(
+                assignment,
+                evalOpts
+            )
+            const supportingEvaluations = supportingPremises.map((pm) =>
+                pm.evaluate(assignment, evalOpts)
+            )
+            const constraintEvaluations = constraintPremises.map((pm) =>
+                pm.evaluate(assignment, evalOpts)
+            )
+
+            const isAdmissibleAssignment = constraintEvaluations.every(
+                (result) => result.rootValue === true
+            )
+            const allSupportingPremisesTrue = supportingEvaluations.every(
+                (result) => result.rootValue === true
+            )
+            const conclusionTrue = conclusionEvaluation.rootValue === true
+            const isCounterexample =
+                isAdmissibleAssignment &&
+                allSupportingPremisesTrue &&
+                !conclusionTrue
+
+            const includeExpressionValues =
+                options?.includeExpressionValues ?? true
+            const includeDiagnostics = options?.includeDiagnostics ?? true
+            const strip = (
+                result: TPremiseEvaluationResult
+            ): TPremiseEvaluationResult => ({
+                ...result,
+                expressionValues: includeExpressionValues
+                    ? result.expressionValues
+                    : {},
+                inferenceDiagnostic: includeDiagnostics
+                    ? result.inferenceDiagnostic
+                    : undefined,
+            })
+
+            return {
+                ok: true,
+                assignment: { ...assignment },
+                referencedVariableIds,
+                conclusion: strip(conclusionEvaluation),
+                supportingPremises: supportingEvaluations.map(strip),
+                constraintPremises: constraintEvaluations.map(strip),
+                isAdmissibleAssignment,
+                allSupportingPremisesTrue,
+                conclusionTrue,
+                isCounterexample,
+                preservesTruthUnderAssignment: !isCounterexample,
+            }
+        } catch (error) {
+            return {
+                ok: false,
+                validation: makeValidationResult([
+                    makeErrorIssue({
+                        code: "ASSIGNMENT_MISSING_VARIABLE",
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : "Argument evaluation failed.",
+                    }),
+                ]),
+            }
+        }
+    }
+
+    public checkValidity(
+        options?: TValidityCheckOptions
+    ): TValidityCheckResult {
+        const validateFirst = options?.validateFirst ?? true
+        if (validateFirst) {
+            const validation = this.validateEvaluability()
+            if (!validation.ok) {
+                return {
+                    ok: false,
+                    validation,
+                }
+            }
+        }
+
+        const conclusion = this.getConclusionPremise()
+        if (!conclusion) {
+            return {
+                ok: false,
+                validation: makeValidationResult([
+                    makeErrorIssue({
+                        code: "ARGUMENT_NO_CONCLUSION",
+                        message:
+                            "Argument has no designated conclusion premise.",
+                    }),
+                ]),
+            }
+        }
+
+        const supportingPremises = this.listSupportingPremises()
+        const roleIds = new Set<string>([
+            conclusion.getId(),
+            ...supportingPremises.map((pm) => pm.getId()),
+        ])
+        const constraintPremises = this.listPremises().filter(
+            (pm) =>
+                !roleIds.has(pm.getId()) && pm.getPremiseType() === "constraint"
+        )
+
+        const checkedVariableIds = sortedUnique(
+            [conclusion, ...supportingPremises, ...constraintPremises].flatMap(
+                (pm) =>
+                    pm
+                        .getExpressions()
+                        .filter(
+                            (
+                                expr
+                            ): expr is TPropositionalExpression<"variable"> =>
+                                expr.type === "variable"
+                        )
+                        .map((expr) => expr.variableId)
+            )
+        )
+
+        if (
+            options?.maxVariables !== undefined &&
+            checkedVariableIds.length > options.maxVariables
+        ) {
+            return {
+                ok: false,
+                validation: makeValidationResult([
+                    makeErrorIssue({
+                        code: "ASSIGNMENT_UNKNOWN_VARIABLE",
+                        message: `Validity check requires ${checkedVariableIds.length} variables, exceeding limit ${options.maxVariables}.`,
+                    }),
+                ]),
+            }
+        }
+
+        const mode = options?.mode ?? "firstCounterexample"
+        const maxAssignmentsChecked = options?.maxAssignmentsChecked
+        const counterexamples: TCounterexample[] = []
+        let numAssignmentsChecked = 0
+        let numAdmissibleAssignments = 0
+        let truncated = false
+
+        const totalAssignments = 2 ** checkedVariableIds.length
+        for (let mask = 0; mask < totalAssignments; mask++) {
+            if (
+                maxAssignmentsChecked !== undefined &&
+                numAssignmentsChecked >= maxAssignmentsChecked
+            ) {
+                truncated = true
+                break
+            }
+
+            const assignment: TVariableAssignment = {}
+            for (let i = 0; i < checkedVariableIds.length; i++) {
+                assignment[checkedVariableIds[i]] = Boolean(mask & (1 << i))
+            }
+
+            const result = this.evaluate(assignment, {
+                validateFirst: false,
+                includeExpressionValues:
+                    options?.includeCounterexampleEvaluations ?? false,
+                includeDiagnostics:
+                    options?.includeCounterexampleEvaluations ?? false,
+            })
+
+            if (!result.ok) {
+                return {
+                    ok: false,
+                    validation: result.validation,
+                }
+            }
+
+            numAssignmentsChecked += 1
+
+            if (result.isAdmissibleAssignment) {
+                numAdmissibleAssignments += 1
+            }
+
+            if (result.isCounterexample) {
+                counterexamples.push({
+                    assignment,
+                    result,
+                })
+                if (mode === "firstCounterexample") {
+                    break
+                }
+            }
+        }
+
+        const foundCounterexample = counterexamples.length > 0
+        const fullyChecked =
+            !truncated &&
+            (mode === "exhaustive" ||
+                (mode === "firstCounterexample" && !foundCounterexample))
+
+        return {
+            ok: true,
+            isValid: foundCounterexample
+                ? false
+                : fullyChecked
+                  ? true
+                  : undefined,
+            checkedVariableIds,
+            numAssignmentsChecked,
+            numAdmissibleAssignments,
+            counterexamples,
+            truncated,
+        }
     }
 }

@@ -13,27 +13,29 @@
 ## Key Decisions (Resolve First)
 
 1. Conclusion representation
-   - Recommended: designate one premise as the conclusion.
+    - Recommended: designate one premise as the conclusion.
 2. Constraint semantics (`TPremise.type === "constraint"`)
-   - Recommended: constraints define admissible assignments.
+    - Recommended: constraints define admissible assignments.
 3. Cross-premise variable identity (critical)
-   - Recommended: identity by variable ID, with symbol consistency checks.
+    - Recommended: identity by variable ID, with symbol consistency checks.
 4. Terminology
-   - Prefer `counterexample` / `preservesTruthUnderAssignment`; avoid overloading `soundness`.
+    - Prefer `counterexample` / `preservesTruthUnderAssignment`; avoid overloading `soundness`.
 5. `iff` diagnostics
-   - Recommended: directional vacuity (`left -> right`, `right -> left`) plus aggregate fields.
+    - Recommended: directional vacuity (`left -> right`, `right -> left`) plus aggregate fields.
 
 ## Implementation Plan (Condensed)
 
 ### 1. Add Read APIs
 
 `ArgumentEngine`
+
 - `hasPremise(premiseId)`
 - `listPremiseIds()`
 - `listPremises()`
 - `toData()` / `exportState()`
 
 `PremiseManager`
+
 - `getId()`, `getTitle()`
 - `getRootExpressionId()`, `getRootExpression()`
 - `getVariables()`, `getExpressions()`
@@ -41,16 +43,19 @@
 - `getPremiseType()`
 
 Requirements
+
 - deterministic ordering for premises, expressions, variables
 - return copies/snapshots where appropriate
 
 ### 2. Add Argument Roles
 
 Add role metadata to `ArgumentEngine`:
+
 - supporting premise IDs
 - conclusion premise ID
 
 APIs
+
 - `setConclusionPremise(premiseId)`
 - `clearConclusionPremise()`
 - `getConclusionPremise()`
@@ -60,6 +65,7 @@ APIs
 - `getRoleState()`
 
 Invariants
+
 - premise must exist
 - no role overlap (unless explicitly allowed)
 - removing a premise updates roles automatically
@@ -69,16 +75,19 @@ Invariants
 Because variables are premise-local, argument-level evaluation needs one assignment space.
 
 Add `ArgumentEngine.collectReferencedVariables()` and validation checks for:
+
 - same symbol used with different IDs (ambiguous)
 - same ID used with different symbols (invalid)
 
 Recommended policy
+
 - allow loose authoring
 - block evaluation when ambiguity exists
 
 ### 4. Add Evaluability Validation
 
 Premise-level validation (`PremiseManager.validateEvaluability()` or pure helper):
+
 - root exists (for evaluable premises)
 - `rootExpressionId` matches actual root
 - `formula` has exactly 1 child
@@ -89,6 +98,7 @@ Premise-level validation (`PremiseManager.validateEvaluability()` or pure helper
 - variable expressions reference declared variables
 
 Argument-level validation (`ArgumentEngine.validateEvaluability()`):
+
 - conclusion exists and is valid
 - supporting premise roles valid
 - cross-premise variable consistency valid
@@ -99,6 +109,7 @@ Argument-level validation (`ArgumentEngine.validateEvaluability()`):
 `PremiseManager.evaluate(assignment, options?)`
 
 Behavior
+
 - validate assignment coverage for referenced variable IDs
 - evaluate root recursively
 - support `formula`, `not`, `and`, `or`, `implies`, `iff`
@@ -108,10 +119,12 @@ Behavior
 ### 6. Add Inference Diagnostics (Premise-Level)
 
 For inference premises (`implies`/`iff` root):
+
 - left/right/root truth values
 - vacuity and firing info
 
 `implies`
+
 - `antecedentTrue`
 - `consequentTrue`
 - `isVacuouslyTrue`
@@ -119,6 +132,7 @@ For inference premises (`implies`/`iff` root):
 - `firedAndHeld`
 
 `iff`
+
 - directional diagnostics for `left -> right` and `right -> left`
 - aggregate `bothSidesTrue` / `bothSidesFalse`
 
@@ -127,6 +141,7 @@ For inference premises (`implies`/`iff` root):
 `ArgumentEngine.evaluate(assignment, options?)`
 
 Aggregate results
+
 - conclusion evaluation
 - supporting premise evaluations
 - constraint premise evaluations
@@ -137,6 +152,7 @@ Aggregate results
 - `preservesTruthUnderAssignment`
 
 Recommended `isCounterexample`
+
 - `constraintsSatisfied && allSupportingPremisesTrue && !conclusionTrue`
 
 ### 8. Add Validity Checking (All Assignments)
@@ -144,6 +160,7 @@ Recommended `isCounterexample`
 `ArgumentEngine.checkValidity(options?)`
 
 Behavior
+
 - validate evaluability
 - collect referenced variables across supporting + conclusion + constraints
 - generate assignments deterministically
@@ -151,6 +168,7 @@ Behavior
 - find counterexamples
 
 Return
+
 - `isValid`
 - `checkedVariableIds`
 - `numAssignmentsChecked`
@@ -161,6 +179,7 @@ Return
 ### 9. Tests and Docs
 
 Tests
+
 - premise validation/evaluation
 - role management
 - cross-premise variable consistency
@@ -169,6 +188,7 @@ Tests
 - vacuity diagnostics for `implies` and `iff`
 
 Docs
+
 - premise-first architecture
 - roles (supporting/conclusion/constraint)
 - admissible assignments and counterexamples
@@ -336,7 +356,9 @@ export class PremiseManager {
     public getRootExpression(): TPropositionalExpression | undefined
     public getVariables(): TPropositionalVariable[]
     public getExpressions(): TPropositionalExpression[]
-    public getChildExpressions(parentId: string | null): TPropositionalExpression[]
+    public getChildExpressions(
+        parentId: string | null
+    ): TPropositionalExpression[]
     public getPremiseType(): "inference" | "constraint"
 
     public validateEvaluability(): TValidationResult
@@ -371,7 +393,10 @@ export class ArgumentEngine {
     public collectReferencedVariables(): {
         variableIds: string[]
         byId: Record<string, { symbol: string; premiseIds: string[] }>
-        bySymbol: Record<string, { variableIds: string[]; premiseIds: string[] }>
+        bySymbol: Record<
+            string,
+            { variableIds: string[]; premiseIds: string[] }
+        >
     }
 
     public validateEvaluability(): TValidationResult

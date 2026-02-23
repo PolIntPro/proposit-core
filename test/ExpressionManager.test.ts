@@ -1558,3 +1558,200 @@ describe("PremiseManager — toData", () => {
         expect(ids).toEqual(["expr-p", "expr-q", "op-and"].sort())
     })
 })
+
+// ---------------------------------------------------------------------------
+// Evaluation support plan
+// ---------------------------------------------------------------------------
+
+describe("PremiseManager — validation and evaluation", () => {
+    it("validateEvaluability reports empty premise", () => {
+        const pm = makePremise()
+        const result = pm.validateEvaluability()
+        expect(result.ok).toBe(false)
+        expect(result.issues.map((i) => i.code)).toContain("PREMISE_EMPTY")
+    })
+
+    it("evaluates a simple implication with diagnostics", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("impl", "implies"))
+        pm.addExpression(
+            makeVarExpr("p-expr", VAR_P.id, { parentId: "impl", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("q-expr", VAR_Q.id, { parentId: "impl", position: 1 })
+        )
+
+        const result = pm.evaluate({ [VAR_P.id]: true, [VAR_Q.id]: false })
+        expect(result.rootValue).toBe(false)
+        expect(result.premiseType).toBe("inference")
+        expect(result.inferenceDiagnostic).toMatchObject({
+            kind: "implies",
+            antecedentTrue: true,
+            consequentTrue: false,
+            fired: true,
+            firedAndHeld: false,
+            isVacuouslyTrue: false,
+        })
+    })
+
+    it("evaluates iff with directional vacuity diagnostics", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("iff", "iff"))
+        pm.addExpression(
+            makeVarExpr("p-expr", VAR_P.id, { parentId: "iff", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("q-expr", VAR_Q.id, { parentId: "iff", position: 1 })
+        )
+
+        const result = pm.evaluate({ [VAR_P.id]: false, [VAR_Q.id]: true })
+        expect(result.rootValue).toBe(false)
+        expect(result.inferenceDiagnostic).toMatchObject({
+            kind: "iff",
+            bothSidesTrue: false,
+            bothSidesFalse: false,
+        })
+        if (result.inferenceDiagnostic?.kind === "iff") {
+            expect(result.inferenceDiagnostic.leftToRight.isVacuouslyTrue).toBe(
+                true
+            )
+            expect(result.inferenceDiagnostic.rightToLeft.fired).toBe(true)
+        }
+    })
+})
+
+describe("ArgumentEngine — roles and evaluation", () => {
+    function buildPremiseP(pm: PremiseManager) {
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        pm.addExpression(makeVarExpr(`${pm.getId()}-p`, VAR_P.id))
+    }
+
+    function buildPremiseQ(pm: PremiseManager) {
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        pm.addExpression(makeVarExpr(`${pm.getId()}-q`, VAR_Q.id))
+    }
+
+    function buildPremiseImplies(pm: PremiseManager) {
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        const rootId = `${pm.getId()}-impl`
+        pm.addExpression(makeOpExpr(rootId, "implies"))
+        pm.addExpression(
+            makeVarExpr(`${rootId}-p`, VAR_P.id, {
+                parentId: rootId,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr(`${rootId}-q`, VAR_Q.id, {
+                parentId: rootId,
+                position: 1,
+            })
+        )
+    }
+
+    it("supports role APIs and removes roles when a premise is deleted", () => {
+        const eng = new ArgumentEngine(ARG)
+        const support = eng.createPremise("support")
+        const conclusion = eng.createPremise("conclusion")
+        buildPremiseP(support)
+        buildPremiseQ(conclusion)
+
+        eng.addSupportingPremise(support.getId())
+        eng.setConclusionPremise(conclusion.getId())
+
+        expect(eng.getRoleState()).toMatchObject({
+            supportingPremiseIds: [support.getId()],
+            conclusionPremiseId: conclusion.getId(),
+        })
+
+        eng.removePremise(conclusion.getId())
+        expect(eng.getRoleState().conclusionPremiseId).toBeUndefined()
+    })
+
+    it("detects cross-premise symbol ambiguity", () => {
+        const eng = new ArgumentEngine(ARG)
+        const p1 = eng.createPremise("p1")
+        const p2 = eng.createPremise("p2")
+
+        const varA = makeVar("var-a", "X")
+        const varB = makeVar("var-b", "X")
+
+        p1.addVariable(varA)
+        p1.addExpression(makeVarExpr("expr-a", varA.id))
+        p2.addVariable(varB)
+        p2.addExpression(makeVarExpr("expr-b", varB.id))
+
+        eng.addSupportingPremise(p1.getId())
+        eng.setConclusionPremise(p2.getId())
+
+        const validation = eng.validateEvaluability()
+        expect(validation.ok).toBe(false)
+        expect(validation.issues.map((i) => i.code)).toContain(
+            "ARGUMENT_VARIABLE_SYMBOL_AMBIGUOUS"
+        )
+    })
+
+    it("evaluates an assignment and identifies inadmissible non-counterexamples", () => {
+        const eng = new ArgumentEngine(ARG)
+        const support = eng.createPremise("P->Q")
+        const conclusion = eng.createPremise("Q")
+        const constraint = eng.createPremise("P")
+
+        buildPremiseImplies(support)
+        buildPremiseQ(conclusion)
+        buildPremiseP(constraint)
+
+        eng.addSupportingPremise(support.getId())
+        eng.setConclusionPremise(conclusion.getId())
+
+        const result = eng.evaluate({ [VAR_P.id]: false, [VAR_Q.id]: false })
+        expect(result.ok).toBe(true)
+        expect(result.isAdmissibleAssignment).toBe(false)
+        expect(result.isCounterexample).toBe(false)
+        expect(result.preservesTruthUnderAssignment).toBe(true)
+        expect(result.constraintPremises).toHaveLength(1)
+    })
+
+    it("finds a counterexample for an invalid argument", () => {
+        const eng = new ArgumentEngine(ARG)
+        const support = eng.createPremise("P")
+        const conclusion = eng.createPremise("Q")
+        buildPremiseP(support)
+        buildPremiseQ(conclusion)
+
+        eng.addSupportingPremise(support.getId())
+        eng.setConclusionPremise(conclusion.getId())
+
+        const validity = eng.checkValidity({ mode: "firstCounterexample" })
+        expect(validity.ok).toBe(true)
+        expect(validity.isValid).toBe(false)
+        expect(validity.counterexamples).toHaveLength(1)
+        expect(validity.counterexamples?.[0]?.assignment).toMatchObject({
+            [VAR_P.id]: true,
+            [VAR_Q.id]: false,
+        })
+    })
+
+    it("proves modus ponens form valid", () => {
+        const eng = new ArgumentEngine(ARG)
+        const support1 = eng.createPremise("P->Q")
+        const support2 = eng.createPremise("P")
+        const conclusion = eng.createPremise("Q")
+        buildPremiseImplies(support1)
+        buildPremiseP(support2)
+        buildPremiseQ(conclusion)
+
+        eng.addSupportingPremise(support1.getId())
+        eng.addSupportingPremise(support2.getId())
+        eng.setConclusionPremise(conclusion.getId())
+
+        const validity = eng.checkValidity({ mode: "exhaustive" })
+        expect(validity.ok).toBe(true)
+        expect(validity.isValid).toBe(true)
+        expect(validity.counterexamples).toEqual([])
+        expect(validity.numAssignmentsChecked).toBe(4)
+    })
+})
