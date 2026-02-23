@@ -125,13 +125,24 @@ class ExpressionManager implements IExpressionManager {
                     `Parent expression "${expression.parentId}" does not exist.`
                 )
             }
-            if (parent.type !== "operator") {
+            if (parent.type !== "operator" && parent.type !== "formula") {
                 throw new Error(
                     `Parent expression "${expression.parentId}" is not an operator expression.`
                 )
             }
 
-            this.assertChildLimit(parent.operator, expression.parentId)
+            if (parent.type === "operator") {
+                this.assertChildLimit(parent.operator, expression.parentId)
+            } else {
+                const childCount =
+                    this.childExpressionIdsByParentId.get(expression.parentId)
+                        ?.size ?? 0
+                if (childCount >= 1) {
+                    throw new Error(
+                        `Formula expression "${expression.parentId}" can only have one child.`
+                    )
+                }
+            }
         }
 
         if (expression.position !== null) {
@@ -212,7 +223,29 @@ class ExpressionManager implements IExpressionManager {
         if (operatorId === null) return
 
         const operator = this.expressions.get(operatorId)
-        if (operator?.type !== "operator") return
+        if (!operator) return
+
+        if (operator.type === "formula") {
+            const children = this.getChildExpressions(operatorId)
+            if (children.length === 0) {
+                const grandparentId = operator.parentId
+                this.expressions.delete(operatorId)
+                this.childExpressionIdsByParentId
+                    .get(grandparentId)
+                    ?.delete(operatorId)
+                if (operator.position !== null) {
+                    this.childPositionsByParentId
+                        .get(grandparentId)
+                        ?.delete(operator.position)
+                }
+                this.childExpressionIdsByParentId.delete(operatorId)
+                this.childPositionsByParentId.delete(operatorId)
+                this.collapseIfNeeded(grandparentId)
+            }
+            return
+        }
+
+        if (operator.type !== "operator") return
 
         const children = this.getChildExpressions(operatorId)
 
@@ -475,6 +508,17 @@ class ExpressionManager implements IExpressionManager {
         ) {
             throw new Error(
                 `Operator expression "${expression.id}" with "not" can only have one child.`
+            )
+        }
+
+        // 7b. A formula expression is also unary and cannot take two children.
+        if (
+            expression.type === "formula" &&
+            leftNodeId !== undefined &&
+            rightNodeId !== undefined
+        ) {
+            throw new Error(
+                `Formula expression "${expression.id}" can only have one child.`
             )
         }
 
@@ -778,6 +822,14 @@ export class ArgumentEngine implements IVariableManager, IExpressionManager {
                 )
             }
             return variable.symbol
+        }
+
+        if (expression.type === "formula") {
+            const children = this.expressions.getChildExpressions(expression.id)
+            if (children.length === 0) {
+                return "(?)"
+            }
+            return `(${this.renderExpression(children[0].id)})`
         }
 
         const children = this.expressions.getChildExpressions(expression.id)

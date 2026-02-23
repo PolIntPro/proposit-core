@@ -53,6 +53,20 @@ function makeOpExpr(
     }
 }
 
+function makeFormulaExpr(
+    id: string,
+    opts: { parentId?: string | null; position?: number | null } = {}
+): TPropositionalExpression {
+    return {
+        id,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        type: "formula",
+        parentId: opts.parentId ?? null,
+        position: opts.position ?? null,
+    }
+}
+
 const VAR_P = makeVar("var-p", "P")
 const VAR_Q = makeVar("var-q", "Q")
 const VAR_R = makeVar("var-r", "R")
@@ -1005,5 +1019,150 @@ describe("stress test", () => {
         expect(eng.removeExpression("new-premise-0")).toMatchObject({
             id: "new-premise-0",
         })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// formula expression type
+// ---------------------------------------------------------------------------
+
+describe("formula", () => {
+    it("adds a root formula expression", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        expect(eng.removeExpression("f-1")).toMatchObject({
+            id: "f-1",
+            type: "formula",
+        })
+    })
+
+    it("adds a variable child inside a formula", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id, { parentId: "f-1" }))
+        expect(eng.toDisplayString()).toBe("(P)")
+    })
+
+    it("renders nested formulas as double parentheses", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-outer"))
+        eng.addExpression(makeFormulaExpr("f-inner", { parentId: "f-outer" }))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "f-inner" })
+        )
+        expect(eng.toDisplayString()).toBe("((P))")
+    })
+
+    it("renders a formula wrapping an operator subtree", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        eng.addExpression(makeOpExpr("op-and", "and", { parentId: "f-1" }))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        expect(eng.toDisplayString()).toBe("((P ∧ Q))")
+    })
+
+    it("throws when adding a second child to a formula", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id, { parentId: "f-1" }))
+        expect(() =>
+            eng.addExpression(
+                makeVarExpr("expr-q", VAR_Q.id, { parentId: "f-1" })
+            )
+        ).toThrowError(/Formula expression "f-1" can only have one child/)
+    })
+
+    it("throws when the parent expression is a variable (not formula or operator)", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            eng.addExpression(
+                makeVarExpr("expr-q", VAR_Q.id, { parentId: "expr-p" })
+            )
+        ).toThrowError(/is not an operator expression/)
+    })
+
+    it("collapses the formula when its only child is removed", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeFormulaExpr("f-1"))
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id, { parentId: "f-1" }))
+
+        eng.removeExpression("expr-p")
+
+        // Formula had 0 children remaining and must have been auto-deleted.
+        expect(eng.removeExpression("f-1")).toBeUndefined()
+        expect(eng.toDisplayString()).toBe("")
+    })
+
+    it("cascades formula collapse up multiple levels", () => {
+        const eng = engineWithVars()
+        // op-and (root) → [f-outer (pos 0) → f-inner → expr-p, expr-q (pos 1)]
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeFormulaExpr("f-outer", { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(makeFormulaExpr("f-inner", { parentId: "f-outer" }))
+        eng.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "f-inner" })
+        )
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        // Remove expr-p → f-inner collapses (0 children)
+        // → f-outer collapses (0 children)
+        // → op-and has 1 child left (expr-q) → op-and collapses, expr-q promoted to root
+        eng.removeExpression("expr-p")
+
+        expect(eng.removeExpression("f-inner")).toBeUndefined()
+        expect(eng.removeExpression("f-outer")).toBeUndefined()
+        expect(eng.removeExpression("op-and")).toBeUndefined()
+        expect(eng.toDisplayString()).toBe("Q")
+    })
+
+    it("insertExpression wraps a node in a formula", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        eng.insertExpression(makeFormulaExpr("f-1"), "expr-p")
+        expect(eng.toDisplayString()).toBe("(P)")
+    })
+
+    it("insertExpression throws when formula is given both left and right nodes", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        eng.addExpression(makeVarExpr("expr-q", VAR_Q.id))
+        expect(() =>
+            eng.insertExpression(makeFormulaExpr("f-1"), "expr-p", "expr-q")
+        ).toThrowError(/Formula expression "f-1" can only have one child/)
+    })
+
+    it("a formula can be nested inside an operator", () => {
+        const eng = engineWithVars()
+        eng.addExpression(makeOpExpr("op-and", "and"))
+        eng.addExpression(
+            makeFormulaExpr("f-1", { parentId: "op-and", position: 0 })
+        )
+        eng.addExpression(makeVarExpr("expr-p", VAR_P.id, { parentId: "f-1" }))
+        eng.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        expect(eng.toDisplayString()).toBe("((P) ∧ Q)")
     })
 })

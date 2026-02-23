@@ -3,10 +3,12 @@ import { UUID, Nullable } from "./shared"
 
 const VariableType = Type.Literal("variable")
 const OperatorType = Type.Literal("operator")
+const FormulaType = Type.Literal("formula")
 
 export const PropositionalExpressionTypes = Type.Union([
     VariableType,
     OperatorType,
+    FormulaType,
 ])
 export type TPropositionalExpressionTypes = Static<
     typeof PropositionalExpressionTypes
@@ -61,9 +63,18 @@ export const OperatorExpressionSchema = Type.Interface(
 )
 export type TOperatorExpression = Static<typeof OperatorExpressionSchema>
 
+export const FormulaExpressionSchema = Type.Interface(
+    [BasePropositionalExpressionSchema],
+    {
+        type: FormulaType,
+    }
+)
+export type TFormulaExpression = Static<typeof FormulaExpressionSchema>
+
 export const PropositionalExpressionSchema = Type.Union([
     PropositionalVariableExpressionSchema,
     OperatorExpressionSchema,
+    FormulaExpressionSchema,
 ])
 
 export type TPropositionalExpressionCombined = Static<
