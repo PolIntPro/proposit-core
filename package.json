@@ -13,7 +13,7 @@
         }
     },
     "bin": {
-        "core": "./dist/cli.js"
+        "proposit-core": "./dist/cli.js"
     },
     "files": [
         "dist"

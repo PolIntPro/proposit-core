@@ -14,7 +14,7 @@ import { errorExit } from "./cli/output.js"
 
 const program = new Command()
 program
-    .name("core")
+    .name("proposit-core")
     .description("Proposit Core CLI")
     .enablePositionalOptions()
     .allowUnknownOption(false)
@@ -31,7 +31,7 @@ if (!isNamedCommand(process.argv)) {
 
     if (!argumentId || !versionArg) {
         errorExit(
-            "Usage: core <argument_id> <argument_version> <command> ...\n       core arguments <subcommand> ..."
+            "Usage: proposit-core <argument_id> <argument_version> <command> ...\n       proposit-core arguments <subcommand> ..."
         )
     }
 
@@ -39,7 +39,7 @@ if (!isNamedCommand(process.argv)) {
     const version = await resolveVersion(argumentId, versionArg)
 
     const sub = new Command()
-    sub.name("core")
+    sub.name("proposit-core")
         .description(`Commands for ${argumentId}@${version}`)
         .enablePositionalOptions()
 
@@ -52,8 +52,8 @@ if (!isNamedCommand(process.argv)) {
     registerAnalysisCommands(sub, argumentId, version)
 
     // Replace the consumed positional args with the remainder so Commander
-    // sees: ["node", "core", <group>, <subcommand>, ...]
-    await sub.parseAsync(["node", "core", ...rest])
+    // sees: ["node", "proposit-core", <group>, <subcommand>, ...]
+    await sub.parseAsync(["node", "proposit-core", ...rest])
 } else {
     await program.parseAsync(process.argv)
 }

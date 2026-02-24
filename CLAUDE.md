@@ -9,7 +9,7 @@ pnpm run prettify    # prettier --write (auto-fix formatting)
 pnpm run test        # vitest run
 pnpm run build       # tsc -p tsconfig.build.json → dist/
 pnpm run check       # all of the above in sequence
-pnpm cli -- --help   # run the CLI from the local build
+pnpm cli -- --help   # run the local proposit-core CLI from the local build
 ```
 
 Run `pnpm eslint . --fix` to auto-fix lint errors before checking manually.

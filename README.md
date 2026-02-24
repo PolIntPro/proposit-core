@@ -2,7 +2,7 @@
 
 Core engine for building, evaluating, and checking the logical validity of propositional-logic arguments. Manages typed trees of variables and expressions across one or more **premises**, with strict structural invariants, automatic operator collapse, a display renderer, and a truth-table validity checker.
 
-Also ships a **CLI** (`core`) for managing arguments, premises, variables, expressions, and analyses stored on disk.
+Also ships a **CLI** (`proposit-core`) for managing arguments, premises, variables, expressions, and analyses stored on disk.
 
 ## Installation
 
@@ -508,9 +508,9 @@ node dist/cli.js --help
 # Using the npm script:
 pnpm cli -- --help
 
-# Link globally to get the `core` command on your PATH:
+# Link globally to get the `proposit-core` command on your PATH:
 pnpm link --global
-core --help
+proposit-core --help
 ```
 
 ### State storage
@@ -518,7 +518,7 @@ core --help
 All data is stored under `~/.proposit-core` by default. Override with the `PROPOSIT_HOME` environment variable:
 
 ```bash
-PROPOSIT_HOME=/path/to/data core arguments list
+PROPOSIT_HOME=/path/to/data proposit-core arguments list
 ```
 
 The on-disk layout is:
@@ -554,11 +554,11 @@ Version selectors accepted anywhere a `<version>` is required:
 ### Top-level commands
 
 ```
-core version                              Print the package version
-core arguments create <title> <desc>      Create a new argument (prints UUID)
-core arguments list [--json]              List all arguments
-core arguments delete [--all] [--confirm] <id>   Delete an argument or its latest version
-core arguments publish <id>               Publish latest version, prepare new draft
+proposit-core version                              Print the package version
+proposit-core arguments create <title> <desc>      Create a new argument (prints UUID)
+proposit-core arguments list [--json]              List all arguments
+proposit-core arguments delete [--all] [--confirm] <id>   Delete an argument or its latest version
+proposit-core arguments publish <id>               Publish latest version, prepare new draft
 ```
 
 By default `delete` removes only the latest version. Pass `--all` to remove the argument entirely. Both `delete` and `delete-unused` prompt for confirmation unless `--confirm` is supplied.
@@ -568,13 +568,13 @@ By default `delete` removes only the latest version. Pass `--all` to remove the 
 All commands below are scoped to a specific argument version:
 
 ```
-core <argument_id> <version> <group> <subcommand> [args] [options]
+proposit-core <argument_id> <version> <group> <subcommand> [args] [options]
 ```
 
 #### show
 
 ```
-core <id> <ver> show [--json]
+proposit-core <id> <ver> show [--json]
 ```
 
 Displays argument metadata (id, title, description, version, createdAt, published, publishedAt).
@@ -582,7 +582,7 @@ Displays argument metadata (id, title, description, version, createdAt, publishe
 #### render
 
 ```
-core <id> <ver> render
+proposit-core <id> <ver> render
 ```
 
 Prints every premise in the argument, one per line, in the format `<premise_id>: <display_string>`. The premise designated as the conclusion is marked with an asterisk (`<premise_id>*: <display_string>`). Display strings use standard logical notation (¬ ∧ ∨ → ↔).
@@ -590,23 +590,23 @@ Prints every premise in the argument, one per line, in the format `<premise_id>:
 #### roles
 
 ```
-core <id> <ver> roles show [--json]
-core <id> <ver> roles set-conclusion <premise_id>
-core <id> <ver> roles clear-conclusion
-core <id> <ver> roles add-support <premise_id>
-core <id> <ver> roles remove-support <premise_id>
+proposit-core <id> <ver> roles show [--json]
+proposit-core <id> <ver> roles set-conclusion <premise_id>
+proposit-core <id> <ver> roles clear-conclusion
+proposit-core <id> <ver> roles add-support <premise_id>
+proposit-core <id> <ver> roles remove-support <premise_id>
 ```
 
 #### variables
 
 ```
-core <id> <ver> variables create <symbol> [--id <variable_id>]
-core <id> <ver> variables list [--json]
-core <id> <ver> variables show <variable_id> [--json]
-core <id> <ver> variables update <variable_id> --symbol <new_symbol>
-core <id> <ver> variables delete <variable_id>
-core <id> <ver> variables list-unused [--json]
-core <id> <ver> variables delete-unused [--confirm] [--json]
+proposit-core <id> <ver> variables create <symbol> [--id <variable_id>]
+proposit-core <id> <ver> variables list [--json]
+proposit-core <id> <ver> variables show <variable_id> [--json]
+proposit-core <id> <ver> variables update <variable_id> --symbol <new_symbol>
+proposit-core <id> <ver> variables delete <variable_id>
+proposit-core <id> <ver> variables list-unused [--json]
+proposit-core <id> <ver> variables delete-unused [--confirm] [--json]
 ```
 
 `create` prints the new variable's UUID. `delete` fails if any expression references the variable. `delete-unused` removes variables not referenced by any expression in any premise.
@@ -614,12 +614,12 @@ core <id> <ver> variables delete-unused [--confirm] [--json]
 #### premises
 
 ```
-core <id> <ver> premises create [--title <title>]
-core <id> <ver> premises list [--json]
-core <id> <ver> premises show <premise_id> [--json]
-core <id> <ver> premises update <premise_id> --title <title>
-core <id> <ver> premises delete [--confirm] <premise_id>
-core <id> <ver> premises render <premise_id>
+proposit-core <id> <ver> premises create [--title <title>]
+proposit-core <id> <ver> premises list [--json]
+proposit-core <id> <ver> premises show <premise_id> [--json]
+proposit-core <id> <ver> premises update <premise_id> --title <title>
+proposit-core <id> <ver> premises delete [--confirm] <premise_id>
+proposit-core <id> <ver> premises render <premise_id>
 ```
 
 `create` prints the new premise's UUID. `render` outputs the expression tree as a display string (e.g. `(P → Q)`).
@@ -627,11 +627,11 @@ core <id> <ver> premises render <premise_id>
 #### expressions
 
 ```
-core <id> <ver> expressions create <premise_id> --type <type> [options]
-core <id> <ver> expressions insert <premise_id> --type <type> [options]
-core <id> <ver> expressions delete <premise_id> <expression_id>
-core <id> <ver> expressions list <premise_id> [--json]
-core <id> <ver> expressions show <premise_id> <expression_id> [--json]
+proposit-core <id> <ver> expressions create <premise_id> --type <type> [options]
+proposit-core <id> <ver> expressions insert <premise_id> --type <type> [options]
+proposit-core <id> <ver> expressions delete <premise_id> <expression_id>
+proposit-core <id> <ver> expressions list <premise_id> [--json]
+proposit-core <id> <ver> expressions show <premise_id> <expression_id> [--json]
 ```
 
 Common options for `create` and `insert`:
@@ -652,18 +652,18 @@ Common options for `create` and `insert`:
 An **analysis file** stores a variable assignment (symbol → boolean) for a specific argument version.
 
 ```
-core <id> <ver> analysis create [filename] [--default <true|false>]
-core <id> <ver> analysis list [--json]
-core <id> <ver> analysis show [--file <filename>] [--json]
-core <id> <ver> analysis set <symbol> <true|false> [--file <filename>]
-core <id> <ver> analysis reset [--file <filename>] [--value <true|false>]
-core <id> <ver> analysis validate-assignments [--file <filename>] [--json]
-core <id> <ver> analysis delete [--file <filename>] [--confirm]
-core <id> <ver> analysis evaluate [--file <filename>] [options]
-core <id> <ver> analysis check-validity [options]
-core <id> <ver> analysis validate-argument [--json]
-core <id> <ver> analysis refs [--json]
-core <id> <ver> analysis export [--json]
+proposit-core <id> <ver> analysis create [filename] [--default <true|false>]
+proposit-core <id> <ver> analysis list [--json]
+proposit-core <id> <ver> analysis show [--file <filename>] [--json]
+proposit-core <id> <ver> analysis set <symbol> <true|false> [--file <filename>]
+proposit-core <id> <ver> analysis reset [--file <filename>] [--value <true|false>]
+proposit-core <id> <ver> analysis validate-assignments [--file <filename>] [--json]
+proposit-core <id> <ver> analysis delete [--file <filename>] [--confirm]
+proposit-core <id> <ver> analysis evaluate [--file <filename>] [options]
+proposit-core <id> <ver> analysis check-validity [options]
+proposit-core <id> <ver> analysis validate-argument [--json]
+proposit-core <id> <ver> analysis refs [--json]
+proposit-core <id> <ver> analysis export [--json]
 ```
 
 `--file` defaults to `analysis.json` throughout. Key subcommands:
