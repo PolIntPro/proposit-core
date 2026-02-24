@@ -257,12 +257,24 @@ export class PremiseManager {
         }))
     }
 
-    public getPremiseType(): "inference" | "constraint" {
+    /**
+     * Returns `true` if the root expression is an `implies` or `iff` operator,
+     * meaning this premise expresses a logical inference relationship.
+     */
+    public isInference(): boolean {
         const root = this.getRootExpression()
-        return root?.type === "operator" &&
+        return (
+            root?.type === "operator" &&
             (root.operator === "implies" || root.operator === "iff")
-            ? "inference"
-            : "constraint"
+        )
+    }
+
+    /**
+     * Returns `true` if this premise does not have an inference operator at its
+     * root (i.e. it is a constraint premise).  Equivalent to `!isInference()`.
+     */
+    public isConstraint(): boolean {
+        return !this.isInference()
     }
 
     public validateEvaluability(): TValidationResult {
@@ -527,7 +539,7 @@ export class PremiseManager {
         }
 
         let inferenceDiagnostic: TPremiseInferenceDiagnostic | undefined
-        if (this.getPremiseType() === "inference") {
+        if (this.isInference()) {
             const root = this.expressions.getExpression(rootExpressionId)
             if (root?.type === "operator") {
                 const children = this.expressions.getChildExpressions(root.id)
@@ -578,7 +590,7 @@ export class PremiseManager {
 
         return {
             premiseId: this.id,
-            premiseType: this.getPremiseType(),
+            premiseType: this.isInference() ? "inference" : "constraint",
             rootExpressionId,
             rootValue,
             expressionValues,
@@ -602,9 +614,7 @@ export class PremiseManager {
     /**
      * Returns a serialisable snapshot of this premise conforming to
      * `TPremise`.  `variables` contains only the variables that are actually
-     * referenced by expressions in this premise.  `type` is derived from the
-     * root expression: `"inference"` if the root is an `implies` or `iff`
-     * operator, `"constraint"` otherwise (including when the premise is empty).
+     * referenced by expressions in this premise.
      */
     public toData(): TPremise {
         const expressions = this.getExpressions()
@@ -623,7 +633,6 @@ export class PremiseManager {
             rootExpressionId: this.rootExpressionId,
             variables,
             expressions,
-            type: this.getPremiseType(),
         }
     }
 

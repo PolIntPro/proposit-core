@@ -37,7 +37,7 @@ src/
                         #   TArgumentEvaluationResult, TValidityCheckResult, etc.
     core/
       ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity
-      PremiseManager.ts    # PremiseManager — variables, expressions, evaluate, toDisplayString, toData
+      PremiseManager.ts    # PremiseManager — variables, expressions, evaluate, toDisplayString, toData, isInference, isConstraint
       ExpressionManager.ts # Low-level expression tree (addExpression, removeExpression, insertExpression)
       VariableManager.ts   # Low-level variable registry
       evaluation/
@@ -96,7 +96,7 @@ $PROPOSIT_HOME/   (default: ~/.proposit-core)
         premises/
           <premise-id>/
             meta.json      # PremiseMetaSchema: id, title?
-            data.json      # PremiseDataSchema: type, rootExpressionId?, variables (id[]), expressions[]
+            data.json      # PremiseDataSchema: rootExpressionId?, variables (id[]), expressions[]
         <analysis>.json    # AnalysisFileSchema: argumentId, argumentVersion, assignments (symbol→boolean)
 ```
 
@@ -117,10 +117,12 @@ Version selectors: `"latest"` → max version number; `"last-published"` → hig
 
 ### Premise types
 
-Each premise has a **type** derived from its root expression:
+Each premise has a type determined by its root expression, queried via `PremiseManager`:
 
-- `"inference"` — root is an `implies` or `iff` operator. Used as a supporting or conclusion premise.
-- `"constraint"` — root is anything else (e.g. a plain variable, `not`, `and`, `or`). Constraint premises restrict admissible variable assignments but are not part of the supporting/conclusion chain.
+- `isInference()` returns `true` when the root is an `implies` or `iff` operator. Inference premises are used as supporting or conclusion premises.
+- `isConstraint()` returns `true` when the root is anything else (e.g. a plain variable, `not`, `and`, `or`), or when the premise is empty. Constraint premises restrict admissible variable assignments but are not part of the supporting/conclusion chain.
+
+The type is not stored on disk — it is always derived dynamically from the current expression tree.
 
 ### Expression tree representation
 

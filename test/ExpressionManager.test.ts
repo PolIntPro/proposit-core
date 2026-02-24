@@ -1492,26 +1492,30 @@ describe("PremiseManager — toData", () => {
         expect(pm.toData().rootExpressionId).toBe("expr-p")
     })
 
-    it("type is constraint for non-inference roots", () => {
+    it("isConstraint for non-inference roots", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        expect(pm.toData().type).toBe("constraint")
+        expect(pm.isConstraint()).toBe(true)
+        expect(pm.isInference()).toBe(false)
     })
 
-    it("type is inference for an implies root", () => {
+    it("isInference for an implies root", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeOpExpr("op-impl", "implies"))
-        expect(pm.toData().type).toBe("inference")
+        expect(pm.isInference()).toBe(true)
+        expect(pm.isConstraint()).toBe(false)
     })
 
-    it("type is inference for an iff root", () => {
+    it("isInference for an iff root", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeOpExpr("op-iff", "iff"))
-        expect(pm.toData().type).toBe("inference")
+        expect(pm.isInference()).toBe(true)
+        expect(pm.isConstraint()).toBe(false)
     })
 
-    it("type defaults to constraint when the premise is empty", () => {
-        expect(makePremise().toData().type).toBe("constraint")
+    it("isConstraint when the premise is empty", () => {
+        expect(makePremise().isConstraint()).toBe(true)
+        expect(makePremise().isInference()).toBe(false)
     })
 
     it("variables contains only referenced variables without duplicates", () => {

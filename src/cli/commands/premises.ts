@@ -67,7 +67,6 @@ export function registerPremiseCommands(
             await writePremiseData(argumentId, version, id, {
                 variables: [],
                 expressions: [],
-                type: "constraint",
             })
             printLine(id)
         })
@@ -132,11 +131,14 @@ export function registerPremiseCommands(
                     }))
                 )
             } else {
-                for (const { meta, data, pm } of results) {
+                for (const { meta, pm } of results) {
                     const display = pm.toDisplayString() || "(empty)"
                     const title = meta.title ?? "(untitled)"
+                    const premiseType = pm.isInference()
+                        ? "inference"
+                        : "constraint"
                     printLine(
-                        `${meta.id} | ${data.type} | ${display} | ${title}`
+                        `${meta.id} | ${premiseType} | ${display} | ${title}`
                     )
                 }
             }
@@ -219,9 +221,20 @@ export function registerPremiseCommands(
             if (opts.json) {
                 printJson({ ...meta, ...data })
             } else {
+                const rootExpr = data.rootExpressionId
+                    ? data.expressions.find(
+                          (e) => e.id === data.rootExpressionId
+                      )
+                    : undefined
+                const premiseType =
+                    rootExpr?.type === "operator" &&
+                    (rootExpr.operator === "implies" ||
+                        rootExpr.operator === "iff")
+                        ? "inference"
+                        : "constraint"
                 printLine(`id:           ${meta.id}`)
                 printLine(`title:        ${meta.title ?? "(untitled)"}`)
-                printLine(`type:         ${data.type}`)
+                printLine(`type:         ${premiseType}`)
                 printLine(`root expr id: ${data.rootExpressionId ?? "(none)"}`)
                 printLine(`variables:    ${data.variables.length}`)
                 printLine(`expressions:  ${data.expressions.length}`)

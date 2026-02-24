@@ -107,9 +107,7 @@ export const PremiseMetaSchema = Type.Object({
 export type TPremiseMeta = Static<typeof PremiseMetaSchema>
 
 export const PremiseDataSchema = Type.Object({
-    // If the premise has expressions in it, this is the ID of the root expression
-    // which must be a relation operator if the type is "inference", else. it can
-    // be any type of expression.
+    // If the premise has expressions in it, this is the ID of the root expression.
     rootExpressionId: Type.Optional(UUID),
     variables: Type.Array(UUID, {
         description: "IDs of all variables referenced in this premise.",
@@ -118,16 +116,6 @@ export const PremiseDataSchema = Type.Object({
         description:
             "All expressions that are part of this premise, including sub-expressions. The root of the premise will have a null parentId.",
     }),
-    type: Type.Union([
-        Type.Literal("inference", {
-            description:
-                "A premise whose core operator is one of inference like implies or iff",
-        }),
-        Type.Literal("constraint", {
-            description:
-                "A premise without an inference operator, it restricts the possible valuations of variables but is not part of the chain of logical reasoning.",
-        }),
-    ]),
 })
 export type TPremiseData = Static<typeof PremiseDataSchema>
 

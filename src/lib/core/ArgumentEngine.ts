@@ -350,8 +350,7 @@ export class ArgumentEngine {
             ...supportingPremises.map((pm) => pm.getId()),
         ])
         const constraintPremises = this.listPremises().filter(
-            (pm) =>
-                !roleIds.has(pm.getId()) && pm.getPremiseType() === "constraint"
+            (pm) => !roleIds.has(pm.getId()) && pm.isConstraint()
         )
 
         const allRelevantPremises = [
@@ -477,8 +476,7 @@ export class ArgumentEngine {
             ...supportingPremises.map((pm) => pm.getId()),
         ])
         const constraintPremises = this.listPremises().filter(
-            (pm) =>
-                !roleIds.has(pm.getId()) && pm.getPremiseType() === "constraint"
+            (pm) => !roleIds.has(pm.getId()) && pm.isConstraint()
         )
 
         const checkedVariableIds = sortedUnique(
