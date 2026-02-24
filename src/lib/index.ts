@@ -119,17 +119,29 @@ export interface TArgumentEvaluationOptions {
 }
 
 export interface TArgumentEvaluationResult {
+    // `false` means evaluation could not be completed (typically validation failure).
     ok: boolean
+    // Validation output when `ok === false`, or when validation was requested and included.
     validation?: TValidationResult
+    // The assignment used for this evaluation (variableId -> boolean).
     assignment?: TVariableAssignment
+    // All variable IDs referenced across evaluated supporting/conclusion/constraint premises.
     referencedVariableIds?: string[]
+    // Evaluation result for the designated conclusion premise.
     conclusion?: TPremiseEvaluationResult
+    // Evaluation results for premises designated as supporting the argument.
     supportingPremises?: TPremiseEvaluationResult[]
+    // Evaluation results for constraint premises (used to determine admissibility).
     constraintPremises?: TPremiseEvaluationResult[]
+    // `true` iff all constraint premises evaluate to true under the assignment.
     isAdmissibleAssignment?: boolean
+    // `true` iff every supporting premise evaluates to true.
     allSupportingPremisesTrue?: boolean
+    // The truth value of the conclusion premise root expression.
     conclusionTrue?: boolean
+    // `true` iff constraints are satisfied, all supporting premises are true, and the conclusion is false.
     isCounterexample?: boolean
+    // Convenience inverse of `isCounterexample` for the evaluated assignment.
     preservesTruthUnderAssignment?: boolean
 }
 

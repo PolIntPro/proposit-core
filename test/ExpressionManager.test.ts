@@ -1755,3 +1755,294 @@ describe("ArgumentEngine — roles and evaluation", () => {
         expect(validity.numAssignmentsChecked).toBe(4)
     })
 })
+
+describe("ArgumentEngine — complex argument scenarios across multiple evaluations", () => {
+    function addVars(pm: PremiseManager, ...vars: TPropositionalVariable[]) {
+        for (const v of vars) pm.addVariable(v)
+    }
+
+    function buildVarRoot(
+        pm: PremiseManager,
+        exprId: string,
+        variableId: string
+    ) {
+        pm.addExpression(makeVarExpr(exprId, variableId))
+    }
+
+    function buildNotRoot(
+        pm: PremiseManager,
+        rootId: string,
+        childExprId: string,
+        variableId: string
+    ) {
+        pm.addExpression(makeOpExpr(rootId, "not"))
+        pm.addExpression(
+            makeVarExpr(childExprId, variableId, {
+                parentId: rootId,
+                position: 0,
+            })
+        )
+    }
+
+    function buildBinaryRoot(
+        pm: PremiseManager,
+        rootId: string,
+        operator: "and" | "or" | "implies" | "iff",
+        left: { exprId: string; variableId: string },
+        right: { exprId: string; variableId: string }
+    ) {
+        pm.addExpression(makeOpExpr(rootId, operator))
+        pm.addExpression(
+            makeVarExpr(left.exprId, left.variableId, {
+                parentId: rootId,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr(right.exprId, right.variableId, {
+                parentId: rootId,
+                position: 1,
+            })
+        )
+    }
+
+    function summarizeEvaluation(
+        eng: ArgumentEngine,
+        assignment: Record<string, boolean>
+    ) {
+        const result = eng.evaluate(assignment)
+        expect(result.ok).toBe(true)
+        return {
+            assignment,
+            admissible: result.isAdmissibleAssignment,
+            supportsTrue: result.allSupportingPremisesTrue,
+            conclusionTrue: result.conclusionTrue,
+            counterexample: result.isCounterexample,
+            preservesTruth: result.preservesTruthUnderAssignment,
+        }
+    }
+
+    function classifyAtActualAssignment(
+        eng: ArgumentEngine,
+        actualAssignment: Record<string, boolean>
+    ) {
+        const validity = eng.checkValidity({ mode: "exhaustive" })
+        expect(validity.ok).toBe(true)
+
+        const evaluation = eng.evaluate(actualAssignment)
+        expect(evaluation.ok).toBe(true)
+
+        const premisesTrue =
+            evaluation.isAdmissibleAssignment === true &&
+            evaluation.allSupportingPremisesTrue === true
+        const conclusionTrue = evaluation.conclusionTrue === true
+
+        return {
+            isValid: validity.isValid === true,
+            isSound:
+                validity.isValid === true && premisesTrue && conclusionTrue,
+            isUnsound:
+                validity.isValid !== true || !premisesTrue || !conclusionTrue,
+            premisesTrue,
+            conclusionTrue,
+        }
+    }
+
+    it("affirming the consequent shows multiple evaluation outcomes and a single counterexample", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pImpliesQ = eng.createPremise("P -> Q")
+        const qPremise = eng.createPremise("Q")
+        const pConclusion = eng.createPremise("P")
+
+        addVars(pImpliesQ, VAR_P, VAR_Q)
+        addVars(qPremise, VAR_P, VAR_Q)
+        addVars(pConclusion, VAR_P, VAR_Q)
+
+        buildBinaryRoot(
+            pImpliesQ,
+            "impl-p-q",
+            "implies",
+            { exprId: "impl-p-q-left", variableId: VAR_P.id },
+            { exprId: "impl-p-q-right", variableId: VAR_Q.id }
+        )
+        buildVarRoot(qPremise, "q-root", VAR_Q.id)
+        buildVarRoot(pConclusion, "p-root", VAR_P.id)
+
+        eng.addSupportingPremise(pImpliesQ.getId())
+        eng.addSupportingPremise(qPremise.getId())
+        eng.setConclusionPremise(pConclusion.getId())
+
+        const summaries = [
+            summarizeEvaluation(eng, { [VAR_P.id]: false, [VAR_Q.id]: false }),
+            summarizeEvaluation(eng, { [VAR_P.id]: false, [VAR_Q.id]: true }),
+            summarizeEvaluation(eng, { [VAR_P.id]: true, [VAR_Q.id]: true }),
+        ]
+
+        expect(summaries).toEqual([
+            {
+                assignment: { [VAR_P.id]: false, [VAR_Q.id]: false },
+                admissible: true,
+                supportsTrue: false,
+                conclusionTrue: false,
+                counterexample: false,
+                preservesTruth: true,
+            },
+            {
+                assignment: { [VAR_P.id]: false, [VAR_Q.id]: true },
+                admissible: true,
+                supportsTrue: true,
+                conclusionTrue: false,
+                counterexample: true,
+                preservesTruth: false,
+            },
+            {
+                assignment: { [VAR_P.id]: true, [VAR_Q.id]: true },
+                admissible: true,
+                supportsTrue: true,
+                conclusionTrue: true,
+                counterexample: false,
+                preservesTruth: true,
+            },
+        ])
+
+        const validity = eng.checkValidity({ mode: "exhaustive" })
+        expect(validity.ok).toBe(true)
+        expect(validity.isValid).toBe(false)
+        expect(validity.counterexamples).toHaveLength(1)
+        expect(validity.counterexamples?.[0]?.assignment).toMatchObject({
+            [VAR_P.id]: false,
+            [VAR_Q.id]: true,
+        })
+
+        const actualWorld = classifyAtActualAssignment(eng, {
+            [VAR_P.id]: true,
+            [VAR_Q.id]: true,
+        })
+        expect(actualWorld.isValid).toBe(false)
+        expect(actualWorld.isSound).toBe(false)
+        expect(actualWorld.isUnsound).toBe(true)
+        expect(actualWorld.premisesTrue).toBe(true)
+        expect(actualWorld.conclusionTrue).toBe(true)
+    })
+
+    it("a constrained transitive argument mixes admissible/inadmissible assignments and remains valid", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pImpliesQ = eng.createPremise("P -> Q")
+        const qImpliesR = eng.createPremise("Q -> R")
+        const pPremise = eng.createPremise("P")
+        const rConclusion = eng.createPremise("R")
+        const constraintNotR = eng.createPremise("not R")
+
+        addVars(pImpliesQ, VAR_P, VAR_Q, VAR_R)
+        addVars(qImpliesR, VAR_P, VAR_Q, VAR_R)
+        addVars(pPremise, VAR_P, VAR_Q, VAR_R)
+        addVars(rConclusion, VAR_P, VAR_Q, VAR_R)
+        addVars(constraintNotR, VAR_P, VAR_Q, VAR_R)
+
+        buildBinaryRoot(
+            pImpliesQ,
+            "root-p-q",
+            "implies",
+            { exprId: "root-p-q-left", variableId: VAR_P.id },
+            { exprId: "root-p-q-right", variableId: VAR_Q.id }
+        )
+        buildBinaryRoot(
+            qImpliesR,
+            "root-q-r",
+            "implies",
+            { exprId: "root-q-r-left", variableId: VAR_Q.id },
+            { exprId: "root-q-r-right", variableId: VAR_R.id }
+        )
+        buildVarRoot(pPremise, "root-p", VAR_P.id)
+        buildVarRoot(rConclusion, "root-r", VAR_R.id)
+        buildNotRoot(constraintNotR, "root-not-r", "root-not-r-child", VAR_R.id)
+
+        eng.addSupportingPremise(pImpliesQ.getId())
+        eng.addSupportingPremise(qImpliesR.getId())
+        eng.addSupportingPremise(pPremise.getId())
+        eng.setConclusionPremise(rConclusion.getId())
+
+        const evalInadmissible = summarizeEvaluation(eng, {
+            [VAR_P.id]: true,
+            [VAR_Q.id]: true,
+            [VAR_R.id]: true,
+        })
+        const evalAdmissibleCounterexampleCandidate = summarizeEvaluation(eng, {
+            [VAR_P.id]: true,
+            [VAR_Q.id]: true,
+            [VAR_R.id]: false,
+        })
+        const evalAdmissiblePremiseFalse = summarizeEvaluation(eng, {
+            [VAR_P.id]: false,
+            [VAR_Q.id]: false,
+            [VAR_R.id]: false,
+        })
+
+        expect(evalInadmissible.admissible).toBe(false)
+        expect(evalInadmissible.counterexample).toBe(false)
+
+        expect(evalAdmissibleCounterexampleCandidate.admissible).toBe(true)
+        expect(evalAdmissibleCounterexampleCandidate.supportsTrue).toBe(false)
+        expect(evalAdmissibleCounterexampleCandidate.counterexample).toBe(false)
+
+        expect(evalAdmissiblePremiseFalse.admissible).toBe(true)
+        expect(evalAdmissiblePremiseFalse.supportsTrue).toBe(false)
+        expect(evalAdmissiblePremiseFalse.conclusionTrue).toBe(false)
+
+        const validity = eng.checkValidity({ mode: "exhaustive" })
+        expect(validity.ok).toBe(true)
+        expect(validity.isValid).toBe(true)
+        expect(validity.counterexamples).toEqual([])
+        expect(validity.numAssignmentsChecked).toBe(8)
+        expect(validity.numAdmissibleAssignments).toBe(4)
+    })
+
+    it("distinguishes valid+sound from valid+unsound using a designated actual assignment", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pImpliesQ = eng.createPremise("P -> Q")
+        const pPremise = eng.createPremise("P")
+        const qConclusion = eng.createPremise("Q")
+
+        addVars(pImpliesQ, VAR_P, VAR_Q)
+        addVars(pPremise, VAR_P, VAR_Q)
+        addVars(qConclusion, VAR_P, VAR_Q)
+
+        buildBinaryRoot(
+            pImpliesQ,
+            "mp-root",
+            "implies",
+            { exprId: "mp-left", variableId: VAR_P.id },
+            { exprId: "mp-right", variableId: VAR_Q.id }
+        )
+        buildVarRoot(pPremise, "mp-p", VAR_P.id)
+        buildVarRoot(qConclusion, "mp-q", VAR_Q.id)
+
+        eng.addSupportingPremise(pImpliesQ.getId())
+        eng.addSupportingPremise(pPremise.getId())
+        eng.setConclusionPremise(qConclusion.getId())
+
+        const soundCase = classifyAtActualAssignment(eng, {
+            [VAR_P.id]: true,
+            [VAR_Q.id]: true,
+        })
+        expect(soundCase).toMatchObject({
+            isValid: true,
+            isSound: true,
+            isUnsound: false,
+            premisesTrue: true,
+            conclusionTrue: true,
+        })
+
+        const unsoundCase = classifyAtActualAssignment(eng, {
+            [VAR_P.id]: false,
+            [VAR_Q.id]: false,
+        })
+        expect(unsoundCase).toMatchObject({
+            isValid: true,
+            isSound: false,
+            isUnsound: true,
+            premisesTrue: false,
+            conclusionTrue: false,
+        })
+    })
+})
