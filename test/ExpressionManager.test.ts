@@ -15,6 +15,8 @@ const ARG: TArgument = {
     version: 1,
     title: "Test Argument",
     description: "",
+    createdAt: Date.now(),
+    published: false,
 }
 
 function makeVar(id: string, symbol: string): TPropositionalVariable {
@@ -997,7 +999,7 @@ describe("stress test", () => {
         const { premiseManagers } = buildStress()
         for (const pm of premiseManagers) {
             for (const v of pm.toData().variables) {
-                expect(() => pm.removeVariable(v.id)).toThrowError(
+                expect(() => pm.removeVariable(v)).toThrowError(
                     /cannot be removed because it is referenced/
                 )
             }
@@ -1059,7 +1061,7 @@ describe("stress test", () => {
         const variableIdsInPremises = new Set<string>()
         for (const pm of premiseManagers) {
             for (const v of pm.toData().variables) {
-                variableIdsInPremises.add(v.id)
+                variableIdsInPremises.add(v)
             }
         }
         for (const varId of referencedVarIds) {
@@ -1531,15 +1533,14 @@ describe("PremiseManager — toData", () => {
             makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 2 })
         )
         const { variables } = pm.toData()
-        const ids = variables.map((v) => v.id).sort()
-        expect(ids).toEqual([VAR_P.id, VAR_Q.id].sort())
+        expect([...variables].sort()).toEqual([VAR_P.id, VAR_Q.id].sort())
     })
 
     it("variables does not include registered-but-unreferenced variables", () => {
         const pm = premiseWithVars() // P, Q, R all registered
         pm.addExpression(makeVarExpr("expr-p", VAR_P.id)) // only P referenced
         const { variables } = pm.toData()
-        expect(variables.map((v) => v.id)).toEqual([VAR_P.id])
+        expect(variables).toEqual([VAR_P.id])
     })
 
     it("expressions contains all nodes in the tree", () => {

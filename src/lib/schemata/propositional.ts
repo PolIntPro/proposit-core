@@ -1,5 +1,5 @@
 import Type, { type Static } from "typebox"
-import { UUID, Nullable } from "./shared"
+import { UUID, Nullable } from "./shared.js"
 
 const VariableType = Type.Literal("variable")
 const OperatorType = Type.Literal("operator")
@@ -94,15 +94,25 @@ export const PropositionalVariableSchema = Type.Object({
 
 export type TPropositionalVariable = Static<typeof PropositionalVariableSchema>
 
-export const PremiseSchema = Type.Object({
+export const PremiseMetaSchema = Type.Object({
     // Auto-generated UUID
     id: UUID,
+    title: Type.Optional(
+        Type.String({
+            description:
+                "An optional title for this premise, for display purposes.",
+        })
+    ),
+})
+export type TPremiseMeta = Static<typeof PremiseMetaSchema>
+
+export const PremiseDataSchema = Type.Object({
     // If the premise has expressions in it, this is the ID of the root expression
     // which must be a relation operator if the type is "inference", else. it can
     // be any type of expression.
     rootExpressionId: Type.Optional(UUID),
-    variables: Type.Array(PropositionalVariableSchema, {
-        description: "All variables referenced in this premise.",
+    variables: Type.Array(UUID, {
+        description: "IDs of all variables referenced in this premise.",
     }),
     expressions: Type.Array(PropositionalExpressionSchema, {
         description:
@@ -118,12 +128,12 @@ export const PremiseSchema = Type.Object({
                 "A premise without an inference operator, it restricts the possible valuations of variables but is not part of the chain of logical reasoning.",
         }),
     ]),
-    title: Type.Optional(
-        Type.String({
-            description:
-                "An optional title for this premise, for display purposes.",
-        })
-    ),
 })
+export type TPremiseData = Static<typeof PremiseDataSchema>
+
+export const PremiseSchema = Type.Intersect([
+    PremiseMetaSchema,
+    PremiseDataSchema,
+])
 
 export type TPremise = Static<typeof PremiseSchema>

@@ -1,8 +1,8 @@
 import type {
     TLogicalOperatorType,
     TPropositionalExpression,
-} from "../schemata"
-import { getOrCreate } from "../utils/collections"
+} from "../schemata/index.js"
+import { getOrCreate } from "../utils/collections.js"
 
 export class ExpressionManager {
     private expressions: Map<string, TPropositionalExpression>

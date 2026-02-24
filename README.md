@@ -2,15 +2,9 @@
 
 Core engine for building, evaluating, and checking the logical validity of propositional-logic arguments. Manages typed trees of variables and expressions across one or more **premises**, with strict structural invariants, automatic operator collapse, a display renderer, and a truth-table validity checker.
 
+Also ships a **CLI** (`core`) for managing arguments, premises, variables, expressions, and analyses stored on disk.
+
 ## Installation
-
-This package is hosted on GitHub Packages. Add the following to your project's `.npmrc` (replace `polintpro` with your GitHub org):
-
-```
-@polintpro:registry=https://npm.pkg.github.com
-```
-
-Then install:
 
 ```bash
 pnpm add @polintpro/proposit-core
@@ -501,6 +495,177 @@ Returns a serialisable snapshot of this premise (`{ id, title, type, rootExpress
 
 ---
 
+## CLI
+
+The package ships a command-line interface for managing arguments stored on disk.
+
+### Running the CLI
+
+```bash
+# From the repo, using node directly:
+node dist/cli.js --help
+
+# Using the npm script:
+pnpm cli -- --help
+
+# Link globally to get the `core` command on your PATH:
+pnpm link --global
+core --help
+```
+
+### State storage
+
+All data is stored under `~/.proposit-core` by default. Override with the `PROPOSIT_HOME` environment variable:
+
+```bash
+PROPOSIT_HOME=/path/to/data core arguments list
+```
+
+The on-disk layout is:
+
+```
+$PROPOSIT_HOME/
+  arguments/
+    <argument-id>/
+      meta.json          # id, title, description
+      <version>/         # one directory per version (0, 1, 2, …)
+        meta.json        # version, createdAt, published, publishedAt?
+        variables.json   # array of TPropositionalVariable
+        roles.json       # { conclusionPremiseId?, supportingPremiseIds }
+        premises/
+          <premise-id>/
+            meta.json    # id, title?
+            data.json    # type, rootExpressionId?, variables[], expressions[]
+        <analysis>.json  # named analysis files (default: analysis.json)
+```
+
+### Versioning
+
+Arguments start at version `0`. Publishing marks the current version as immutable and copies its state to a new draft version. All mutating commands reject published versions.
+
+Version selectors accepted anywhere a `<version>` is required:
+
+| Selector         | Resolves to                            |
+| ---------------- | -------------------------------------- |
+| `0`, `1`, …      | Exact version number                   |
+| `latest`         | Highest version number                 |
+| `last-published` | Highest version with `published: true` |
+
+### Top-level commands
+
+```
+core version                              Print the package version
+core arguments create <title> <desc>      Create a new argument (prints UUID)
+core arguments list [--json]              List all arguments
+core arguments delete [--all] [--confirm] <id>   Delete an argument or its latest version
+core arguments publish <id>               Publish latest version, prepare new draft
+```
+
+By default `delete` removes only the latest version. Pass `--all` to remove the argument entirely. Both `delete` and `delete-unused` prompt for confirmation unless `--confirm` is supplied.
+
+### Version-scoped commands
+
+All commands below are scoped to a specific argument version:
+
+```
+core <argument_id> <version> <group> <subcommand> [args] [options]
+```
+
+#### show
+
+```
+core <id> <ver> show [--json]
+```
+
+Displays argument metadata (id, title, description, version, createdAt, published, publishedAt).
+
+#### roles
+
+```
+core <id> <ver> roles show [--json]
+core <id> <ver> roles set-conclusion <premise_id>
+core <id> <ver> roles clear-conclusion
+core <id> <ver> roles add-support <premise_id>
+core <id> <ver> roles remove-support <premise_id>
+```
+
+#### variables
+
+```
+core <id> <ver> variables create <symbol> [--id <variable_id>]
+core <id> <ver> variables list [--json]
+core <id> <ver> variables show <variable_id> [--json]
+core <id> <ver> variables update <variable_id> --symbol <new_symbol>
+core <id> <ver> variables delete <variable_id>
+core <id> <ver> variables list-unused [--json]
+core <id> <ver> variables delete-unused [--confirm] [--json]
+```
+
+`create` prints the new variable's UUID. `delete` fails if any expression references the variable. `delete-unused` removes variables not referenced by any expression in any premise.
+
+#### premises
+
+```
+core <id> <ver> premises create [--title <title>]
+core <id> <ver> premises list [--json]
+core <id> <ver> premises show <premise_id> [--json]
+core <id> <ver> premises update <premise_id> --title <title>
+core <id> <ver> premises delete [--confirm] <premise_id>
+core <id> <ver> premises render <premise_id>
+```
+
+`create` prints the new premise's UUID. `render` outputs the expression tree as a display string (e.g. `(P → Q)`).
+
+#### expressions
+
+```
+core <id> <ver> expressions create <premise_id> --type <type> [options]
+core <id> <ver> expressions insert <premise_id> --type <type> [options]
+core <id> <ver> expressions delete <premise_id> <expression_id>
+core <id> <ver> expressions list <premise_id> [--json]
+core <id> <ver> expressions show <premise_id> <expression_id> [--json]
+```
+
+Common options for `create` and `insert`:
+
+| Option               | Description                                                            |
+| -------------------- | ---------------------------------------------------------------------- |
+| `--type <type>`      | `variable`, `operator`, or `formula` (required)                        |
+| `--id <id>`          | Explicit expression ID (default: generated UUID)                       |
+| `--parent-id <id>`   | Parent expression ID (omit for root)                                   |
+| `--position <n>`     | Position among siblings                                                |
+| `--variable-id <id>` | Variable ID (required for `type=variable`)                             |
+| `--operator <op>`    | `not`, `and`, `or`, `implies`, or `iff` (required for `type=operator`) |
+
+`insert` additionally accepts `--left-node-id` and `--right-node-id` to splice the new expression between existing nodes.
+
+#### analysis
+
+An **analysis file** stores a variable assignment (symbol → boolean) for a specific argument version.
+
+```
+core <id> <ver> analysis create [filename] [--default <true|false>]
+core <id> <ver> analysis list [--json]
+core <id> <ver> analysis show [--file <filename>] [--json]
+core <id> <ver> analysis set <symbol> <true|false> [--file <filename>]
+core <id> <ver> analysis reset [--file <filename>] [--value <true|false>]
+core <id> <ver> analysis validate-assignments [--file <filename>] [--json]
+core <id> <ver> analysis delete [--file <filename>] [--confirm]
+core <id> <ver> analysis evaluate [--file <filename>] [options]
+core <id> <ver> analysis check-validity [options]
+core <id> <ver> analysis validate-argument [--json]
+core <id> <ver> analysis refs [--json]
+core <id> <ver> analysis export [--json]
+```
+
+`--file` defaults to `analysis.json` throughout. Key subcommands:
+
+- **`evaluate`** — resolves symbol→ID, evaluates the argument, reports admissibility, counterexample status, and whether the conclusion is true.
+- **`check-validity`** — runs the full truth-table search (`--mode first-counterexample|exhaustive`).
+- **`validate-argument`** — checks structural readiness (conclusion set, inference premises, etc.).
+- **`refs`** — lists every variable referenced across all premises.
+- **`export`** — dumps the full `ArgumentEngine` state snapshot as JSON.
+
 ## Development
 
 ```bash
@@ -510,6 +675,7 @@ pnpm run lint        # Prettier + ESLint
 pnpm run test        # Vitest
 pnpm run build       # compile to dist/
 pnpm run check       # all of the above in sequence
+pnpm cli -- --help   # run the CLI from the local build
 ```
 
 ## Publishing

@@ -4,24 +4,24 @@ import type {
     TPremise,
     TPropositionalExpression,
     TPropositionalVariable,
-} from "../schemata"
-import { DefaultMap } from "../utils"
-import { sortedCopyById, sortedUnique } from "../utils/collections"
+} from "../schemata/index.js"
+import { DefaultMap } from "../utils.js"
+import { sortedCopyById, sortedUnique } from "../utils/collections.js"
 import type {
     TPremiseEvaluationResult,
     TPremiseInferenceDiagnostic,
     TValidationIssue,
     TValidationResult,
     TVariableAssignment,
-} from "../types/evaluation"
+} from "../types/evaluation.js"
 import {
     buildDirectionalVacuity,
     implicationValue,
     makeErrorIssue,
     makeValidationResult,
-} from "./evaluation/shared"
-import { ExpressionManager } from "./ExpressionManager"
-import { VariableManager } from "./VariableManager"
+} from "./evaluation/shared.js"
+import { ExpressionManager } from "./ExpressionManager.js"
+import { VariableManager } from "./VariableManager.js"
 
 export class PremiseManager {
     private id: string
@@ -223,6 +223,10 @@ export class PremiseManager {
 
     public getTitle(): string | undefined {
         return this.title
+    }
+
+    public setTitle(title: string | undefined): void {
+        this.title = title
     }
 
     public getRootExpressionId(): string | undefined {
@@ -611,11 +615,7 @@ export class PremiseManager {
                 referencedVariableIds.add(expr.variableId)
             }
         }
-        const variables = Array.from(referencedVariableIds)
-            .map((id) => this.variables.getVariable(id))
-            .filter((v): v is TPropositionalVariable => v !== undefined)
-            .map((v) => ({ ...v }))
-            .sort((a, b) => a.id.localeCompare(b.id))
+        const variables = Array.from(referencedVariableIds).sort()
 
         return {
             id: this.id,

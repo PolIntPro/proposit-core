@@ -1,4 +1,4 @@
-import type { TPropositionalVariable } from "../schemata"
+import type { TPropositionalVariable } from "../schemata/index.js"
 
 export class VariableManager {
     private variables: Map<string, TPropositionalVariable>
@@ -48,5 +48,21 @@ export class VariableManager {
 
     public getVariable(variableId: string): TPropositionalVariable | undefined {
         return this.variables.get(variableId)
+    }
+
+    public renameVariable(variableId: string, newSymbol: string): void {
+        const variable = this.variables.get(variableId)
+        if (!variable) {
+            throw new Error(`Variable "${variableId}" does not exist.`)
+        }
+        if (
+            this.variableSymbols.has(newSymbol) &&
+            variable.symbol !== newSymbol
+        ) {
+            throw new Error(`Variable symbol "${newSymbol}" is already in use.`)
+        }
+        this.variableSymbols.delete(variable.symbol)
+        this.variableSymbols.add(newSymbol)
+        this.variables.set(variableId, { ...variable, symbol: newSymbol })
     }
 }

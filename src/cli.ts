@@ -1,0 +1,57 @@
+#!/usr/bin/env node
+import { Command } from "commander"
+import { registerMetaCommands } from "./cli/commands/meta.js"
+import { registerArgumentCommands } from "./cli/commands/arguments.js"
+import { registerVersionShowCommand } from "./cli/commands/versionShow.js"
+import { registerRoleCommands } from "./cli/commands/roles.js"
+import { registerVariableCommands } from "./cli/commands/variables.js"
+import { registerPremiseCommands } from "./cli/commands/premises.js"
+import { registerExpressionCommands } from "./cli/commands/expressions.js"
+import { registerAnalysisCommands } from "./cli/commands/analysis.js"
+import { isNamedCommand, resolveVersion } from "./cli/router.js"
+import { errorExit } from "./cli/output.js"
+
+const program = new Command()
+program
+    .name("core")
+    .description("Proposit Core CLI")
+    .enablePositionalOptions()
+    .allowUnknownOption(false)
+
+// ── Named top-level commands ──────────────────────────────────────────────────
+registerMetaCommands(program)
+registerArgumentCommands(program)
+
+// ── Version-scoped commands ───────────────────────────────────────────────────
+// If the first user argument is not a named command, treat it as an argument ID
+// followed by a version specifier, then dispatch to the appropriate sub-program.
+if (!isNamedCommand(process.argv)) {
+    const [, , argumentId, versionArg, ...rest] = process.argv
+
+    if (!argumentId || !versionArg) {
+        errorExit(
+            "Usage: core <argument_id> <argument_version> <command> ...\n       core arguments <subcommand> ..."
+        )
+    }
+
+    // Resolve the version asynchronously, then build and parse a sub-program.
+    const version = await resolveVersion(argumentId, versionArg)
+
+    const sub = new Command()
+    sub.name("core")
+        .description(`Commands for ${argumentId}@${version}`)
+        .enablePositionalOptions()
+
+    registerVersionShowCommand(sub, argumentId, version)
+    registerRoleCommands(sub, argumentId, version)
+    registerVariableCommands(sub, argumentId, version)
+    registerPremiseCommands(sub, argumentId, version)
+    registerExpressionCommands(sub, argumentId, version)
+    registerAnalysisCommands(sub, argumentId, version)
+
+    // Replace the consumed positional args with the remainder so Commander
+    // sees: ["node", "core", <group>, <subcommand>, ...]
+    await sub.parseAsync(["node", "core", ...rest])
+} else {
+    await program.parseAsync(process.argv)
+}

@@ -12,6 +12,9 @@
             "import": "./dist/index.js"
         }
     },
+    "bin": {
+        "core": "./dist/cli.js"
+    },
     "files": [
         "dist"
     ],
@@ -20,7 +23,6 @@
         "url": "git+https://github.com/polintpro/proposit-core.git"
     },
     "publishConfig": {
-        "registry": "https://npm.pkg.github.com",
         "access": "public"
     },
     "scripts": {
@@ -30,7 +32,8 @@
         "prettify": "pnpm prettier -w .",
         "prettify:check": "pnpm prettier --check .",
         "test": "pnpm vitest run",
-        "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build"
+        "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+        "cli": "node dist/cli.js"
     },
     "devDependencies": {
         "@types/node": "^25.2.3",
@@ -43,6 +46,7 @@
     },
     "packageManager": "pnpm@10.23.0",
     "dependencies": {
+        "commander": "^14.0.3",
         "typebox": "^1.1.0"
     }
 }

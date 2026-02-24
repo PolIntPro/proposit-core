@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import type { TArgument, TPropositionalExpression } from "../schemata"
+import type { TArgument, TPropositionalExpression } from "../schemata/index.js"
 import type {
     TArgumentEngineData,
     TArgumentEvaluationOptions,
@@ -12,10 +12,10 @@ import type {
     TValidityCheckOptions,
     TValidityCheckResult,
     TVariableAssignment,
-} from "../types/evaluation"
-import { getOrCreate, sortedUnique } from "../utils/collections"
-import { makeErrorIssue, makeValidationResult } from "./evaluation/shared"
-import { PremiseManager } from "./PremiseManager"
+} from "../types/evaluation.js"
+import { getOrCreate, sortedUnique } from "../utils/collections.js"
+import { makeErrorIssue, makeValidationResult } from "./evaluation/shared.js"
+import { PremiseManager } from "./PremiseManager.js"
 
 export class ArgumentEngine {
     private argument: TArgument
@@ -36,6 +36,15 @@ export class ArgumentEngine {
 
     public createPremise(title?: string): PremiseManager {
         const id = randomUUID()
+        const pm = new PremiseManager(id, this.argument, title)
+        this.premises.set(id, pm)
+        return pm
+    }
+
+    public createPremiseWithId(id: string, title?: string): PremiseManager {
+        if (this.premises.has(id)) {
+            throw new Error(`Premise "${id}" already exists.`)
+        }
         const pm = new PremiseManager(id, this.argument, title)
         this.premises.set(id, pm)
         return pm

@@ -2,7 +2,7 @@ import type {
     TDirectionalVacuity,
     TValidationIssue,
     TValidationResult,
-} from "../../types/evaluation"
+} from "../../types/evaluation.js"
 
 export function makeValidationResult(
     issues: TValidationIssue[]

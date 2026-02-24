@@ -1,0 +1,274 @@
+import { randomUUID } from "node:crypto"
+import { Command } from "commander"
+import { PremiseManager } from "../../lib/core/PremiseManager.js"
+import type { TArgument } from "../../lib/schemata/index.js"
+import {
+    errorExit,
+    printJson,
+    printLine,
+    requireConfirmation,
+} from "../output.js"
+import { readArgumentMeta, readVersionMeta } from "../storage/arguments.js"
+import {
+    deletePremiseDir,
+    listPremiseIds,
+    premiseExists,
+    readPremiseData,
+    readPremiseMeta,
+    writePremiseData,
+    writePremiseMeta,
+} from "../storage/premises.js"
+import { readRoles, writeRoles } from "../storage/roles.js"
+import { readVariables } from "../storage/variables.js"
+
+async function assertNotPublished(
+    argumentId: string,
+    version: number
+): Promise<void> {
+    const meta = await readVersionMeta(argumentId, version)
+    if (meta.published) {
+        errorExit(
+            `Version ${version} of argument "${argumentId}" is published and cannot be modified.`
+        )
+    }
+}
+
+async function buildArgument(
+    argumentId: string,
+    version: number
+): Promise<TArgument> {
+    const [argMeta, vMeta] = await Promise.all([
+        readArgumentMeta(argumentId),
+        readVersionMeta(argumentId, version),
+    ])
+    return { ...argMeta, ...vMeta }
+}
+
+export function registerPremiseCommands(
+    versionedCmd: Command,
+    argumentId: string,
+    version: number
+): void {
+    const premises = versionedCmd
+        .command("premises")
+        .description("Manage premises")
+
+    premises
+        .command("create")
+        .description("Create a new premise")
+        .option("--title <title>", "Optional title for the premise")
+        .action(async (opts: { title?: string }) => {
+            await assertNotPublished(argumentId, version)
+            const id = randomUUID()
+            await writePremiseMeta(argumentId, version, {
+                id,
+                title: opts.title,
+            })
+            await writePremiseData(argumentId, version, id, {
+                variables: [],
+                expressions: [],
+                type: "constraint",
+            })
+            printLine(id)
+        })
+
+    premises
+        .command("list")
+        .description("List all premises")
+        .option("--json", "Output as JSON")
+        .action(async (opts: { json?: boolean }) => {
+            const argument = await buildArgument(argumentId, version)
+            const allVariables = await readVariables(argumentId, version)
+            const premiseIds = await listPremiseIds(argumentId, version)
+
+            const results = await Promise.all(
+                premiseIds.map(async (pid) => {
+                    const [meta, data] = await Promise.all([
+                        readPremiseMeta(argumentId, version, pid),
+                        readPremiseData(argumentId, version, pid),
+                    ])
+
+                    // Hydrate a temporary PremiseManager for display string
+                    const pm = new PremiseManager(pid, argument, meta.title)
+                    for (const v of allVariables) pm.addVariable(v)
+
+                    // Add expressions BFS-order
+                    const remaining = [...data.expressions]
+                    const added = new Set<string>()
+                    for (let i = remaining.length - 1; i >= 0; i--) {
+                        const expr = remaining[i]
+                        if (expr.parentId === null) {
+                            pm.addExpression(expr)
+                            added.add(expr.id)
+                            remaining.splice(i, 1)
+                        }
+                    }
+                    let progress = true
+                    while (remaining.length > 0 && progress) {
+                        progress = false
+                        for (let i = remaining.length - 1; i >= 0; i--) {
+                            const expr = remaining[i]
+                            if (
+                                expr.parentId !== null &&
+                                added.has(expr.parentId)
+                            ) {
+                                pm.addExpression(expr)
+                                added.add(expr.id)
+                                remaining.splice(i, 1)
+                                progress = true
+                            }
+                        }
+                    }
+
+                    return { meta, data, pm }
+                })
+            )
+
+            if (opts.json) {
+                printJson(
+                    results.map(({ meta, data }) => ({
+                        ...meta,
+                        ...data,
+                    }))
+                )
+            } else {
+                for (const { meta, data, pm } of results) {
+                    const display = pm.toDisplayString() || "(empty)"
+                    const title = meta.title ?? "(untitled)"
+                    printLine(
+                        `${meta.id} | ${data.type} | ${display} | ${title}`
+                    )
+                }
+            }
+        })
+
+    premises
+        .command("delete <premise_id>")
+        .description("Delete a premise")
+        .option("--confirm", "Skip confirmation prompt")
+        .action(async (premiseId: string, opts: { confirm?: boolean }) => {
+            await assertNotPublished(argumentId, version)
+            if (!(await premiseExists(argumentId, version, premiseId))) {
+                errorExit(`Premise "${premiseId}" not found.`)
+            }
+            if (!opts.confirm) {
+                await requireConfirmation(`Delete premise "${premiseId}"?`)
+            }
+
+            // Clean up roles
+            const roles = await readRoles(argumentId, version)
+            const updated = { ...roles }
+            if (roles.conclusionPremiseId === premiseId) {
+                updated.conclusionPremiseId = undefined
+            }
+            updated.supportingPremiseIds = roles.supportingPremiseIds.filter(
+                (id) => id !== premiseId
+            )
+            await writeRoles(argumentId, version, updated)
+
+            await deletePremiseDir(argumentId, version, premiseId)
+            printLine("success")
+        })
+
+    premises
+        .command("update <premise_id>")
+        .description("Update premise metadata")
+        .option("--title <new_title>", "New title")
+        .option("--clear-title", "Remove the title")
+        .action(
+            async (
+                premiseId: string,
+                opts: { title?: string; clearTitle?: boolean }
+            ) => {
+                await assertNotPublished(argumentId, version)
+                if (opts.title !== undefined && opts.clearTitle) {
+                    errorExit(
+                        "--title and --clear-title cannot both be specified."
+                    )
+                }
+                if (!(await premiseExists(argumentId, version, premiseId))) {
+                    errorExit(`Premise "${premiseId}" not found.`)
+                }
+                const meta = await readPremiseMeta(
+                    argumentId,
+                    version,
+                    premiseId
+                )
+                if (opts.clearTitle) {
+                    meta.title = undefined
+                } else if (opts.title !== undefined) {
+                    meta.title = opts.title
+                }
+                await writePremiseMeta(argumentId, version, meta)
+                printLine("success")
+            }
+        )
+
+    premises
+        .command("show <premise_id>")
+        .description("Show a single premise")
+        .option("--json", "Output as JSON")
+        .action(async (premiseId: string, opts: { json?: boolean }) => {
+            if (!(await premiseExists(argumentId, version, premiseId))) {
+                errorExit(`Premise "${premiseId}" not found.`)
+            }
+            const [meta, data] = await Promise.all([
+                readPremiseMeta(argumentId, version, premiseId),
+                readPremiseData(argumentId, version, premiseId),
+            ])
+            if (opts.json) {
+                printJson({ ...meta, ...data })
+            } else {
+                printLine(`id:           ${meta.id}`)
+                printLine(`title:        ${meta.title ?? "(untitled)"}`)
+                printLine(`type:         ${data.type}`)
+                printLine(`root expr id: ${data.rootExpressionId ?? "(none)"}`)
+                printLine(`variables:    ${data.variables.length}`)
+                printLine(`expressions:  ${data.expressions.length}`)
+            }
+        })
+
+    premises
+        .command("render <premise_id>")
+        .description("Render the premise as a logical expression string")
+        .action(async (premiseId: string) => {
+            if (!(await premiseExists(argumentId, version, premiseId))) {
+                errorExit(`Premise "${premiseId}" not found.`)
+            }
+            const argument = await buildArgument(argumentId, version)
+            const allVariables = await readVariables(argumentId, version)
+            const [meta, data] = await Promise.all([
+                readPremiseMeta(argumentId, version, premiseId),
+                readPremiseData(argumentId, version, premiseId),
+            ])
+
+            const pm = new PremiseManager(premiseId, argument, meta.title)
+            for (const v of allVariables) pm.addVariable(v)
+
+            const remaining = [...data.expressions]
+            const added = new Set<string>()
+            for (let i = remaining.length - 1; i >= 0; i--) {
+                const expr = remaining[i]
+                if (expr.parentId === null) {
+                    pm.addExpression(expr)
+                    added.add(expr.id)
+                    remaining.splice(i, 1)
+                }
+            }
+            let progress = true
+            while (remaining.length > 0 && progress) {
+                progress = false
+                for (let i = remaining.length - 1; i >= 0; i--) {
+                    const expr = remaining[i]
+                    if (expr.parentId !== null && added.has(expr.parentId)) {
+                        pm.addExpression(expr)
+                        added.add(expr.id)
+                        remaining.splice(i, 1)
+                        progress = true
+                    }
+                }
+            }
+
+            printLine(pm.toDisplayString())
+        })
+}

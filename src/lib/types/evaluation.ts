@@ -1,13 +1,12 @@
-import type { TArgument, TPremise } from "../schemata"
+import type {
+    TArgument,
+    TArgumentRoleState,
+    TPremise,
+} from "../schemata/index.js"
 
 export type TPremiseRole = "supporting" | "conclusion"
 
-export interface TArgumentRoleState {
-    // Premise IDs currently designated as supporting premises.
-    supportingPremiseIds: string[]
-    // The single designated conclusion premise ID, if one has been set.
-    conclusionPremiseId?: string
-}
+export type { TArgumentRoleState }
 
 export interface TArgumentEngineData {
     // Snapshot of the argument metadata managed by the engine.

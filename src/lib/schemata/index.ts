@@ -1,3 +1,4 @@
-export * from "./argument"
-export * from "./propositional"
-export * from "./shared"
+export * from "./analysis.js"
+export * from "./argument.js"
+export * from "./propositional.js"
+export * from "./shared.js"
