@@ -210,7 +210,22 @@ core $ARG_ID latest roles clear-conclusion
 
 ---
 
-## 7. Analysis
+## 7. Render
+
+Print all premises in one shot, with the conclusion marked by an asterisk:
+
+```bash
+core $ARG_ID latest render
+# → <P3_ID>*: (P → R)
+# → <P1_ID>: (P → Q)
+# → <P2_ID>: (Q → R)
+```
+
+Each line follows the pattern `<premise_id>[*]: <display_string>`. The asterisk appears only on the premise with the conclusion role.
+
+---
+
+## 8. Analysis
 
 ### Validate the argument structure
 
@@ -304,7 +319,7 @@ core $ARG_ID latest analysis export
 
 ---
 
-## 8. Publishing
+## 9. Publishing
 
 Publishing locks the current version and prepares a new draft:
 
@@ -321,7 +336,7 @@ Any mutation command on a published version will exit with an error. All further
 
 ---
 
-## 9. Cleanup
+## 10. Cleanup
 
 ```bash
 # Delete a single premise (prompts for confirmation)
@@ -399,6 +414,9 @@ core $ARG_ID latest expressions create $P3_ID --type variable --variable-id $R_I
 core $ARG_ID latest roles add-support $P1_ID
 core $ARG_ID latest roles add-support $P2_ID
 core $ARG_ID latest roles set-conclusion $P3_ID
+
+# ── Render ────────────────────────────────────────────────────────────────────
+core $ARG_ID latest render
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
 core $ARG_ID latest analysis validate-argument

@@ -59,6 +59,7 @@ src/
       meta.ts             # version command
       arguments.ts        # arguments: create, list, delete, publish
       versionShow.ts      # <id> <ver> show
+      render.ts           # <id> <ver> render
       roles.ts            # <id> <ver> roles: show, set-conclusion, clear-conclusion, add-support, remove-support
       variables.ts        # <id> <ver> variables: create, list, show, update, delete, list-unused, delete-unused
       premises.ts         # <id> <ver> premises: create, list, show, update, delete, render

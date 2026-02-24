@@ -8,6 +8,7 @@ import { registerVariableCommands } from "./cli/commands/variables.js"
 import { registerPremiseCommands } from "./cli/commands/premises.js"
 import { registerExpressionCommands } from "./cli/commands/expressions.js"
 import { registerAnalysisCommands } from "./cli/commands/analysis.js"
+import { registerRenderCommand } from "./cli/commands/render.js"
 import { isNamedCommand, resolveVersion } from "./cli/router.js"
 import { errorExit } from "./cli/output.js"
 
@@ -43,6 +44,7 @@ if (!isNamedCommand(process.argv)) {
         .enablePositionalOptions()
 
     registerVersionShowCommand(sub, argumentId, version)
+    registerRenderCommand(sub, argumentId, version)
     registerRoleCommands(sub, argumentId, version)
     registerVariableCommands(sub, argumentId, version)
     registerPremiseCommands(sub, argumentId, version)

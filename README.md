@@ -579,6 +579,14 @@ core <id> <ver> show [--json]
 
 Displays argument metadata (id, title, description, version, createdAt, published, publishedAt).
 
+#### render
+
+```
+core <id> <ver> render
+```
+
+Prints every premise in the argument, one per line, in the format `<premise_id>: <display_string>`. The premise designated as the conclusion is marked with an asterisk (`<premise_id>*: <display_string>`). Display strings use standard logical notation (¬ ∧ ∨ → ↔).
+
 #### roles
 
 ```
