@@ -18,6 +18,12 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs", "*.mjs"],
+    "include": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs",
+        "*.mjs",
+        ".ltstash/predicate.ts"
+    ],
     "exclude": ["dist", "node_modules"]
 }

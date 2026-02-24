@@ -1,0 +1,730 @@
+import type {
+    TArgument,
+    TLogicalOperatorType,
+    TPremise,
+    TPropositionalExpression,
+    TPropositionalVariable,
+} from "../schemata"
+import { DefaultMap } from "../utils"
+import { sortedCopyById, sortedUnique } from "../utils/collections"
+import type {
+    TPremiseEvaluationResult,
+    TPremiseInferenceDiagnostic,
+    TValidationIssue,
+    TValidationResult,
+    TVariableAssignment,
+} from "../types/evaluation"
+import {
+    buildDirectionalVacuity,
+    implicationValue,
+    makeErrorIssue,
+    makeValidationResult,
+} from "./evaluation/shared"
+import { ExpressionManager } from "./ExpressionManager"
+import { VariableManager } from "./VariableManager"
+
+export class PremiseManager {
+    private id: string
+    private title: string | undefined
+    private rootExpressionId: string | undefined
+    private variables: VariableManager
+    private expressions: ExpressionManager
+    private expressionsByVariableId: DefaultMap<string, Set<string>>
+    private argument: TArgument
+
+    constructor(id: string, argument: TArgument, title?: string) {
+        this.id = id
+        this.argument = argument
+        this.title = title
+        this.rootExpressionId = undefined
+        this.variables = new VariableManager()
+        this.expressions = new ExpressionManager()
+        this.expressionsByVariableId = new DefaultMap(() => new Set())
+    }
+
+    /**
+     * Registers a propositional variable for use within this premise.
+     *
+     * @throws If `variable.symbol` is already in use within this premise.
+     * @throws If `variable.id` already exists within this premise.
+     * @throws If the variable does not belong to this premise's argument.
+     */
+    public addVariable(variable: TPropositionalVariable): void {
+        this.assertBelongsToArgument(
+            variable.argumentId,
+            variable.argumentVersion
+        )
+        this.variables.addVariable(variable)
+    }
+
+    /**
+     * Removes a variable from this premise's registry and returns it, or
+     * `undefined` if it was not found.
+     *
+     * @throws If any expression in this premise still references the variable.
+     */
+    public removeVariable(
+        variableId: string
+    ): TPropositionalVariable | undefined {
+        if (this.expressionsByVariableId.get(variableId).size > 0) {
+            throw new Error(
+                `Variable "${variableId}" cannot be removed because it is referenced by one or more expressions.`
+            )
+        }
+        return this.variables.removeVariable(variableId)
+    }
+
+    /**
+     * Adds an expression to this premise's tree.
+     *
+     * If the expression has `parentId: null` it becomes the root; only one
+     * root is permitted per premise.  If `parentId` is non-null the parent
+     * must already exist within this premise.
+     *
+     * All other structural rules (`implies`/`iff` root-only, child limits,
+     * position uniqueness) are enforced by the underlying `ExpressionManager`.
+     *
+     * @throws If the premise already has a root expression and this one is also a root.
+     * @throws If the expression's parent does not exist in this premise.
+     * @throws If the expression is a variable reference and the variable has not been registered.
+     * @throws If the expression does not belong to this argument.
+     */
+    public addExpression(expression: TPropositionalExpression): void {
+        this.assertBelongsToArgument(
+            expression.argumentId,
+            expression.argumentVersion
+        )
+
+        if (
+            expression.type === "variable" &&
+            !this.variables.hasVariable(expression.variableId)
+        ) {
+            throw new Error(
+                `Variable expression "${expression.id}" references non-existent variable "${expression.variableId}".`
+            )
+        }
+
+        if (expression.parentId === null) {
+            if (this.rootExpressionId !== undefined) {
+                throw new Error(
+                    `Premise "${this.id}" already has a root expression.`
+                )
+            }
+        } else {
+            if (!this.expressions.getExpression(expression.parentId)) {
+                throw new Error(
+                    `Parent expression "${expression.parentId}" does not exist in this premise.`
+                )
+            }
+        }
+
+        // Delegate structural validation (operator type checks, position
+        // uniqueness, child limits) to ExpressionManager.
+        this.expressions.addExpression(expression)
+
+        if (expression.parentId === null) {
+            this.rootExpressionId = expression.id
+        }
+        if (expression.type === "variable") {
+            this.expressionsByVariableId
+                .get(expression.variableId)
+                .add(expression.id)
+        }
+    }
+
+    /**
+     * Removes an expression and its entire descendant subtree, then collapses
+     * any ancestor operators with fewer than two children (same semantics as
+     * before).  Returns the removed root expression, or `undefined` if not
+     * found.
+     *
+     * `rootExpressionId` is recomputed after every removal because operator
+     * collapse can silently promote a new expression into the root slot.
+     */
+    public removeExpression(
+        expressionId: string
+    ): TPropositionalExpression | undefined {
+        // Snapshot the subtree before deletion so we can clean up
+        // expressionsByVariableId for cascade-deleted descendants — they are
+        // not individually surfaced by ExpressionManager.removeExpression.
+        const subtree = this.collectSubtree(expressionId)
+
+        const removed = this.expressions.removeExpression(expressionId)
+
+        if (removed) {
+            for (const expr of subtree) {
+                if (expr.type === "variable") {
+                    this.expressionsByVariableId
+                        .get(expr.variableId)
+                        ?.delete(expr.id)
+                }
+            }
+        }
+
+        this.syncRootExpressionId()
+        return removed
+    }
+
+    /**
+     * Splices a new expression between existing nodes in the tree.  The new
+     * expression inherits the tree slot of the anchor node
+     * (`leftNodeId ?? rightNodeId`).
+     *
+     * `rootExpressionId` is recomputed after every insertion because the
+     * anchor may have been the root.
+     *
+     * See `ArgumentEngine.insertExpression` for the full contract; the same
+     * rules apply here.
+     *
+     * @throws If the expression does not belong to this argument.
+     * @throws If the expression is a variable reference and the variable has not been registered.
+     */
+    public insertExpression(
+        expression: TPropositionalExpression,
+        leftNodeId?: string,
+        rightNodeId?: string
+    ): void {
+        this.assertBelongsToArgument(
+            expression.argumentId,
+            expression.argumentVersion
+        )
+
+        if (
+            expression.type === "variable" &&
+            !this.variables.hasVariable(expression.variableId)
+        ) {
+            throw new Error(
+                `Variable expression "${expression.id}" references non-existent variable "${expression.variableId}".`
+            )
+        }
+
+        this.expressions.insertExpression(expression, leftNodeId, rightNodeId)
+
+        if (expression.type === "variable") {
+            this.expressionsByVariableId
+                .get(expression.variableId)
+                .add(expression.id)
+        }
+
+        this.syncRootExpressionId()
+    }
+
+    /**
+     * Returns an expression by ID, or `undefined` if not found in this
+     * premise.
+     */
+    public getExpression(id: string): TPropositionalExpression | undefined {
+        return this.expressions.getExpression(id)
+    }
+
+    public getId(): string {
+        return this.id
+    }
+
+    public getTitle(): string | undefined {
+        return this.title
+    }
+
+    public getRootExpressionId(): string | undefined {
+        return this.rootExpressionId
+    }
+
+    public getRootExpression(): TPropositionalExpression | undefined {
+        if (this.rootExpressionId === undefined) {
+            return undefined
+        }
+        const expr = this.expressions.getExpression(this.rootExpressionId)
+        return expr ? { ...expr } : undefined
+    }
+
+    public getVariables(): TPropositionalVariable[] {
+        return sortedCopyById(this.variables.toArray())
+    }
+
+    public getExpressions(): TPropositionalExpression[] {
+        return sortedCopyById(this.expressions.toArray())
+    }
+
+    public getChildExpressions(
+        parentId: string | null
+    ): TPropositionalExpression[] {
+        return this.expressions.getChildExpressions(parentId).map((expr) => ({
+            ...expr,
+        }))
+    }
+
+    public getPremiseType(): "inference" | "constraint" {
+        const root = this.getRootExpression()
+        return root?.type === "operator" &&
+            (root.operator === "implies" || root.operator === "iff")
+            ? "inference"
+            : "constraint"
+    }
+
+    public validateEvaluability(): TValidationResult {
+        const issues: TValidationIssue[] = []
+        const roots = this.expressions.getChildExpressions(null)
+
+        if (this.expressions.toArray().length === 0) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_EMPTY",
+                    message: `Premise "${this.id}" has no expressions to evaluate.`,
+                    premiseId: this.id,
+                })
+            )
+            return makeValidationResult(issues)
+        }
+
+        if (roots.length === 0) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISSING",
+                    message: `Premise "${this.id}" has expressions but no root expression.`,
+                    premiseId: this.id,
+                })
+            )
+        }
+
+        if (this.rootExpressionId === undefined) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISSING",
+                    message: `Premise "${this.id}" does not have rootExpressionId set.`,
+                    premiseId: this.id,
+                })
+            )
+        } else if (!this.expressions.getExpression(this.rootExpressionId)) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISMATCH",
+                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
+                    premiseId: this.id,
+                    expressionId: this.rootExpressionId,
+                })
+            )
+        } else if (roots[0] && roots[0].id !== this.rootExpressionId) {
+            issues.push(
+                makeErrorIssue({
+                    code: "PREMISE_ROOT_MISMATCH",
+                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
+                    premiseId: this.id,
+                    expressionId: this.rootExpressionId,
+                })
+            )
+        }
+
+        for (const expr of this.expressions.toArray()) {
+            if (
+                expr.type === "variable" &&
+                !this.variables.hasVariable(expr.variableId)
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_VARIABLE_UNDECLARED",
+                        message: `Expression "${expr.id}" references undeclared variable "${expr.variableId}".`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                        variableId: expr.variableId,
+                    })
+                )
+            }
+
+            if (expr.type !== "operator" && expr.type !== "formula") {
+                continue
+            }
+
+            const children = this.expressions.getChildExpressions(expr.id)
+
+            if (expr.type === "formula") {
+                if (children.length !== 1) {
+                    issues.push(
+                        makeErrorIssue({
+                            code: "EXPR_CHILD_COUNT_INVALID",
+                            message: `Formula expression "${expr.id}" must have exactly 1 child; found ${children.length}.`,
+                            premiseId: this.id,
+                            expressionId: expr.id,
+                        })
+                    )
+                }
+                continue
+            }
+
+            if (expr.operator === "not" && children.length !== 1) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (not) must have exactly 1 child; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (
+                (expr.operator === "implies" || expr.operator === "iff") &&
+                children.length !== 2
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (${expr.operator}) must have exactly 2 children; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (
+                (expr.operator === "and" || expr.operator === "or") &&
+                children.length < 2
+            ) {
+                issues.push(
+                    makeErrorIssue({
+                        code: "EXPR_CHILD_COUNT_INVALID",
+                        message: `Operator "${expr.id}" (${expr.operator}) must have at least 2 children; found ${children.length}.`,
+                        premiseId: this.id,
+                        expressionId: expr.id,
+                    })
+                )
+            }
+
+            if (expr.operator === "implies" || expr.operator === "iff") {
+                const childPositions = new Set(
+                    children.map((child) => child.position)
+                )
+                if (!childPositions.has(0) || !childPositions.has(1)) {
+                    issues.push(
+                        makeErrorIssue({
+                            code: "EXPR_BINARY_POSITIONS_INVALID",
+                            message: `Operator "${expr.id}" (${expr.operator}) must have children at positions 0 and 1.`,
+                            premiseId: this.id,
+                            expressionId: expr.id,
+                        })
+                    )
+                }
+            }
+        }
+
+        return makeValidationResult(issues)
+    }
+
+    public evaluate(
+        assignment: TVariableAssignment,
+        options?: {
+            strictUnknownKeys?: boolean
+            requireExactCoverage?: boolean
+        }
+    ): TPremiseEvaluationResult {
+        const validation = this.validateEvaluability()
+        if (!validation.ok) {
+            throw new Error(
+                `Premise "${this.id}" is not evaluable: ${validation.issues
+                    .map((issue) => issue.code)
+                    .join(", ")}`
+            )
+        }
+
+        const rootExpressionId = this.rootExpressionId!
+        const referencedVariableIds = sortedUnique(
+            this.expressions
+                .toArray()
+                .filter(
+                    (expr): expr is TPropositionalExpression<"variable"> =>
+                        expr.type === "variable"
+                )
+                .map((expr) => expr.variableId)
+        )
+
+        const missingVariableIds = referencedVariableIds.filter(
+            (variableId) => !(variableId in assignment)
+        )
+        if (missingVariableIds.length > 0) {
+            throw new Error(
+                `Missing assignment values for variables: ${missingVariableIds.join(", ")}`
+            )
+        }
+
+        if (options?.strictUnknownKeys || options?.requireExactCoverage) {
+            const knownVariableIds = new Set(referencedVariableIds)
+            const unknownKeys = Object.keys(assignment).filter(
+                (variableId) => !knownVariableIds.has(variableId)
+            )
+            if (unknownKeys.length > 0) {
+                throw new Error(
+                    `Assignment contains unknown variable IDs for premise "${this.id}": ${unknownKeys.join(", ")}`
+                )
+            }
+        }
+
+        const expressionValues: Record<string, boolean> = {}
+        const evaluateExpression = (expressionId: string): boolean => {
+            const expression = this.expressions.getExpression(expressionId)
+            if (!expression) {
+                throw new Error(`Expression "${expressionId}" was not found.`)
+            }
+
+            if (expression.type === "variable") {
+                const value = assignment[expression.variableId]
+                expressionValues[expression.id] = value
+                return value
+            }
+
+            const children = this.expressions.getChildExpressions(expression.id)
+            let value: boolean
+
+            if (expression.type === "formula") {
+                value = evaluateExpression(children[0].id)
+                expressionValues[expression.id] = value
+                return value
+            }
+
+            switch (expression.operator) {
+                case "not":
+                    value = !evaluateExpression(children[0].id)
+                    break
+                case "and":
+                    value = children.every((child) =>
+                        evaluateExpression(child.id)
+                    )
+                    break
+                case "or":
+                    value = children.some((child) =>
+                        evaluateExpression(child.id)
+                    )
+                    break
+                case "implies": {
+                    const left = children.find((child) => child.position === 0)
+                    const right = children.find((child) => child.position === 1)
+                    value = implicationValue(
+                        evaluateExpression(left!.id),
+                        evaluateExpression(right!.id)
+                    )
+                    break
+                }
+                case "iff": {
+                    const left = children.find((child) => child.position === 0)
+                    const right = children.find((child) => child.position === 1)
+                    value =
+                        evaluateExpression(left!.id) ===
+                        evaluateExpression(right!.id)
+                    break
+                }
+            }
+
+            expressionValues[expression.id] = value
+            return value
+        }
+
+        const rootValue = evaluateExpression(rootExpressionId)
+        const variableValues: Record<string, boolean> = {}
+        for (const variableId of referencedVariableIds) {
+            variableValues[variableId] = assignment[variableId]
+        }
+
+        let inferenceDiagnostic: TPremiseInferenceDiagnostic | undefined
+        if (this.getPremiseType() === "inference") {
+            const root = this.expressions.getExpression(rootExpressionId)
+            if (root?.type === "operator") {
+                const children = this.expressions.getChildExpressions(root.id)
+                const left = children.find((child) => child.position === 0)
+                const right = children.find((child) => child.position === 1)
+                if (left && right) {
+                    const leftValue = expressionValues[left.id]
+                    const rightValue = expressionValues[right.id]
+                    if (root.operator === "implies") {
+                        inferenceDiagnostic = {
+                            kind: "implies",
+                            premiseId: this.id,
+                            rootExpressionId,
+                            leftValue,
+                            rightValue,
+                            rootValue,
+                            antecedentTrue: leftValue,
+                            consequentTrue: rightValue,
+                            isVacuouslyTrue: !leftValue,
+                            fired: leftValue,
+                            firedAndHeld: leftValue && rightValue,
+                        }
+                    } else if (root.operator === "iff") {
+                        const leftToRight = buildDirectionalVacuity(
+                            leftValue,
+                            rightValue
+                        )
+                        const rightToLeft = buildDirectionalVacuity(
+                            rightValue,
+                            leftValue
+                        )
+                        inferenceDiagnostic = {
+                            kind: "iff",
+                            premiseId: this.id,
+                            rootExpressionId,
+                            leftValue,
+                            rightValue,
+                            rootValue,
+                            leftToRight,
+                            rightToLeft,
+                            bothSidesTrue: leftValue && rightValue,
+                            bothSidesFalse: !leftValue && !rightValue,
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            premiseId: this.id,
+            premiseType: this.getPremiseType(),
+            rootExpressionId,
+            rootValue,
+            expressionValues,
+            variableValues,
+            inferenceDiagnostic,
+        }
+    }
+
+    /**
+     * Returns a human-readable string of this premise's expression tree using
+     * standard logical notation (∧ ∨ ¬ → ↔).  Missing operands are rendered
+     * as `(?)`.  Returns an empty string when the premise has no expressions.
+     */
+    public toDisplayString(): string {
+        if (this.rootExpressionId === undefined) {
+            return ""
+        }
+        return this.renderExpression(this.rootExpressionId)
+    }
+
+    /**
+     * Returns a serialisable snapshot of this premise conforming to
+     * `TPremise`.  `variables` contains only the variables that are actually
+     * referenced by expressions in this premise.  `type` is derived from the
+     * root expression: `"inference"` if the root is an `implies` or `iff`
+     * operator, `"constraint"` otherwise (including when the premise is empty).
+     */
+    public toData(): TPremise {
+        const expressions = this.getExpressions()
+
+        const referencedVariableIds = new Set<string>()
+        for (const expr of expressions) {
+            if (expr.type === "variable") {
+                referencedVariableIds.add(expr.variableId)
+            }
+        }
+        const variables = Array.from(referencedVariableIds)
+            .map((id) => this.variables.getVariable(id))
+            .filter((v): v is TPropositionalVariable => v !== undefined)
+            .map((v) => ({ ...v }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+
+        return {
+            id: this.id,
+            title: this.title,
+            rootExpressionId: this.rootExpressionId,
+            variables,
+            expressions,
+            type: this.getPremiseType(),
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Re-reads the single root from ExpressionManager after any operation
+     * that may have caused operator collapse to silently change the root.
+     */
+    private syncRootExpressionId(): void {
+        const roots = this.expressions.getChildExpressions(null)
+        this.rootExpressionId = roots[0]?.id
+    }
+
+    private collectSubtree(rootId: string): TPropositionalExpression[] {
+        const result: TPropositionalExpression[] = []
+        const stack = [rootId]
+        while (stack.length > 0) {
+            const id = stack.pop()!
+            const expr = this.expressions.getExpression(id)
+            if (!expr) continue
+            result.push(expr)
+            for (const child of this.expressions.getChildExpressions(id)) {
+                stack.push(child.id)
+            }
+        }
+        return result
+    }
+
+    private assertBelongsToArgument(
+        argumentId: string,
+        argumentVersion: number
+    ): void {
+        if (argumentId !== this.argument.id) {
+            throw new Error(
+                `Entity argumentId "${argumentId}" does not match engine argument ID "${this.argument.id}".`
+            )
+        }
+        if (argumentVersion !== this.argument.version) {
+            throw new Error(
+                `Entity argumentVersion "${argumentVersion}" does not match engine argument version "${this.argument.version}".`
+            )
+        }
+    }
+
+    private renderExpression(expressionId: string): string {
+        const expression = this.expressions.getExpression(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" was not found.`)
+        }
+
+        if (expression.type === "variable") {
+            const variable = this.variables.getVariable(expression.variableId)
+            if (!variable) {
+                throw new Error(
+                    `Variable "${expression.variableId}" for expression "${expressionId}" was not found.`
+                )
+            }
+            return variable.symbol
+        }
+
+        if (expression.type === "formula") {
+            const children = this.expressions.getChildExpressions(expression.id)
+            if (children.length === 0) {
+                return "(?)"
+            }
+            return `(${this.renderExpression(children[0].id)})`
+        }
+
+        const children = this.expressions.getChildExpressions(expression.id)
+        if (expression.operator === "not") {
+            if (children.length === 0) {
+                return `${this.operatorSymbol(expression.operator)} (?)`
+            }
+            return `${this.operatorSymbol(expression.operator)}(${this.renderExpression(children[0].id)})`
+        }
+
+        if (children.length === 0) {
+            return "(?)"
+        }
+
+        const renderedChildren = children.map((child) =>
+            this.renderExpression(child.id)
+        )
+        return `(${renderedChildren.join(` ${this.operatorSymbol(expression.operator)} `)})`
+    }
+
+    private operatorSymbol(operator: TLogicalOperatorType): string {
+        switch (operator) {
+            case "and":
+                return "∧"
+            case "or":
+                return "∨"
+            case "implies":
+                return "→"
+            case "iff":
+                return "↔"
+            case "not":
+                return "¬"
+        }
+    }
+}
