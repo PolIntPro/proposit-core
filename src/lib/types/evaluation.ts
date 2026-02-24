@@ -3,13 +3,18 @@ import type { TArgument, TPremise } from "../schemata"
 export type TPremiseRole = "supporting" | "conclusion"
 
 export interface TArgumentRoleState {
+    // Premise IDs currently designated as supporting premises.
     supportingPremiseIds: string[]
+    // The single designated conclusion premise ID, if one has been set.
     conclusionPremiseId?: string
 }
 
 export interface TArgumentEngineData {
+    // Snapshot of the argument metadata managed by the engine.
     argument: TArgument
+    // Serialized premise snapshots (one per premise manager).
     premises: TPremise[]
+    // Current role assignments for the premises in this engine.
     roles: TArgumentRoleState
 }
 
@@ -34,24 +39,37 @@ export type TValidationCode =
     | "ASSIGNMENT_UNKNOWN_VARIABLE"
 
 export interface TValidationIssue {
+    // Machine-readable issue code for callers/tests/UI logic.
     code: TValidationCode
+    // Severity level; `error` blocks evaluation/validity checks.
     severity: TValidationSeverity
+    // Human-readable explanation of the issue.
     message: string
+    // Premise associated with the issue, when applicable.
     premiseId?: string
+    // Expression associated with the issue, when applicable.
     expressionId?: string
+    // Variable associated with the issue, when applicable.
     variableId?: string
 }
 
 export interface TValidationResult {
+    // `true` iff no `error`-severity issues are present.
     ok: boolean
+    // Full list of validation findings (errors and warnings).
     issues: TValidationIssue[]
 }
 
 export interface TDirectionalVacuity {
+    // Truth value of the antecedent for this directional implication view.
     antecedentTrue: boolean
+    // Truth value of the consequent for this directional implication view.
     consequentTrue: boolean
+    // Result of evaluating `antecedent -> consequent`.
     implicationValue: boolean
+    // `true` iff the implication is true because the antecedent is false.
     isVacuouslyTrue: boolean
+    // `true` iff the antecedent was true (the implication "fired").
     fired: boolean
 }
 
@@ -83,19 +101,30 @@ export type TPremiseInferenceDiagnostic =
       }
 
 export interface TPremiseEvaluationResult {
+    // ID of the evaluated premise.
     premiseId: string
+    // Premise classification derived from the root expression.
     premiseType: "inference" | "constraint"
+    // Root expression ID, if the premise has a root.
     rootExpressionId?: string
+    // Truth value of the root expression, if the premise was evaluable.
     rootValue?: boolean
+    // Per-expression truth values keyed by expression ID.
     expressionValues: Record<string, boolean>
+    // Referenced variable truth values keyed by variable ID.
     variableValues: Record<string, boolean>
+    // Inference-specific diagnostics for `implies`/`iff` roots.
     inferenceDiagnostic?: TPremiseInferenceDiagnostic
 }
 
 export interface TArgumentEvaluationOptions {
+    // Reject assignment keys that are not referenced by the evaluated premises.
     strictUnknownAssignmentKeys?: boolean
+    // Include per-expression truth maps in premise results (may be verbose).
     includeExpressionValues?: boolean
+    // Include inference diagnostics in premise results.
     includeDiagnostics?: boolean
+    // Run argument/premise evaluability validation before evaluating.
     validateFirst?: boolean
 }
 
@@ -127,25 +156,40 @@ export interface TArgumentEvaluationResult {
 }
 
 export interface TValidityCheckOptions {
+    // Stop at first counterexample or continue exhaustively.
     mode?: "firstCounterexample" | "exhaustive"
+    // Safety limit for the number of variables used in truth-table generation.
     maxVariables?: number
+    // Safety limit for generated assignments checked before truncating.
     maxAssignmentsChecked?: number
+    // Include full evaluation payloads for captured counterexamples.
     includeCounterexampleEvaluations?: boolean
+    // Run evaluability validation before truth-table search.
     validateFirst?: boolean
 }
 
 export interface TCounterexample {
+    // Assignment under which the argument fails to preserve truth.
     assignment: TVariableAssignment
+    // Full argument evaluation result for that assignment.
     result: TArgumentEvaluationResult
 }
 
 export interface TValidityCheckResult {
+    // `false` means the validity check could not run to completion.
     ok: boolean
+    // Validation output when `ok === false`.
     validation?: TValidationResult
+    // Validity result when known; may be omitted if truncated before conclusion.
     isValid?: boolean
+    // Variable IDs used to generate the checked assignments.
     checkedVariableIds?: string[]
+    // Total number of assignments evaluated (including inadmissible ones).
     numAssignmentsChecked?: number
+    // Number of assignments satisfying all constraints.
     numAdmissibleAssignments?: number
+    // Counterexamples found (one or many depending on mode/options).
     counterexamples?: TCounterexample[]
+    // `true` iff checking stopped due to a configured limit.
     truncated?: boolean
 }
