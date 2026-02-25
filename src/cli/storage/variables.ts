@@ -3,13 +3,13 @@ import path from "node:path"
 import Type from "typebox"
 import Value from "typebox/value"
 import {
-    PropositionalVariableSchema,
-    type TPropositionalVariable,
+    CorePropositionalVariableSchema,
+    type TCorePropositionalVariable,
 } from "../../lib/schemata/index.js"
 import { getVersionDir } from "../config.js"
 import { errorExit } from "../output.js"
 
-const VariablesFileSchema = Type.Array(PropositionalVariableSchema)
+const VariablesFileSchema = Type.Array(CorePropositionalVariableSchema)
 
 function variablesPath(argumentId: string, version: number): string {
     return path.join(getVersionDir(argumentId, version), "variables.json")
@@ -18,7 +18,7 @@ function variablesPath(argumentId: string, version: number): string {
 export async function readVariables(
     argumentId: string,
     version: number
-): Promise<TPropositionalVariable[]> {
+): Promise<TCorePropositionalVariable[]> {
     const filePath = variablesPath(argumentId, version)
     const content = await fs.readFile(filePath, "utf-8").catch(() => {
         errorExit(`variables.json not found for ${argumentId}@${version}.`)
@@ -34,7 +34,7 @@ export async function readVariables(
 export async function writeVariables(
     argumentId: string,
     version: number,
-    variables: TPropositionalVariable[]
+    variables: TCorePropositionalVariable[]
 ): Promise<void> {
     await fs.writeFile(
         variablesPath(argumentId, version),

@@ -1,5 +1,5 @@
 import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
-import type { TArgument } from "../lib/schemata/index.js"
+import type { TCoreArgument } from "../lib/schemata/index.js"
 import { readArgumentMeta, readVersionMeta } from "./storage/arguments.js"
 import {
     listPremiseIds,
@@ -32,7 +32,7 @@ export async function hydrateEngine(
             listPremiseIds(argumentId, version),
         ])
 
-    const argument: TArgument = { ...argMeta, ...versionMeta }
+    const argument: TCoreArgument = { ...argMeta, ...versionMeta }
     const engine = new ArgumentEngine(argument)
 
     for (const premiseId of premiseIds) {

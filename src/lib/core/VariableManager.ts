@@ -1,10 +1,10 @@
-import type { TPropositionalVariable } from "../schemata/index.js"
+import type { TCorePropositionalVariable } from "../schemata/index.js"
 
 export class VariableManager {
-    private variables: Map<string, TPropositionalVariable>
+    private variables: Map<string, TCorePropositionalVariable>
     private variableSymbols: Set<string>
 
-    constructor(initialVariables: TPropositionalVariable[] = []) {
+    constructor(initialVariables: TCorePropositionalVariable[] = []) {
         this.variables = new Map()
         this.variableSymbols = new Set()
 
@@ -13,11 +13,11 @@ export class VariableManager {
         }
     }
 
-    public toArray(): TPropositionalVariable[] {
+    public toArray(): TCorePropositionalVariable[] {
         return Array.from(this.variables.values())
     }
 
-    public addVariable(variable: TPropositionalVariable) {
+    public addVariable(variable: TCorePropositionalVariable) {
         if (this.variableSymbols.has(variable.symbol)) {
             throw new Error(
                 `Variable symbol "${variable.symbol}" already exists.`
@@ -46,7 +46,9 @@ export class VariableManager {
         return this.variables.has(variableId)
     }
 
-    public getVariable(variableId: string): TPropositionalVariable | undefined {
+    public getVariable(
+        variableId: string
+    ): TCorePropositionalVariable | undefined {
         return this.variables.get(variableId)
     }
 

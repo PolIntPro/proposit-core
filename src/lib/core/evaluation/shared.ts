@@ -1,12 +1,12 @@
 import type {
-    TDirectionalVacuity,
-    TValidationIssue,
-    TValidationResult,
+    TCoreDirectionalVacuity,
+    TCoreValidationIssue,
+    TCoreValidationResult,
 } from "../../types/evaluation.js"
 
 export function makeValidationResult(
-    issues: TValidationIssue[]
-): TValidationResult {
+    issues: TCoreValidationIssue[]
+): TCoreValidationResult {
     return {
         ok: issues.every((issue) => issue.severity !== "error"),
         issues,
@@ -14,8 +14,8 @@ export function makeValidationResult(
 }
 
 export function makeErrorIssue(
-    issue: Omit<TValidationIssue, "severity">
-): TValidationIssue {
+    issue: Omit<TCoreValidationIssue, "severity">
+): TCoreValidationIssue {
     return { severity: "error", ...issue }
 }
 
@@ -29,7 +29,7 @@ export function implicationValue(
 export function buildDirectionalVacuity(
     antecedentTrue: boolean,
     consequentTrue: boolean
-): TDirectionalVacuity {
+): TCoreDirectionalVacuity {
     const implication = implicationValue(antecedentTrue, consequentTrue)
     return {
         antecedentTrue,

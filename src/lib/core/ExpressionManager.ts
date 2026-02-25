@@ -1,15 +1,15 @@
 import type {
-    TLogicalOperatorType,
-    TPropositionalExpression,
+    TCoreLogicalOperatorType,
+    TCorePropositionalExpression,
 } from "../schemata/index.js"
 import { getOrCreate } from "../utils/collections.js"
 
 export class ExpressionManager {
-    private expressions: Map<string, TPropositionalExpression>
+    private expressions: Map<string, TCorePropositionalExpression>
     private childExpressionIdsByParentId: Map<string | null, Set<string>>
     private childPositionsByParentId: Map<string | null, Set<number>>
 
-    constructor(initialExpressions: TPropositionalExpression[] = []) {
+    constructor(initialExpressions: TCorePropositionalExpression[] = []) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
         this.childPositionsByParentId = new Map()
@@ -17,11 +17,11 @@ export class ExpressionManager {
         this.loadInitialExpressions(initialExpressions)
     }
 
-    public toArray(): TPropositionalExpression[] {
+    public toArray(): TCorePropositionalExpression[] {
         return Array.from(this.expressions.values())
     }
 
-    public addExpression(expression: TPropositionalExpression) {
+    public addExpression(expression: TCorePropositionalExpression) {
         if (this.expressions.has(expression.id)) {
             throw new Error(
                 `Expression with ID "${expression.id}" already exists.`
@@ -202,7 +202,7 @@ export class ExpressionManager {
                 ...child,
                 parentId: grandparentId,
                 position: grandparentPosition,
-            } as TPropositionalExpression
+            } as TCorePropositionalExpression
             this.expressions.set(child.id, promoted)
 
             // Replace the operator with the promoted child in the grandparent's child-id set.
@@ -242,19 +242,19 @@ export class ExpressionManager {
 
     public getExpression(
         expressionId: string
-    ): TPropositionalExpression | undefined {
+    ): TCorePropositionalExpression | undefined {
         return this.expressions.get(expressionId)
     }
 
     public getChildExpressions(
         parentId: string | null
-    ): TPropositionalExpression[] {
+    ): TCorePropositionalExpression[] {
         const childIds = this.childExpressionIdsByParentId.get(parentId)
         if (!childIds || childIds.size === 0) {
             return []
         }
 
-        const children: TPropositionalExpression[] = []
+        const children: TCorePropositionalExpression[] = []
         for (const childId of childIds) {
             const child = this.expressions.get(childId)
             if (child) {
@@ -277,13 +277,13 @@ export class ExpressionManager {
     }
 
     private loadInitialExpressions(
-        initialExpressions: TPropositionalExpression[]
+        initialExpressions: TCorePropositionalExpression[]
     ) {
         if (initialExpressions.length === 0) {
             return
         }
 
-        const pending = new Map<string, TPropositionalExpression>(
+        const pending = new Map<string, TCorePropositionalExpression>(
             initialExpressions.map((expression) => [expression.id, expression])
         )
 
@@ -314,7 +314,7 @@ export class ExpressionManager {
     }
 
     private assertChildLimit(
-        operator: TLogicalOperatorType,
+        operator: TCoreLogicalOperatorType,
         parentId: string
     ): void {
         const childCount =
@@ -354,7 +354,7 @@ export class ExpressionManager {
             ...expression,
             parentId: newParentId,
             position: newPosition,
-        } as TPropositionalExpression
+        } as TCorePropositionalExpression
         this.expressions.set(expressionId, updated)
 
         // Attach to new parent.
@@ -373,7 +373,7 @@ export class ExpressionManager {
     }
 
     public insertExpression(
-        expression: TPropositionalExpression,
+        expression: TCorePropositionalExpression,
         leftNodeId?: string,
         rightNodeId?: string
     ): void {
@@ -499,7 +499,7 @@ export class ExpressionManager {
             ...expression,
             parentId: anchorParentId,
             position: anchorPosition,
-        } as TPropositionalExpression
+        } as TCorePropositionalExpression
         this.expressions.set(expression.id, stored)
         getOrCreate(
             this.childExpressionIdsByParentId,

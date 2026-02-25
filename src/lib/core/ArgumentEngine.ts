@@ -1,36 +1,39 @@
 import { randomUUID } from "node:crypto"
-import type { TArgument, TPropositionalExpression } from "../schemata/index.js"
 import type {
-    TArgumentEngineData,
-    TArgumentEvaluationOptions,
-    TArgumentEvaluationResult,
-    TArgumentRoleState,
-    TCounterexample,
-    TPremiseEvaluationResult,
-    TValidationIssue,
-    TValidationResult,
-    TValidityCheckOptions,
-    TValidityCheckResult,
-    TVariableAssignment,
+    TCoreArgument,
+    TCorePropositionalExpression,
+} from "../schemata/index.js"
+import type {
+    TCoreArgumentEngineData,
+    TCoreArgumentEvaluationOptions,
+    TCoreArgumentEvaluationResult,
+    TCoreArgumentRoleState,
+    TCoreCounterexample,
+    TCorePremiseEvaluationResult,
+    TCoreValidationIssue,
+    TCoreValidationResult,
+    TCoreValidityCheckOptions,
+    TCoreValidityCheckResult,
+    TCoreVariableAssignment,
 } from "../types/evaluation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { makeErrorIssue, makeValidationResult } from "./evaluation/shared.js"
 import { PremiseManager } from "./PremiseManager.js"
 
 export class ArgumentEngine {
-    private argument: TArgument
+    private argument: TCoreArgument
     private premises: Map<string, PremiseManager>
     private supportingPremiseIds: Set<string>
     private conclusionPremiseId: string | undefined
 
-    constructor(argument: TArgument) {
+    constructor(argument: TCoreArgument) {
         this.argument = { ...argument }
         this.premises = new Map()
         this.supportingPremiseIds = new Set()
         this.conclusionPremiseId = undefined
     }
 
-    public getArgument(): TArgument {
+    public getArgument(): TCoreArgument {
         return { ...this.argument }
     }
 
@@ -78,7 +81,7 @@ export class ArgumentEngine {
             .filter((pm): pm is PremiseManager => pm !== undefined)
     }
 
-    public getRoleState(): TArgumentRoleState {
+    public getRoleState(): TCoreArgumentRoleState {
         return {
             supportingPremiseIds: sortedUnique(this.supportingPremiseIds),
             conclusionPremiseId: this.conclusionPremiseId,
@@ -130,7 +133,7 @@ export class ArgumentEngine {
             .filter((pm): pm is PremiseManager => pm !== undefined)
     }
 
-    public toData(): TArgumentEngineData {
+    public toData(): TCoreArgumentEngineData {
         return {
             argument: { ...this.argument },
             premises: this.listPremises().map((pm) => pm.toData()),
@@ -138,7 +141,7 @@ export class ArgumentEngine {
         }
     }
 
-    public exportState(): TArgumentEngineData {
+    public exportState(): TCoreArgumentEngineData {
         return this.toData()
     }
 
@@ -220,8 +223,8 @@ export class ArgumentEngine {
         }
     }
 
-    public validateEvaluability(): TValidationResult {
-        const issues: TValidationIssue[] = []
+    public validateEvaluability(): TCoreValidationResult {
+        const issues: TCoreValidationIssue[] = []
 
         if (this.conclusionPremiseId === undefined) {
             issues.push(
@@ -316,9 +319,9 @@ export class ArgumentEngine {
     }
 
     public evaluate(
-        assignment: TVariableAssignment,
-        options?: TArgumentEvaluationOptions
-    ): TArgumentEvaluationResult {
+        assignment: TCoreVariableAssignment,
+        options?: TCoreArgumentEvaluationOptions
+    ): TCoreArgumentEvaluationResult {
         const validateFirst = options?.validateFirst ?? true
         if (validateFirst) {
             const validation = this.validateEvaluability()
@@ -363,7 +366,9 @@ export class ArgumentEngine {
                 pm
                     .getExpressions()
                     .filter(
-                        (expr): expr is TPropositionalExpression<"variable"> =>
+                        (
+                            expr
+                        ): expr is TCorePropositionalExpression<"variable"> =>
                             expr.type === "variable"
                     )
                     .map((expr) => expr.variableId)
@@ -402,8 +407,8 @@ export class ArgumentEngine {
                 options?.includeExpressionValues ?? true
             const includeDiagnostics = options?.includeDiagnostics ?? true
             const strip = (
-                result: TPremiseEvaluationResult
-            ): TPremiseEvaluationResult => ({
+                result: TCorePremiseEvaluationResult
+            ): TCorePremiseEvaluationResult => ({
                 ...result,
                 expressionValues: includeExpressionValues
                     ? result.expressionValues
@@ -443,8 +448,8 @@ export class ArgumentEngine {
     }
 
     public checkValidity(
-        options?: TValidityCheckOptions
-    ): TValidityCheckResult {
+        options?: TCoreValidityCheckOptions
+    ): TCoreValidityCheckResult {
         const validateFirst = options?.validateFirst ?? true
         if (validateFirst) {
             const validation = this.validateEvaluability()
@@ -487,7 +492,7 @@ export class ArgumentEngine {
                         .filter(
                             (
                                 expr
-                            ): expr is TPropositionalExpression<"variable"> =>
+                            ): expr is TCorePropositionalExpression<"variable"> =>
                                 expr.type === "variable"
                         )
                         .map((expr) => expr.variableId)
@@ -511,7 +516,7 @@ export class ArgumentEngine {
 
         const mode = options?.mode ?? "firstCounterexample"
         const maxAssignmentsChecked = options?.maxAssignmentsChecked
-        const counterexamples: TCounterexample[] = []
+        const counterexamples: TCoreCounterexample[] = []
         let numAssignmentsChecked = 0
         let numAdmissibleAssignments = 0
         let truncated = false
@@ -526,7 +531,7 @@ export class ArgumentEngine {
                 break
             }
 
-            const assignment: TVariableAssignment = {}
+            const assignment: TCoreVariableAssignment = {}
             for (let i = 0; i < checkedVariableIds.length; i++) {
                 assignment[checkedVariableIds[i]] = Boolean(mask & (1 << i))
             }

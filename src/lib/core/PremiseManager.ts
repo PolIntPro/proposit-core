@@ -1,18 +1,18 @@
 import type {
-    TArgument,
-    TLogicalOperatorType,
-    TPremise,
-    TPropositionalExpression,
-    TPropositionalVariable,
+    TCoreArgument,
+    TCoreLogicalOperatorType,
+    TCorePremise,
+    TCorePropositionalExpression,
+    TCorePropositionalVariable,
 } from "../schemata/index.js"
 import { DefaultMap } from "../utils.js"
 import { sortedCopyById, sortedUnique } from "../utils/collections.js"
 import type {
-    TPremiseEvaluationResult,
-    TPremiseInferenceDiagnostic,
-    TValidationIssue,
-    TValidationResult,
-    TVariableAssignment,
+    TCorePremiseEvaluationResult,
+    TCorePremiseInferenceDiagnostic,
+    TCoreValidationIssue,
+    TCoreValidationResult,
+    TCoreVariableAssignment,
 } from "../types/evaluation.js"
 import {
     buildDirectionalVacuity,
@@ -30,9 +30,9 @@ export class PremiseManager {
     private variables: VariableManager
     private expressions: ExpressionManager
     private expressionsByVariableId: DefaultMap<string, Set<string>>
-    private argument: TArgument
+    private argument: TCoreArgument
 
-    constructor(id: string, argument: TArgument, title?: string) {
+    constructor(id: string, argument: TCoreArgument, title?: string) {
         this.id = id
         this.argument = argument
         this.title = title
@@ -49,7 +49,7 @@ export class PremiseManager {
      * @throws If `variable.id` already exists within this premise.
      * @throws If the variable does not belong to this premise's argument.
      */
-    public addVariable(variable: TPropositionalVariable): void {
+    public addVariable(variable: TCorePropositionalVariable): void {
         this.assertBelongsToArgument(
             variable.argumentId,
             variable.argumentVersion
@@ -65,7 +65,7 @@ export class PremiseManager {
      */
     public removeVariable(
         variableId: string
-    ): TPropositionalVariable | undefined {
+    ): TCorePropositionalVariable | undefined {
         if (this.expressionsByVariableId.get(variableId).size > 0) {
             throw new Error(
                 `Variable "${variableId}" cannot be removed because it is referenced by one or more expressions.`
@@ -89,7 +89,7 @@ export class PremiseManager {
      * @throws If the expression is a variable reference and the variable has not been registered.
      * @throws If the expression does not belong to this argument.
      */
-    public addExpression(expression: TPropositionalExpression): void {
+    public addExpression(expression: TCorePropositionalExpression): void {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -143,7 +143,7 @@ export class PremiseManager {
      */
     public removeExpression(
         expressionId: string
-    ): TPropositionalExpression | undefined {
+    ): TCorePropositionalExpression | undefined {
         // Snapshot the subtree before deletion so we can clean up
         // expressionsByVariableId for cascade-deleted descendants — they are
         // not individually surfaced by ExpressionManager.removeExpression.
@@ -180,7 +180,7 @@ export class PremiseManager {
      * @throws If the expression is a variable reference and the variable has not been registered.
      */
     public insertExpression(
-        expression: TPropositionalExpression,
+        expression: TCorePropositionalExpression,
         leftNodeId?: string,
         rightNodeId?: string
     ): void {
@@ -213,7 +213,7 @@ export class PremiseManager {
      * Returns an expression by ID, or `undefined` if not found in this
      * premise.
      */
-    public getExpression(id: string): TPropositionalExpression | undefined {
+    public getExpression(id: string): TCorePropositionalExpression | undefined {
         return this.expressions.getExpression(id)
     }
 
@@ -233,7 +233,7 @@ export class PremiseManager {
         return this.rootExpressionId
     }
 
-    public getRootExpression(): TPropositionalExpression | undefined {
+    public getRootExpression(): TCorePropositionalExpression | undefined {
         if (this.rootExpressionId === undefined) {
             return undefined
         }
@@ -241,17 +241,17 @@ export class PremiseManager {
         return expr ? { ...expr } : undefined
     }
 
-    public getVariables(): TPropositionalVariable[] {
+    public getVariables(): TCorePropositionalVariable[] {
         return sortedCopyById(this.variables.toArray())
     }
 
-    public getExpressions(): TPropositionalExpression[] {
+    public getExpressions(): TCorePropositionalExpression[] {
         return sortedCopyById(this.expressions.toArray())
     }
 
     public getChildExpressions(
         parentId: string | null
-    ): TPropositionalExpression[] {
+    ): TCorePropositionalExpression[] {
         return this.expressions.getChildExpressions(parentId).map((expr) => ({
             ...expr,
         }))
@@ -277,8 +277,8 @@ export class PremiseManager {
         return !this.isInference()
     }
 
-    public validateEvaluability(): TValidationResult {
-        const issues: TValidationIssue[] = []
+    public validateEvaluability(): TCoreValidationResult {
+        const issues: TCoreValidationIssue[] = []
         const roots = this.expressions.getChildExpressions(null)
 
         if (this.expressions.toArray().length === 0) {
@@ -426,12 +426,12 @@ export class PremiseManager {
     }
 
     public evaluate(
-        assignment: TVariableAssignment,
+        assignment: TCoreVariableAssignment,
         options?: {
             strictUnknownKeys?: boolean
             requireExactCoverage?: boolean
         }
-    ): TPremiseEvaluationResult {
+    ): TCorePremiseEvaluationResult {
         const validation = this.validateEvaluability()
         if (!validation.ok) {
             throw new Error(
@@ -446,7 +446,7 @@ export class PremiseManager {
             this.expressions
                 .toArray()
                 .filter(
-                    (expr): expr is TPropositionalExpression<"variable"> =>
+                    (expr): expr is TCorePropositionalExpression<"variable"> =>
                         expr.type === "variable"
                 )
                 .map((expr) => expr.variableId)
@@ -538,7 +538,7 @@ export class PremiseManager {
             variableValues[variableId] = assignment[variableId]
         }
 
-        let inferenceDiagnostic: TPremiseInferenceDiagnostic | undefined
+        let inferenceDiagnostic: TCorePremiseInferenceDiagnostic | undefined
         if (this.isInference()) {
             const root = this.expressions.getExpression(rootExpressionId)
             if (root?.type === "operator") {
@@ -613,10 +613,10 @@ export class PremiseManager {
 
     /**
      * Returns a serialisable snapshot of this premise conforming to
-     * `TPremise`.  `variables` contains only the variables that are actually
+     * `TCorePremise`.  `variables` contains only the variables that are actually
      * referenced by expressions in this premise.
      */
-    public toData(): TPremise {
+    public toData(): TCorePremise {
         const expressions = this.getExpressions()
 
         const referencedVariableIds = new Set<string>()
@@ -649,8 +649,8 @@ export class PremiseManager {
         this.rootExpressionId = roots[0]?.id
     }
 
-    private collectSubtree(rootId: string): TPropositionalExpression[] {
-        const result: TPropositionalExpression[] = []
+    private collectSubtree(rootId: string): TCorePropositionalExpression[] {
+        const result: TCorePropositionalExpression[] = []
         const stack = [rootId]
         while (stack.length > 0) {
             const id = stack.pop()!
@@ -722,7 +722,7 @@ export class PremiseManager {
         return `(${renderedChildren.join(` ${this.operatorSymbol(expression.operator)} `)})`
     }
 
-    private operatorSymbol(operator: TLogicalOperatorType): string {
+    private operatorSymbol(operator: TCoreLogicalOperatorType): string {
         switch (operator) {
             case "and":
                 return "∧"

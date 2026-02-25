@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
 import type {
-    TLogicalOperatorType,
-    TPropositionalExpression,
+    TCoreLogicalOperatorType,
+    TCorePropositionalExpression,
 } from "../../lib/schemata/index.js"
 import { hydrateEngine } from "../engine.js"
 import { errorExit, printJson, printLine } from "../output.js"
@@ -25,7 +25,7 @@ async function assertNotPublished(
     }
 }
 
-function typeSpecificInfo(expr: TPropositionalExpression): string {
+function typeSpecificInfo(expr: TCorePropositionalExpression): string {
     if (expr.type === "variable") return `variableId=${expr.variableId}`
     if (expr.type === "operator") return `operator=${expr.operator}`
     return ""
@@ -88,7 +88,7 @@ export function registerExpressionCommands(
                 const position =
                     opts.position !== undefined ? Number(opts.position) : null
 
-                let expression: TPropositionalExpression
+                let expression: TCorePropositionalExpression
                 if (opts.type === "variable") {
                     if (!opts.variableId)
                         errorExit("--variable-id is required for type=variable")
@@ -111,7 +111,7 @@ export function registerExpressionCommands(
                         parentId,
                         position,
                         type: "operator",
-                        operator: opts.operator as TLogicalOperatorType,
+                        operator: opts.operator as TCoreLogicalOperatorType,
                     }
                 } else if (opts.type === "formula") {
                     expression = {
@@ -199,7 +199,7 @@ export function registerExpressionCommands(
                 const position =
                     opts.position !== undefined ? Number(opts.position) : null
 
-                let expression: TPropositionalExpression
+                let expression: TCorePropositionalExpression
                 if (opts.type === "variable") {
                     if (!opts.variableId)
                         errorExit("--variable-id is required for type=variable")
@@ -222,7 +222,7 @@ export function registerExpressionCommands(
                         parentId,
                         position,
                         type: "operator",
-                        operator: opts.operator as TLogicalOperatorType,
+                        operator: opts.operator as TCoreLogicalOperatorType,
                     }
                 } else if (opts.type === "formula") {
                     expression = {

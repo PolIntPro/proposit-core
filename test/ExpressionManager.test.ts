@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { ArgumentEngine, PremiseManager } from "../src/lib/index"
 import type {
-    TArgument,
-    TPropositionalExpression,
-    TPropositionalVariable,
+    TCoreArgument,
+    TCorePropositionalExpression,
+    TCorePropositionalVariable,
 } from "../src/lib/schemata"
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const ARG: TArgument = {
+const ARG: TCoreArgument = {
     id: "arg-1",
     version: 1,
     title: "Test Argument",
@@ -19,7 +19,7 @@ const ARG: TArgument = {
     published: false,
 }
 
-function makeVar(id: string, symbol: string): TPropositionalVariable {
+function makeVar(id: string, symbol: string): TCorePropositionalVariable {
     return { id, argumentId: ARG.id, argumentVersion: ARG.version, symbol }
 }
 
@@ -27,7 +27,7 @@ function makeVarExpr(
     id: string,
     variableId: string,
     opts: { parentId?: string | null; position?: number | null } = {}
-): TPropositionalExpression {
+): TCorePropositionalExpression {
     return {
         id,
         argumentId: ARG.id,
@@ -43,7 +43,7 @@ function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
     opts: { parentId?: string | null; position?: number | null } = {}
-): TPropositionalExpression {
+): TCorePropositionalExpression {
     return {
         id,
         argumentId: ARG.id,
@@ -58,7 +58,7 @@ function makeOpExpr(
 function makeFormulaExpr(
     id: string,
     opts: { parentId?: string | null; position?: number | null } = {}
-): TPropositionalExpression {
+): TCorePropositionalExpression {
     return {
         id,
         argumentId: ARG.id,
@@ -823,7 +823,7 @@ describe("stress test", () => {
             makeVar(`var-${i}`, `X${i}`)
         )
 
-        const allExpressions: TPropositionalExpression[] = []
+        const allExpressions: TCorePropositionalExpression[] = []
         const premiseManagers: PremiseManager[] = []
         const termIdsByPremise = new Map<PremiseManager, string[]>()
         const referencedVarIds = new Set<string>()
@@ -836,8 +836,8 @@ describe("stress test", () => {
 
         function emit(
             pm: PremiseManager,
-            expr: TPropositionalExpression
-        ): TPropositionalExpression {
+            expr: TCorePropositionalExpression
+        ): TCorePropositionalExpression {
             pm.addExpression(expr)
             allExpressions.push(expr)
             return expr
@@ -1762,7 +1762,10 @@ describe("ArgumentEngine — roles and evaluation", () => {
 })
 
 describe("ArgumentEngine — complex argument scenarios across multiple evaluations", () => {
-    function addVars(pm: PremiseManager, ...vars: TPropositionalVariable[]) {
+    function addVars(
+        pm: PremiseManager,
+        ...vars: TCorePropositionalVariable[]
+    ) {
         for (const v of vars) pm.addVariable(v)
     }
 

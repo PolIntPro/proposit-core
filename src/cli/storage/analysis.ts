@@ -2,8 +2,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import Value from "typebox/value"
 import {
-    AnalysisFileSchema,
-    type TAnalysisFile,
+    CoreAnalysisFileSchema,
+    type TCoreAnalysisFile,
 } from "../../lib/schemata/index.js"
 import { getVersionDir } from "../config.js"
 import { errorExit } from "../output.js"
@@ -30,14 +30,14 @@ export async function readAnalysis(
     argumentId: string,
     version: number,
     filename: string
-): Promise<TAnalysisFile> {
+): Promise<TCoreAnalysisFile> {
     const filePath = analysisPath(argumentId, version, filename)
     const content = await fs.readFile(filePath, "utf-8").catch(() => {
         errorExit(`Analysis file "${filename}" not found.`)
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(AnalysisFileSchema, raw)
+        return Value.Parse(CoreAnalysisFileSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
@@ -47,7 +47,7 @@ export async function writeAnalysis(
     argumentId: string,
     version: number,
     filename: string,
-    data: TAnalysisFile
+    data: TCoreAnalysisFile
 ): Promise<void> {
     await fs.writeFile(
         analysisPath(argumentId, version, filename),
@@ -72,7 +72,7 @@ export async function listAnalysisFiles(
         try {
             const content = await fs.readFile(filePath, "utf-8")
             const raw: unknown = JSON.parse(content)
-            if (Value.Check(AnalysisFileSchema, raw)) {
+            if (Value.Check(CoreAnalysisFileSchema, raw)) {
                 results.push(entry.name)
             }
         } catch {

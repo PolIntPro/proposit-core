@@ -2,10 +2,10 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import Value from "typebox/value"
 import {
-    PremiseDataSchema,
-    PremiseMetaSchema,
-    type TPremiseData,
-    type TPremiseMeta,
+    CorePremiseDataSchema,
+    CorePremiseMetaSchema,
+    type TCorePremiseData,
+    type TCorePremiseMeta,
 } from "../../lib/schemata/index.js"
 import { getPremiseDir, getPremisesDir } from "../config.js"
 import { errorExit } from "../output.js"
@@ -14,7 +14,7 @@ export async function readPremiseMeta(
     argumentId: string,
     version: number,
     premiseId: string
-): Promise<TPremiseMeta> {
+): Promise<TCorePremiseMeta> {
     const filePath = path.join(
         getPremiseDir(argumentId, version, premiseId),
         "meta.json"
@@ -24,7 +24,7 @@ export async function readPremiseMeta(
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(PremiseMetaSchema, raw)
+        return Value.Parse(CorePremiseMetaSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
@@ -33,7 +33,7 @@ export async function readPremiseMeta(
 export async function writePremiseMeta(
     argumentId: string,
     version: number,
-    meta: TPremiseMeta
+    meta: TCorePremiseMeta
 ): Promise<void> {
     const dir = getPremiseDir(argumentId, version, meta.id)
     await fs.mkdir(dir, { recursive: true })
@@ -47,7 +47,7 @@ export async function readPremiseData(
     argumentId: string,
     version: number,
     premiseId: string
-): Promise<TPremiseData> {
+): Promise<TCorePremiseData> {
     const filePath = path.join(
         getPremiseDir(argumentId, version, premiseId),
         "data.json"
@@ -57,7 +57,7 @@ export async function readPremiseData(
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(PremiseDataSchema, raw)
+        return Value.Parse(CorePremiseDataSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
@@ -67,7 +67,7 @@ export async function writePremiseData(
     argumentId: string,
     version: number,
     premiseId: string,
-    data: TPremiseData
+    data: TCorePremiseData
 ): Promise<void> {
     const dir = getPremiseDir(argumentId, version, premiseId)
     await fs.mkdir(dir, { recursive: true })

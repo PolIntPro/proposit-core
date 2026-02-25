@@ -1,7 +1,7 @@
 import Type, { type Static } from "typebox"
 import { UUID } from "./shared.js"
 
-export const ArgumentMetaSchema = Type.Object(
+export const CoreArgumentMetaSchema = Type.Object(
     {
         id: UUID,
         title: Type.String(),
@@ -12,9 +12,9 @@ export const ArgumentMetaSchema = Type.Object(
             "Metadata for an argument that does not change for different versions of the same argument.",
     }
 )
-export type TArgumentMeta = Static<typeof ArgumentMetaSchema>
+export type TCoreArgumentMeta = Static<typeof CoreArgumentMetaSchema>
 
-export const ArgumentVersionedSchema = Type.Object(
+export const CoreArgumentVersionedSchema = Type.Object(
     {
         version: Type.Number(),
         createdAt: Type.Number({
@@ -28,9 +28,9 @@ export const ArgumentVersionedSchema = Type.Object(
             "Data for an argument that will differ between different versions of the same argument",
     }
 )
-export type TArgumentVersioned = Static<typeof ArgumentVersionedSchema>
+export type TCoreArgumentVersioned = Static<typeof CoreArgumentVersionedSchema>
 
-export const ArgumentMutableDataSchema = Type.Object(
+export const CoreArgumentMutableDataSchema = Type.Object(
     {
         published: Type.Boolean(),
         publishedAt: Type.Optional(
@@ -45,23 +45,27 @@ export const ArgumentMutableDataSchema = Type.Object(
             "Data for an argument that can be changed (e.g. published status).",
     }
 )
-export type TArgumentMutableData = Static<typeof ArgumentMutableDataSchema>
+export type TCoreArgumentMutableData = Static<
+    typeof CoreArgumentMutableDataSchema
+>
 
-export const ArgumentSchema = Type.Intersect([
-    ArgumentMetaSchema,
-    ArgumentVersionedSchema,
-    ArgumentMutableDataSchema,
+export const CoreArgumentSchema = Type.Intersect([
+    CoreArgumentMetaSchema,
+    CoreArgumentVersionedSchema,
+    CoreArgumentMutableDataSchema,
 ])
-export type TArgument = Static<typeof ArgumentSchema>
+export type TCoreArgument = Static<typeof CoreArgumentSchema>
 
-export const ArgumentVersionMetaSchema = Type.Intersect([
-    ArgumentVersionedSchema,
-    ArgumentMutableDataSchema,
+export const CoreArgumentVersionMetaSchema = Type.Intersect([
+    CoreArgumentVersionedSchema,
+    CoreArgumentMutableDataSchema,
 ])
-export type TArgumentVersionMeta = Static<typeof ArgumentVersionMetaSchema>
+export type TCoreArgumentVersionMeta = Static<
+    typeof CoreArgumentVersionMetaSchema
+>
 
-export const ArgumentRoleStateSchema = Type.Object({
+export const CoreArgumentRoleStateSchema = Type.Object({
     conclusionPremiseId: Type.Optional(UUID),
     supportingPremiseIds: Type.Array(UUID),
 })
-export type TArgumentRoleState = Static<typeof ArgumentRoleStateSchema>
+export type TCoreArgumentRoleState = Static<typeof CoreArgumentRoleStateSchema>

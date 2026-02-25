@@ -5,13 +5,13 @@ const VariableType = Type.Literal("variable")
 const OperatorType = Type.Literal("operator")
 const FormulaType = Type.Literal("formula")
 
-export const PropositionalExpressionTypes = Type.Union([
+export const CorePropositionalExpressionTypes = Type.Union([
     VariableType,
     OperatorType,
     FormulaType,
 ])
-export type TPropositionalExpressionTypes = Static<
-    typeof PropositionalExpressionTypes
+export type TCorePropositionalExpressionTypes = Static<
+    typeof CorePropositionalExpressionTypes
 >
 
 const BasePropositionalExpressionSchema = Type.Object({
@@ -32,7 +32,7 @@ const BasePropositionalExpressionSchema = Type.Object({
     ),
 })
 
-export const PropositionalVariableExpressionSchema = Type.Interface(
+export const CorePropositionalVariableExpressionSchema = Type.Interface(
     [BasePropositionalExpressionSchema],
     {
         type: VariableType,
@@ -40,11 +40,11 @@ export const PropositionalVariableExpressionSchema = Type.Interface(
     }
 )
 
-export type TPropositionalVariableExpression = Static<
-    typeof PropositionalVariableExpressionSchema
+export type TCorePropositionalVariableExpression = Static<
+    typeof CorePropositionalVariableExpressionSchema
 >
 
-export const LogicalOperatorType = Type.Union([
+export const CoreLogicalOperatorType = Type.Union([
     Type.Literal("not"), // unary
     Type.Literal("and"), // variadic (≥2)
     Type.Literal("or"), // variadic (≥2)
@@ -52,49 +52,54 @@ export const LogicalOperatorType = Type.Union([
     Type.Literal("iff"), // binary (unordered but fixed 2)
 ])
 
-export type TLogicalOperatorType = Static<typeof LogicalOperatorType>
+export type TCoreLogicalOperatorType = Static<typeof CoreLogicalOperatorType>
 
-export const OperatorExpressionSchema = Type.Interface(
+export const CoreOperatorExpressionSchema = Type.Interface(
     [BasePropositionalExpressionSchema],
     {
         type: OperatorType,
-        operator: LogicalOperatorType,
+        operator: CoreLogicalOperatorType,
     }
 )
-export type TOperatorExpression = Static<typeof OperatorExpressionSchema>
+export type TCoreOperatorExpression = Static<
+    typeof CoreOperatorExpressionSchema
+>
 
-export const FormulaExpressionSchema = Type.Interface(
+export const CoreFormulaExpressionSchema = Type.Interface(
     [BasePropositionalExpressionSchema],
     {
         type: FormulaType,
     }
 )
-export type TFormulaExpression = Static<typeof FormulaExpressionSchema>
+export type TCoreFormulaExpression = Static<typeof CoreFormulaExpressionSchema>
 
-export const PropositionalExpressionSchema = Type.Union([
-    PropositionalVariableExpressionSchema,
-    OperatorExpressionSchema,
-    FormulaExpressionSchema,
+export const CorePropositionalExpressionSchema = Type.Union([
+    CorePropositionalVariableExpressionSchema,
+    CoreOperatorExpressionSchema,
+    CoreFormulaExpressionSchema,
 ])
 
-export type TPropositionalExpressionCombined = Static<
-    typeof PropositionalExpressionSchema
+export type TCorePropositionalExpressionCombined = Static<
+    typeof CorePropositionalExpressionSchema
 >
 
-export type TPropositionalExpression<
-    T extends TPropositionalExpressionTypes = TPropositionalExpressionTypes,
-> = Extract<TPropositionalExpressionCombined, { type: T }>
+export type TCorePropositionalExpression<
+    T extends TCorePropositionalExpressionTypes =
+        TCorePropositionalExpressionTypes,
+> = Extract<TCorePropositionalExpressionCombined, { type: T }>
 
-export const PropositionalVariableSchema = Type.Object({
+export const CorePropositionalVariableSchema = Type.Object({
     id: UUID,
     argumentId: UUID,
     argumentVersion: Type.Number(),
     symbol: Type.String(),
 })
 
-export type TPropositionalVariable = Static<typeof PropositionalVariableSchema>
+export type TCorePropositionalVariable = Static<
+    typeof CorePropositionalVariableSchema
+>
 
-export const PremiseMetaSchema = Type.Object({
+export const CorePremiseMetaSchema = Type.Object({
     // Auto-generated UUID
     id: UUID,
     title: Type.Optional(
@@ -104,24 +109,24 @@ export const PremiseMetaSchema = Type.Object({
         })
     ),
 })
-export type TPremiseMeta = Static<typeof PremiseMetaSchema>
+export type TCorePremiseMeta = Static<typeof CorePremiseMetaSchema>
 
-export const PremiseDataSchema = Type.Object({
+export const CorePremiseDataSchema = Type.Object({
     // If the premise has expressions in it, this is the ID of the root expression.
     rootExpressionId: Type.Optional(UUID),
     variables: Type.Array(UUID, {
         description: "IDs of all variables referenced in this premise.",
     }),
-    expressions: Type.Array(PropositionalExpressionSchema, {
+    expressions: Type.Array(CorePropositionalExpressionSchema, {
         description:
             "All expressions that are part of this premise, including sub-expressions. The root of the premise will have a null parentId.",
     }),
 })
-export type TPremiseData = Static<typeof PremiseDataSchema>
+export type TCorePremiseData = Static<typeof CorePremiseDataSchema>
 
-export const PremiseSchema = Type.Intersect([
-    PremiseMetaSchema,
-    PremiseDataSchema,
+export const CorePremiseSchema = Type.Intersect([
+    CorePremiseMetaSchema,
+    CorePremiseDataSchema,
 ])
 
-export type TPremise = Static<typeof PremiseSchema>
+export type TCorePremise = Static<typeof CorePremiseSchema>

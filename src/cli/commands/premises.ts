@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
 import { PremiseManager } from "../../lib/core/PremiseManager.js"
-import type { TArgument } from "../../lib/schemata/index.js"
+import type { TCoreArgument } from "../../lib/schemata/index.js"
 import {
     errorExit,
     printJson,
@@ -36,7 +36,7 @@ async function assertNotPublished(
 async function buildArgument(
     argumentId: string,
     version: number
-): Promise<TArgument> {
+): Promise<TCoreArgument> {
     const [argMeta, vMeta] = await Promise.all([
         readArgumentMeta(argumentId),
         readVersionMeta(argumentId, version),

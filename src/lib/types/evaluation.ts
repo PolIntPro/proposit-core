@@ -1,27 +1,27 @@
 import type {
-    TArgument,
-    TArgumentRoleState,
-    TPremise,
+    TCoreArgument,
+    TCoreArgumentRoleState,
+    TCorePremise,
 } from "../schemata/index.js"
 
-export type TPremiseRole = "supporting" | "conclusion"
+export type TCorePremiseRole = "supporting" | "conclusion"
 
-export type { TArgumentRoleState }
+export type { TCoreArgumentRoleState }
 
-export interface TArgumentEngineData {
+export interface TCoreArgumentEngineData {
     // Snapshot of the argument metadata managed by the engine.
-    argument: TArgument
+    argument: TCoreArgument
     // Serialized premise snapshots (one per premise manager).
-    premises: TPremise[]
+    premises: TCorePremise[]
     // Current role assignments for the premises in this engine.
-    roles: TArgumentRoleState
+    roles: TCoreArgumentRoleState
 }
 
-export type TVariableAssignment = Record<string, boolean>
+export type TCoreVariableAssignment = Record<string, boolean>
 
-export type TValidationSeverity = "error" | "warning"
+export type TCoreValidationSeverity = "error" | "warning"
 
-export type TValidationCode =
+export type TCoreValidationCode =
     | "ARGUMENT_NO_CONCLUSION"
     | "ARGUMENT_CONCLUSION_NOT_FOUND"
     | "ARGUMENT_SUPPORTING_PREMISE_NOT_FOUND"
@@ -37,11 +37,11 @@ export type TValidationCode =
     | "ASSIGNMENT_MISSING_VARIABLE"
     | "ASSIGNMENT_UNKNOWN_VARIABLE"
 
-export interface TValidationIssue {
+export interface TCoreValidationIssue {
     // Machine-readable issue code for callers/tests/UI logic.
-    code: TValidationCode
+    code: TCoreValidationCode
     // Severity level; `error` blocks evaluation/validity checks.
-    severity: TValidationSeverity
+    severity: TCoreValidationSeverity
     // Human-readable explanation of the issue.
     message: string
     // Premise associated with the issue, when applicable.
@@ -52,14 +52,14 @@ export interface TValidationIssue {
     variableId?: string
 }
 
-export interface TValidationResult {
+export interface TCoreValidationResult {
     // `true` iff no `error`-severity issues are present.
     ok: boolean
     // Full list of validation findings (errors and warnings).
-    issues: TValidationIssue[]
+    issues: TCoreValidationIssue[]
 }
 
-export interface TDirectionalVacuity {
+export interface TCoreDirectionalVacuity {
     // Truth value of the antecedent for this directional implication view.
     antecedentTrue: boolean
     // Truth value of the consequent for this directional implication view.
@@ -72,7 +72,7 @@ export interface TDirectionalVacuity {
     fired: boolean
 }
 
-export type TPremiseInferenceDiagnostic =
+export type TCorePremiseInferenceDiagnostic =
     | {
           kind: "implies"
           premiseId: string
@@ -93,13 +93,13 @@ export type TPremiseInferenceDiagnostic =
           leftValue: boolean
           rightValue: boolean
           rootValue: boolean
-          leftToRight: TDirectionalVacuity
-          rightToLeft: TDirectionalVacuity
+          leftToRight: TCoreDirectionalVacuity
+          rightToLeft: TCoreDirectionalVacuity
           bothSidesTrue: boolean
           bothSidesFalse: boolean
       }
 
-export interface TPremiseEvaluationResult {
+export interface TCorePremiseEvaluationResult {
     // ID of the evaluated premise.
     premiseId: string
     // Premise classification derived from the root expression.
@@ -113,10 +113,10 @@ export interface TPremiseEvaluationResult {
     // Referenced variable truth values keyed by variable ID.
     variableValues: Record<string, boolean>
     // Inference-specific diagnostics for `implies`/`iff` roots.
-    inferenceDiagnostic?: TPremiseInferenceDiagnostic
+    inferenceDiagnostic?: TCorePremiseInferenceDiagnostic
 }
 
-export interface TArgumentEvaluationOptions {
+export interface TCoreArgumentEvaluationOptions {
     // Reject assignment keys that are not referenced by the evaluated premises.
     strictUnknownAssignmentKeys?: boolean
     // Include per-expression truth maps in premise results (may be verbose).
@@ -127,21 +127,21 @@ export interface TArgumentEvaluationOptions {
     validateFirst?: boolean
 }
 
-export interface TArgumentEvaluationResult {
+export interface TCoreArgumentEvaluationResult {
     // `false` means evaluation could not be completed (typically validation failure).
     ok: boolean
     // Validation output when `ok === false`, or when validation was requested and included.
-    validation?: TValidationResult
+    validation?: TCoreValidationResult
     // The assignment used for this evaluation (variableId -> boolean).
-    assignment?: TVariableAssignment
+    assignment?: TCoreVariableAssignment
     // All variable IDs referenced across evaluated supporting/conclusion/constraint premises.
     referencedVariableIds?: string[]
     // Evaluation result for the designated conclusion premise.
-    conclusion?: TPremiseEvaluationResult
+    conclusion?: TCorePremiseEvaluationResult
     // Evaluation results for premises designated as supporting the argument.
-    supportingPremises?: TPremiseEvaluationResult[]
+    supportingPremises?: TCorePremiseEvaluationResult[]
     // Evaluation results for constraint premises (used to determine admissibility).
-    constraintPremises?: TPremiseEvaluationResult[]
+    constraintPremises?: TCorePremiseEvaluationResult[]
     // `true` iff all constraint premises evaluate to true under the assignment.
     isAdmissibleAssignment?: boolean
     // `true` iff every supporting premise evaluates to true.
@@ -154,7 +154,7 @@ export interface TArgumentEvaluationResult {
     preservesTruthUnderAssignment?: boolean
 }
 
-export interface TValidityCheckOptions {
+export interface TCoreValidityCheckOptions {
     // Stop at first counterexample or continue exhaustively.
     mode?: "firstCounterexample" | "exhaustive"
     // Safety limit for the number of variables used in truth-table generation.
@@ -167,18 +167,18 @@ export interface TValidityCheckOptions {
     validateFirst?: boolean
 }
 
-export interface TCounterexample {
+export interface TCoreCounterexample {
     // Assignment under which the argument fails to preserve truth.
-    assignment: TVariableAssignment
+    assignment: TCoreVariableAssignment
     // Full argument evaluation result for that assignment.
-    result: TArgumentEvaluationResult
+    result: TCoreArgumentEvaluationResult
 }
 
-export interface TValidityCheckResult {
+export interface TCoreValidityCheckResult {
     // `false` means the validity check could not run to completion.
     ok: boolean
     // Validation output when `ok === false`.
-    validation?: TValidationResult
+    validation?: TCoreValidationResult
     // Validity result when known; may be omitted if truncated before conclusion.
     isValid?: boolean
     // Variable IDs used to generate the checked assignments.
@@ -188,7 +188,7 @@ export interface TValidityCheckResult {
     // Number of assignments satisfying all constraints.
     numAdmissibleAssignments?: number
     // Counterexamples found (one or many depending on mode/options).
-    counterexamples?: TCounterexample[]
+    counterexamples?: TCoreCounterexample[]
     // `true` iff checking stopped due to a configured limit.
     truncated?: boolean
 }
