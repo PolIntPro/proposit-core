@@ -9,6 +9,7 @@ import { registerPremiseCommands } from "./cli/commands/premises.js"
 import { registerExpressionCommands } from "./cli/commands/expressions.js"
 import { registerAnalysisCommands } from "./cli/commands/analysis.js"
 import { registerRenderCommand } from "./cli/commands/render.js"
+import { registerDiffCommand } from "./cli/commands/diff.js"
 import { isNamedCommand, resolveVersion } from "./cli/router.js"
 import { errorExit } from "./cli/output.js"
 
@@ -22,6 +23,7 @@ program
 // ── Named top-level commands ──────────────────────────────────────────────────
 registerMetaCommands(program)
 registerArgumentCommands(program)
+registerDiffCommand(program)
 
 // ── Version-scoped commands ───────────────────────────────────────────────────
 // If the first user argument is not a named command, treat it as an argument ID
