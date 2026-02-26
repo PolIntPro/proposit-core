@@ -5,6 +5,12 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
 } from "../src/lib/schemata"
+import {
+    defaultCompareArgument,
+    defaultCompareVariable,
+    defaultComparePremise,
+    defaultCompareExpression,
+} from "../src/lib/core/diff"
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -2051,6 +2057,151 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
             isUnsound: true,
             premisesTrue: false,
             conclusionTrue: false,
+        })
+    })
+})
+
+describe("diffArguments", () => {
+    describe("defaultCompareArgument", () => {
+        it("returns empty array when title and description match", () => {
+            const a: TCoreArgument = { ...ARG, title: "T", description: "D" }
+            const b: TCoreArgument = {
+                ...ARG,
+                title: "T",
+                description: "D",
+                version: 2,
+            }
+            expect(defaultCompareArgument(a, b)).toEqual([])
+        })
+
+        it("detects title change", () => {
+            const a: TCoreArgument = { ...ARG, title: "Old" }
+            const b: TCoreArgument = { ...ARG, title: "New" }
+            expect(defaultCompareArgument(a, b)).toEqual([
+                { field: "title", before: "Old", after: "New" },
+            ])
+        })
+
+        it("detects description change", () => {
+            const a: TCoreArgument = { ...ARG, description: "Old" }
+            const b: TCoreArgument = { ...ARG, description: "New" }
+            expect(defaultCompareArgument(a, b)).toEqual([
+                { field: "description", before: "Old", after: "New" },
+            ])
+        })
+    })
+
+    describe("defaultCompareVariable", () => {
+        it("returns empty array when symbol matches", () => {
+            expect(defaultCompareVariable(VAR_P, VAR_P)).toEqual([])
+        })
+
+        it("detects symbol change", () => {
+            const before = makeVar("var-p", "P")
+            const after = makeVar("var-p", "X")
+            expect(defaultCompareVariable(before, after)).toEqual([
+                { field: "symbol", before: "P", after: "X" },
+            ])
+        })
+    })
+
+    describe("defaultComparePremise", () => {
+        it("detects title change", () => {
+            const before = {
+                id: "p1",
+                title: "Old",
+                rootExpressionId: "r1",
+                variables: [],
+                expressions: [],
+            }
+            const after = {
+                id: "p1",
+                title: "New",
+                rootExpressionId: "r1",
+                variables: [],
+                expressions: [],
+            }
+            expect(defaultComparePremise(before, after)).toEqual([
+                { field: "title", before: "Old", after: "New" },
+            ])
+        })
+
+        it("detects rootExpressionId change", () => {
+            const before = {
+                id: "p1",
+                title: "T",
+                rootExpressionId: "r1",
+                variables: [],
+                expressions: [],
+            }
+            const after = {
+                id: "p1",
+                title: "T",
+                rootExpressionId: "r2",
+                variables: [],
+                expressions: [],
+            }
+            expect(defaultComparePremise(before, after)).toEqual([
+                { field: "rootExpressionId", before: "r1", after: "r2" },
+            ])
+        })
+    })
+
+    describe("defaultCompareExpression", () => {
+        it("detects parentId change", () => {
+            const before = makeVarExpr("e1", "var-p", {
+                parentId: "p1",
+                position: 0,
+            })
+            const after = makeVarExpr("e1", "var-p", {
+                parentId: "p2",
+                position: 0,
+            })
+            expect(defaultCompareExpression(before, after)).toEqual([
+                { field: "parentId", before: "p1", after: "p2" },
+            ])
+        })
+
+        it("detects position change", () => {
+            const before = makeVarExpr("e1", "var-p", {
+                parentId: "p1",
+                position: 0,
+            })
+            const after = makeVarExpr("e1", "var-p", {
+                parentId: "p1",
+                position: 1,
+            })
+            expect(defaultCompareExpression(before, after)).toEqual([
+                { field: "position", before: 0, after: 1 },
+            ])
+        })
+
+        it("detects variableId change on variable expression", () => {
+            const before = makeVarExpr("e1", "var-p", {
+                parentId: null,
+                position: null,
+            })
+            const after = makeVarExpr("e1", "var-q", {
+                parentId: null,
+                position: null,
+            })
+            expect(defaultCompareExpression(before, after)).toEqual([
+                { field: "variableId", before: "var-p", after: "var-q" },
+            ])
+        })
+
+        it("detects operator change on operator expression", () => {
+            const before = makeOpExpr("e1", "and", {
+                parentId: null,
+                position: null,
+            })
+            const after = makeOpExpr("e1", "or", {
+                parentId: null,
+                position: null,
+            })
+            expect(defaultCompareExpression(before, after)).toEqual([
+                { field: "operator", before: "and", after: "or" },
+            ])
         })
     })
 })
