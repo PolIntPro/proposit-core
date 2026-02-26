@@ -81,6 +81,13 @@ export function defaultCompareExpression(
     after: TCorePropositionalExpression
 ): TCoreFieldChange[] {
     const changes: TCoreFieldChange[] = []
+    if (before.type !== after.type) {
+        changes.push({
+            field: "type",
+            before: before.type,
+            after: after.type,
+        })
+    }
     if (before.parentId !== after.parentId) {
         changes.push({
             field: "parentId",
@@ -144,8 +151,8 @@ function diffEntitySet<T extends { id: string }>(
         }
     }
 
-    for (const [_id, afterItem] of afterById) {
-        if (!beforeById.has(_id)) {
+    for (const [id, afterItem] of afterById) {
+        if (!beforeById.has(id)) {
             added.push(afterItem)
         }
     }

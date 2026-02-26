@@ -2204,6 +2204,20 @@ describe("diffArguments", () => {
                 { field: "operator", before: "and", after: "or" },
             ])
         })
+
+        it("detects type change between expression types", () => {
+            const before = makeVarExpr("e1", "var-p", {
+                parentId: null,
+                position: null,
+            })
+            const after = makeOpExpr("e1", "and", {
+                parentId: null,
+                position: null,
+            })
+            expect(defaultCompareExpression(before, after)).toEqual([
+                { field: "type", before: "variable", after: "operator" },
+            ])
+        })
     })
 
     // Helper: create an engine with one premise containing P → Q
