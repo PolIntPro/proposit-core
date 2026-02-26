@@ -17,6 +17,7 @@ import type {
 } from "../types/diff.js"
 import type { ArgumentEngine } from "./ArgumentEngine.js"
 
+/** Compares two argument metadata objects and returns field-level changes for `title` and `description`. */
 export function defaultCompareArgument(
     before: TCoreArgument,
     after: TCoreArgument
@@ -39,6 +40,7 @@ export function defaultCompareArgument(
     return changes
 }
 
+/** Compares two variables and returns field-level changes for `symbol`. */
 export function defaultCompareVariable(
     before: TCorePropositionalVariable,
     after: TCorePropositionalVariable
@@ -54,6 +56,7 @@ export function defaultCompareVariable(
     return changes
 }
 
+/** Compares two premises and returns field-level changes for `title` and `rootExpressionId`. */
 export function defaultComparePremise(
     before: TCorePremise,
     after: TCorePremise
@@ -76,6 +79,7 @@ export function defaultComparePremise(
     return changes
 }
 
+/** Compares two expressions and returns field-level changes for structural fields (`type`, `parentId`, `position`, `variableId`, `operator`). */
 export function defaultCompareExpression(
     before: TCorePropositionalExpression,
     after: TCorePropositionalExpression
@@ -199,8 +203,8 @@ function diffPremiseSet(
         }
     }
 
-    for (const [_id, afterPremise] of afterById) {
-        if (!beforeById.has(_id)) {
+    for (const [id, afterPremise] of afterById) {
+        if (!beforeById.has(id)) {
             added.push(afterPremise)
         }
     }
@@ -243,6 +247,13 @@ function collectVariables(
 // Main diff function
 // ---------------------------------------------------------------------------
 
+/**
+ * Computes a structural diff between two argument engines.
+ *
+ * Compares argument metadata, variables, premises (with nested expression
+ * diffs), and role assignments. Uses pluggable comparators that default to
+ * the `defaultCompare*` functions.
+ */
 export function diffArguments(
     engineA: ArgumentEngine,
     engineB: ArgumentEngine,

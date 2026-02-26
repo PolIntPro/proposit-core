@@ -4,6 +4,7 @@ import type {
     TCoreValidationResult,
 } from "../../types/evaluation.js"
 
+/** Creates a validation result, setting `ok` based on whether any error-severity issues exist. */
 export function makeValidationResult(
     issues: TCoreValidationIssue[]
 ): TCoreValidationResult {
@@ -13,12 +14,14 @@ export function makeValidationResult(
     }
 }
 
+/** Creates a validation issue with `severity: "error"`. */
 export function makeErrorIssue(
     issue: Omit<TCoreValidationIssue, "severity">
 ): TCoreValidationIssue {
     return { severity: "error", ...issue }
 }
 
+/** Computes the truth value of material implication: `!antecedent || consequent`. */
 export function implicationValue(
     antecedent: boolean,
     consequent: boolean
@@ -26,6 +29,7 @@ export function implicationValue(
     return !antecedent || consequent
 }
 
+/** Builds a directional vacuity diagnostic for one direction of an implication. */
 export function buildDirectionalVacuity(
     antecedentTrue: boolean,
     consequentTrue: boolean
