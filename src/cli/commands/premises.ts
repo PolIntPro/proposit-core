@@ -89,7 +89,8 @@ export function registerPremiseCommands(
 
                     // Hydrate a temporary PremiseManager for display string
                     const pm = new PremiseManager(pid, argument, meta.title)
-                    for (const v of allVariables) pm.addVariable(v)
+                    for (const v of allVariables)
+                        pm.addVariable({ ...v, argumentVersion: version })
 
                     // Add expressions BFS-order
                     const remaining = [...data.expressions]
@@ -97,7 +98,10 @@ export function registerPremiseCommands(
                     for (let i = remaining.length - 1; i >= 0; i--) {
                         const expr = remaining[i]
                         if (expr.parentId === null) {
-                            pm.addExpression(expr)
+                            pm.addExpression({
+                                ...expr,
+                                argumentVersion: version,
+                            })
                             added.add(expr.id)
                             remaining.splice(i, 1)
                         }
@@ -111,7 +115,10 @@ export function registerPremiseCommands(
                                 expr.parentId !== null &&
                                 added.has(expr.parentId)
                             ) {
-                                pm.addExpression(expr)
+                                pm.addExpression({
+                                    ...expr,
+                                    argumentVersion: version,
+                                })
                                 added.add(expr.id)
                                 remaining.splice(i, 1)
                                 progress = true
@@ -256,14 +263,15 @@ export function registerPremiseCommands(
             ])
 
             const pm = new PremiseManager(premiseId, argument, meta.title)
-            for (const v of allVariables) pm.addVariable(v)
+            for (const v of allVariables)
+                pm.addVariable({ ...v, argumentVersion: version })
 
             const remaining = [...data.expressions]
             const added = new Set<string>()
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId === null) {
-                    pm.addExpression(expr)
+                    pm.addExpression({ ...expr, argumentVersion: version })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                 }
@@ -274,7 +282,10 @@ export function registerPremiseCommands(
                 for (let i = remaining.length - 1; i >= 0; i--) {
                     const expr = remaining[i]
                     if (expr.parentId !== null && added.has(expr.parentId)) {
-                        pm.addExpression(expr)
+                        pm.addExpression({
+                            ...expr,
+                            argumentVersion: version,
+                        })
                         added.add(expr.id)
                         remaining.splice(i, 1)
                         progress = true

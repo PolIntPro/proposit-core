@@ -44,7 +44,7 @@ export async function hydrateEngine(
         const pm = engine.createPremiseWithId(premiseId, meta.title)
 
         for (const variable of allVariables) {
-            pm.addVariable(variable)
+            pm.addVariable({ ...variable, argumentVersion: version })
         }
 
         // Add expressions in BFS order: root (parentId===null) first, then
@@ -56,7 +56,7 @@ export async function hydrateEngine(
         for (let i = remaining.length - 1; i >= 0; i--) {
             const expr = remaining[i]
             if (expr.parentId === null) {
-                pm.addExpression(expr)
+                pm.addExpression({ ...expr, argumentVersion: version })
                 added.add(expr.id)
                 remaining.splice(i, 1)
             }
@@ -69,7 +69,7 @@ export async function hydrateEngine(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId !== null && added.has(expr.parentId)) {
-                    pm.addExpression(expr)
+                    pm.addExpression({ ...expr, argumentVersion: version })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                     progress = true
