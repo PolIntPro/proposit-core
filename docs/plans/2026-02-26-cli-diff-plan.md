@@ -13,6 +13,7 @@
 ### Task 1: Create the diff renderer module
 
 **Files:**
+
 - Create: `src/cli/output/diffRenderer.ts`
 
 **Step 1: Write the failing test**
@@ -32,9 +33,8 @@ vi.mock("../src/cli/output.js", () => ({
 }))
 
 // Import after mock setup
-const { renderDiff, isDiffEmpty } = await import(
-    "../src/cli/output/diffRenderer.js"
-)
+const { renderDiff, isDiffEmpty } =
+    await import("../src/cli/output/diffRenderer.js")
 
 beforeEach(() => {
     printedLines.length = 0
@@ -44,8 +44,22 @@ describe("isDiffEmpty", () => {
     it("returns true for an empty diff", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -62,8 +76,22 @@ describe("isDiffEmpty", () => {
     it("returns false when argument has changes", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "Old", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "New", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "Old",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "New",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [{ field: "title", before: "Old", after: "New" }],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -80,8 +108,22 @@ describe("isDiffEmpty", () => {
     it("returns false when variables have additions", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: {
@@ -102,8 +144,22 @@ describe("isDiffEmpty", () => {
     it("returns false when conclusion changed", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -122,8 +178,22 @@ describe("renderDiff", () => {
     it("prints 'No differences.' for an empty diff", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -141,9 +211,25 @@ describe("renderDiff", () => {
     it("renders argument field changes", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "Old Title", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "New Title", description: "D", version: 1, createdAt: 1, published: false },
-                changes: [{ field: "title", before: "Old Title", after: "New Title" }],
+                before: {
+                    id: "a",
+                    title: "Old Title",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "New Title",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
+                changes: [
+                    { field: "title", before: "Old Title", after: "New Title" },
+                ],
             },
             variables: { added: [], removed: [], modified: [] },
             premises: { added: [], removed: [], modified: [] },
@@ -161,8 +247,22 @@ describe("renderDiff", () => {
     it("renders added, removed, and modified variables", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: {
@@ -194,8 +294,22 @@ describe("renderDiff", () => {
     it("renders added, removed, and modified premises with nested expressions", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -234,7 +348,13 @@ describe("renderDiff", () => {
                             variables: [],
                             expressions: [],
                         },
-                        changes: [{ field: "title", before: "Before", after: "After" }],
+                        changes: [
+                            {
+                                field: "title",
+                                before: "Before",
+                                after: "After",
+                            },
+                        ],
                         expressions: {
                             added: [
                                 {
@@ -270,8 +390,22 @@ describe("renderDiff", () => {
     it("renders role changes", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -292,8 +426,22 @@ describe("renderDiff", () => {
     it("omits sections with no changes", () => {
         const diff: TCoreArgumentDiff = {
             argument: {
-                before: { id: "a", title: "T", description: "D", version: 0, createdAt: 0, published: false },
-                after: { id: "a", title: "T", description: "D", version: 1, createdAt: 1, published: false },
+                before: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 0,
+                    createdAt: 0,
+                    published: false,
+                },
+                after: {
+                    id: "a",
+                    title: "T",
+                    description: "D",
+                    version: 1,
+                    createdAt: 1,
+                    published: false,
+                },
                 changes: [{ field: "title", before: "Old", after: "New" }],
             },
             variables: { added: [], removed: [], modified: [] },
@@ -472,6 +620,7 @@ git commit -m "Add diff renderer with tests"
 ### Task 2: Create the diff command module
 
 **Files:**
+
 - Create: `src/cli/commands/diff.ts`
 
 **Step 1: Write the failing test**
@@ -684,9 +833,7 @@ function parseDiffArgs(
 export function registerDiffCommand(program: Command): void {
     program
         .command("diff <args...>")
-        .description(
-            "Compare two argument versions and show their differences"
-        )
+        .description("Compare two argument versions and show their differences")
         .option("--json", "Output as JSON")
         .action(async (args: string[], opts: { json?: boolean }) => {
             const [idA, verArgA, idB, verArgB] = parseDiffArgs(args)
@@ -729,6 +876,7 @@ git commit -m "Add diff command module with tests"
 ### Task 3: Wire the diff command into CLI routing
 
 **Files:**
+
 - Modify: `src/cli/router.ts:4-12` (add `"diff"` to `NAMED_COMMANDS`)
 - Modify: `src/cli.ts:1-58` (import and register `registerDiffCommand`)
 

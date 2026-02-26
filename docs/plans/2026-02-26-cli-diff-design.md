@@ -65,6 +65,7 @@ Roles:
 ```
 
 Rules:
+
 - Sections only appear if they have changes
 - Added/removed entities: `+ id (added)` / `- id (removed)`
 - Modified entities: `~ id:` followed by indented field changes
@@ -78,6 +79,7 @@ Emits the full `TCoreArgumentDiff` object via `printJson`.
 ## Empty Diff Detection
 
 A diff is empty when all of:
+
 - `argument.changes` is empty
 - `variables.added`, `.removed`, `.modified` are all empty
 - `premises.added`, `.removed`, `.modified` are all empty
