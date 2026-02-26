@@ -2504,5 +2504,44 @@ describe("diffArguments", () => {
             expect(diff.roles.supportingAdded).toEqual(["premise-2"])
             expect(diff.roles.supportingRemoved).toEqual(["premise-1"])
         })
+
+        it("uses custom comparator extending default", () => {
+            const { engine: engineA } = buildSimpleEngine(ARG)
+            const { engine: engineB } = buildSimpleEngine(ARG)
+            engineB.getPremise("premise-1")!.setTitle("Updated")
+
+            const diff = diffArguments(engineA, engineB, {
+                comparePremise: (before, after) => [
+                    ...defaultComparePremise(before, after),
+                    // Custom: always report a "custom" field
+                    { field: "customField", before: "a", after: "b" },
+                ],
+            })
+
+            expect(diff.premises.modified).toHaveLength(1)
+            expect(diff.premises.modified[0].changes).toEqual([
+                {
+                    field: "title",
+                    before: "First premise",
+                    after: "Updated",
+                },
+                { field: "customField", before: "a", after: "b" },
+            ])
+        })
+
+        it("custom comparator replaces default entirely", () => {
+            const { engine: engineA } = buildSimpleEngine(ARG)
+            const { engine: engineB } = buildSimpleEngine(ARG)
+            engineB.getPremise("premise-1")!.setTitle("Updated")
+
+            // Custom comparator that ignores title changes
+            const diff = diffArguments(engineA, engineB, {
+                comparePremise: () => [],
+            })
+
+            // Premise is not in modified because comparator returned no changes
+            // (and no expression changes either since engines are otherwise identical)
+            expect(diff.premises.modified).toEqual([])
+        })
     })
 })
