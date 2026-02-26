@@ -1,3 +1,7 @@
+/**
+ * Library barrel export. Re-exports core classes, evaluation types, diff
+ * types, and the diff function.
+ */
 export { ArgumentEngine } from "./core/ArgumentEngine.js"
 export { PremiseManager } from "./core/PremiseManager.js"
 export * from "./types/evaluation.js"
