@@ -3,7 +3,10 @@ import { ArgumentEngine, PremiseManager } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
     CoreArgumentMetadataSchema,
+    CorePremiseMetadataSchema,
+    CoreVariableMetadataSchema,
     type TCoreArgument,
+    type TCorePremiseMeta,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
 } from "../src/lib/schemata"
@@ -3103,7 +3106,7 @@ describe("ArgumentEngine — three-valued evaluation", () => {
     })
 })
 
-describe("metadata record — argument schema", () => {
+describe("metadata record", () => {
     it("argument metadata has title and description under metadata field", () => {
         const arg: TCoreArgument = {
             id: "arg-1",
@@ -3130,5 +3133,32 @@ describe("metadata record — argument schema", () => {
             custom: 42,
         })
         expect(invalid).toBe(false)
+    })
+
+    it("premise metadata has optional title under metadata field", () => {
+        const data: TCorePremiseMeta = {
+            id: "p-1",
+            metadata: { title: "My Premise" },
+        }
+        expect(data.metadata.title).toBe("My Premise")
+    })
+
+    it("premise metadata schema accepts additional string keys", () => {
+        const valid = Value.Check(CorePremiseMetadataSchema, {
+            custom: "val",
+        })
+        expect(valid).toBe(true)
+    })
+
+    it("variable has metadata record", () => {
+        const valid = Value.Check(CoreVariableMetadataSchema, {})
+        expect(valid).toBe(true)
+    })
+
+    it("variable metadata schema accepts arbitrary string keys", () => {
+        const valid = Value.Check(CoreVariableMetadataSchema, {
+            label: "Proposition P",
+        })
+        expect(valid).toBe(true)
     })
 })
