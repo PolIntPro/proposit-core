@@ -339,9 +339,9 @@ premises:
     role: supporting
 `
         const engine = importArgumentFromYaml(yaml)
-        const arg = engine.getArgument()
-        expect(arg.metadata.title).toBe("Simple Argument")
-        expect(arg.metadata.description).toBe("A basic test")
+        const arg = engine.getArgument() as Record<string, unknown>
+        expect(arg.title).toBe("Simple Argument")
+        expect(arg.description).toBe("A basic test")
         expect(engine.listPremises().length).toBe(2)
     })
 
@@ -373,7 +373,9 @@ premises:
     role: supporting
 `
         const engine = importArgumentFromYaml(yaml)
-        expect(engine.getArgument().metadata.description).toBeUndefined()
+        expect(
+            (engine.getArgument() as Record<string, unknown>).description
+        ).toBeUndefined()
     })
 
     it("defaults premises without role to supporting", () => {
@@ -412,7 +414,7 @@ premises:
         const engine = importArgumentFromYaml(yaml)
         const conclusion = engine.getConclusionPremise()
         expect(conclusion).toBeDefined()
-        expect(conclusion!.getTitle()).toBe("Therefore Q")
+        expect(conclusion!.getExtras().title).toBe("Therefore Q")
         expect(engine.listSupportingPremises().length).toBe(2)
     })
 
@@ -636,7 +638,7 @@ premises:
     role: supporting
 `
         const engine = importArgumentFromYaml(yaml)
-        const arg = engine.getArgument()
+        const arg = engine.getArgument() as Record<string, unknown>
         expect(arg.version).toBe(0)
         expect(arg.published).toBe(false)
     })

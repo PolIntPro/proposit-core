@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import type { TCoreArgumentDiff } from "../src/lib/types/diff.js"
+import type { TCorePremise } from "../src/lib/schemata/propositional.js"
 
 // We capture printLine calls to verify output
 const printedLines: string[] = []
@@ -21,18 +22,12 @@ beforeEach(() => {
 function makeArg(
     overrides: Partial<{
         id: string
-        metadata: { title: string; description?: string }
         version: number
-        createdAt: number
-        published: boolean
     }> = {}
 ) {
     return {
         id: "a",
-        metadata: { title: "T", description: "D" },
         version: 0,
-        createdAt: 0,
-        published: false,
         ...overrides,
     }
 }
@@ -43,7 +38,7 @@ function emptyDiff(
     return {
         argument: {
             before: makeArg(),
-            after: makeArg({ version: 1, createdAt: 1 }),
+            after: makeArg({ version: 1 }),
             changes: [],
         },
         variables: { added: [], removed: [], modified: [] },
@@ -65,15 +60,9 @@ describe("isDiffEmpty", () => {
     it("returns false when argument has changes", () => {
         const diff = emptyDiff({
             argument: {
-                before: makeArg({ metadata: { title: "Old" } }),
-                after: makeArg({
-                    metadata: { title: "New" },
-                    version: 1,
-                    createdAt: 1,
-                }),
-                changes: [
-                    { field: "metadata.title", before: "Old", after: "New" },
-                ],
+                before: makeArg(),
+                after: makeArg({ version: 1 }),
+                changes: [{ field: "title", before: "Old", after: "New" }],
             },
         })
         expect(isDiffEmpty(diff)).toBe(false)
@@ -88,7 +77,6 @@ describe("isDiffEmpty", () => {
                         symbol: "p",
                         argumentId: "a",
                         argumentVersion: 1,
-                        metadata: {},
                     },
                 ],
                 removed: [],
@@ -119,15 +107,11 @@ describe("renderDiff", () => {
     it("renders argument field changes", () => {
         const diff = emptyDiff({
             argument: {
-                before: makeArg({ metadata: { title: "Old Title" } }),
-                after: makeArg({
-                    metadata: { title: "New Title" },
-                    version: 1,
-                    createdAt: 1,
-                }),
+                before: makeArg(),
+                after: makeArg({ version: 1 }),
                 changes: [
                     {
-                        field: "metadata.title",
+                        field: "title",
                         before: "Old Title",
                         after: "New Title",
                     },
@@ -136,9 +120,7 @@ describe("renderDiff", () => {
         })
         renderDiff(diff)
         expect(printedLines).toContain("Argument:")
-        expect(printedLines).toContain(
-            '  metadata.title: "Old Title" → "New Title"'
-        )
+        expect(printedLines).toContain('  title: "Old Title" → "New Title"')
     })
 
     it("renders added, removed, and modified variables", () => {
@@ -150,7 +132,6 @@ describe("renderDiff", () => {
                         symbol: "r",
                         argumentId: "a",
                         argumentVersion: 1,
-                        metadata: {},
                     },
                 ],
                 removed: [
@@ -159,7 +140,6 @@ describe("renderDiff", () => {
                         symbol: "p",
                         argumentId: "a",
                         argumentVersion: 0,
-                        metadata: {},
                     },
                 ],
                 modified: [
@@ -169,14 +149,12 @@ describe("renderDiff", () => {
                             symbol: "q",
                             argumentId: "a",
                             argumentVersion: 0,
-                            metadata: {},
                         },
                         after: {
                             id: "v2",
                             symbol: "Q",
                             argumentId: "a",
                             argumentVersion: 1,
-                            metadata: {},
                         },
                         changes: [{ field: "symbol", before: "q", after: "Q" }],
                     },
@@ -197,36 +175,36 @@ describe("renderDiff", () => {
                 added: [
                     {
                         id: "p2",
-                        metadata: { title: "New Premise" },
+                        title: "New Premise",
                         variables: [],
                         expressions: [],
-                    },
+                    } as TCorePremise,
                 ],
                 removed: [
                     {
                         id: "p3",
-                        metadata: { title: "Old Premise" },
+                        title: "Old Premise",
                         variables: [],
                         expressions: [],
-                    },
+                    } as TCorePremise,
                 ],
                 modified: [
                     {
                         before: {
                             id: "p1",
-                            metadata: { title: "Before" },
+                            title: "Before",
                             variables: [],
                             expressions: [],
-                        },
+                        } as TCorePremise,
                         after: {
                             id: "p1",
-                            metadata: { title: "After" },
+                            title: "After",
                             variables: [],
                             expressions: [],
-                        },
+                        } as TCorePremise,
                         changes: [
                             {
-                                field: "metadata.title",
+                                field: "title",
                                 before: "Before",
                                 after: "After",
                             },
@@ -255,7 +233,7 @@ describe("renderDiff", () => {
         expect(printedLines).toContain("  + p2 (added)")
         expect(printedLines).toContain("  - p3 (removed)")
         expect(printedLines).toContain("  ~ p1:")
-        expect(printedLines).toContain('    metadata.title: "Before" → "After"')
+        expect(printedLines).toContain('    title: "Before" → "After"')
         expect(printedLines).toContain("    Expressions:")
         expect(printedLines).toContain("      + e1 (added)")
     })
@@ -279,10 +257,8 @@ describe("renderDiff", () => {
         const diff = emptyDiff({
             argument: {
                 before: makeArg(),
-                after: makeArg({ version: 1, createdAt: 1 }),
-                changes: [
-                    { field: "metadata.title", before: "Old", after: "New" },
-                ],
+                after: makeArg({ version: 1 }),
+                changes: [{ field: "title", before: "Old", after: "New" }],
             },
         })
         renderDiff(diff)

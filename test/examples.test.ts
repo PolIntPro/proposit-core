@@ -44,9 +44,9 @@ describe("monopoly-regulation.yaml", () => {
     )
 
     it("has the correct title and description", () => {
-        const arg = engine.getArgument()
-        expect(arg.metadata.title).toBe("The Case for Monopoly Regulation")
-        expect(arg.metadata.description).toContain("market dominance")
+        const arg = engine.getArgument() as Record<string, unknown>
+        expect(arg.title).toBe("The Case for Monopoly Regulation")
+        expect(arg.description).toContain("market dominance")
     })
 
     it("has 5 premises with 4 variables", () => {
@@ -72,7 +72,7 @@ describe("monopoly-regulation.yaml", () => {
     it("assigns the correct conclusion", () => {
         const conclusion = engine.getConclusionPremise()
         expect(conclusion).not.toBeNull()
-        expect(conclusion!.getTitle()).toBe(
+        expect(conclusion!.getExtras().title).toBe(
             "Market dominance without competition justifies regulation"
         )
     })
@@ -110,7 +110,7 @@ describe("education-reform.yaml", () => {
     const engine = importArgumentFromYaml(loadExample("education-reform.yaml"))
 
     it("has the correct title", () => {
-        expect(engine.getArgument().metadata.title).toBe(
+        expect((engine.getArgument() as Record<string, unknown>).title).toBe(
             "Education Reform Through Funding"
         )
     })
@@ -170,7 +170,7 @@ describe("exam-performance.yaml", () => {
     const engine = importArgumentFromYaml(loadExample("exam-performance.yaml"))
 
     it("has the correct title", () => {
-        expect(engine.getArgument().metadata.title).toBe(
+        expect((engine.getArgument() as Record<string, unknown>).title).toBe(
             "Studying Guarantees Mastery"
         )
     })
@@ -242,7 +242,7 @@ describe("free-speech-misinformation.yaml", () => {
     )
 
     it("has the correct title", () => {
-        expect(engine.getArgument().metadata.title).toBe(
+        expect((engine.getArgument() as Record<string, unknown>).title).toBe(
             "Free Speech Undermines Public Safety"
         )
     })
