@@ -234,12 +234,10 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const argument = {
         id: argumentId,
         version: 0,
-        metadata: {
-            title: input.metadata.title,
-            ...(input.metadata.description !== undefined
-                ? { description: input.metadata.description }
-                : {}),
-        },
+        title: input.metadata.title,
+        ...(input.metadata.description !== undefined
+            ? { description: input.metadata.description }
+            : {}),
         createdAt: Date.now(),
         published: false,
     }
@@ -254,7 +252,6 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             argumentId,
             argumentVersion: 0,
             symbol: name,
-            metadata: {},
         }
         variablesByName.set(name, variable)
     }

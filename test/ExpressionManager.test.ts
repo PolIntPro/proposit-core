@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest"
 import { ArgumentEngine, PremiseManager } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
-    CoreArgumentMetadataSchema,
-    CorePremiseMetadataSchema,
-    CoreVariableMetadataSchema,
+    CoreArgumentSchema,
+    CorePropositionalVariableSchema,
+    CorePremiseSchema,
     type TCoreArgument,
-    type TCorePremiseMeta,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
 } from "../src/lib/schemata"
@@ -33,9 +32,6 @@ import {
 const ARG: TCoreArgument = {
     id: "arg-1",
     version: 1,
-    metadata: { title: "Test Argument" },
-    createdAt: Date.now(),
-    published: false,
 }
 
 function makeVar(id: string, symbol: string): TCorePropositionalVariable {
@@ -44,7 +40,6 @@ function makeVar(id: string, symbol: string): TCorePropositionalVariable {
         argumentId: ARG.id,
         argumentVersion: ARG.version,
         symbol,
-        metadata: {},
     }
 }
 
@@ -113,8 +108,8 @@ function premiseWithVars(): PremiseManager {
 }
 
 /** Create a PremiseManager directly with a deterministic ID (for toData tests). */
-function makePremise(metadata?: Record<string, string>): PremiseManager {
-    return new PremiseManager("premise-1", ARG, metadata)
+function makePremise(extras?: Record<string, unknown>): PremiseManager {
+    return new PremiseManager("premise-1", ARG, extras)
 }
 
 // ---------------------------------------------------------------------------
@@ -1268,7 +1263,7 @@ describe("ArgumentEngine premise CRUD", () => {
         expect(pm.toData().id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         )
-        expect(pm.toData().metadata.title).toBe("test")
+        expect((pm.toData() as Record<string, unknown>).title).toBe("test")
     })
 
     it("getPremise(id) returns the same instance", () => {
@@ -1500,11 +1495,11 @@ describe("PremiseManager — toDisplayString", () => {
 })
 
 describe("PremiseManager — toData", () => {
-    it("returns correct id and title", () => {
+    it("returns correct id and extras", () => {
         const pm = new PremiseManager("my-id", ARG, { title: "My Premise" })
         const data = pm.toData()
         expect(data.id).toBe("my-id")
-        expect(data.metadata.title).toBe("My Premise")
+        expect((data as Record<string, unknown>).title).toBe("My Premise")
     })
 
     it("rootExpressionId is absent before any expression is added", () => {
@@ -2101,39 +2096,10 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
 
 describe("diffArguments", () => {
     describe("defaultCompareArgument", () => {
-        it("returns empty array when title and description match", () => {
-            const a: TCoreArgument = {
-                ...ARG,
-                metadata: { title: "T", description: "D" },
-            }
-            const b: TCoreArgument = {
-                ...ARG,
-                metadata: { title: "T", description: "D" },
-                version: 2,
-            }
+        it("returns empty array (no core diffable fields)", () => {
+            const a: TCoreArgument = { ...ARG }
+            const b: TCoreArgument = { ...ARG, version: 2 }
             expect(defaultCompareArgument(a, b)).toEqual([])
-        })
-
-        it("detects title change", () => {
-            const a: TCoreArgument = { ...ARG, metadata: { title: "Old" } }
-            const b: TCoreArgument = { ...ARG, metadata: { title: "New" } }
-            expect(defaultCompareArgument(a, b)).toEqual([
-                { field: "metadata.title", before: "Old", after: "New" },
-            ])
-        })
-
-        it("detects description change", () => {
-            const a: TCoreArgument = {
-                ...ARG,
-                metadata: { title: "Test Argument", description: "Old" },
-            }
-            const b: TCoreArgument = {
-                ...ARG,
-                metadata: { title: "Test Argument", description: "New" },
-            }
-            expect(defaultCompareArgument(a, b)).toEqual([
-                { field: "metadata.description", before: "Old", after: "New" },
-            ])
         })
     })
 
@@ -2152,40 +2118,34 @@ describe("diffArguments", () => {
     })
 
     describe("defaultComparePremise", () => {
-        it("detects title change", () => {
+        it("returns empty when rootExpressionId matches", () => {
             const before = {
                 id: "p1",
-                metadata: { title: "Old" },
                 rootExpressionId: "r1",
-                variables: [],
-                expressions: [],
+                variables: [] as string[],
+                expressions: [] as TCorePropositionalExpression[],
             }
             const after = {
                 id: "p1",
-                metadata: { title: "New" },
                 rootExpressionId: "r1",
-                variables: [],
-                expressions: [],
+                variables: [] as string[],
+                expressions: [] as TCorePropositionalExpression[],
             }
-            expect(defaultComparePremise(before, after)).toEqual([
-                { field: "metadata.title", before: "Old", after: "New" },
-            ])
+            expect(defaultComparePremise(before, after)).toEqual([])
         })
 
         it("detects rootExpressionId change", () => {
             const before = {
                 id: "p1",
-                metadata: { title: "T" },
                 rootExpressionId: "r1",
-                variables: [],
-                expressions: [],
+                variables: [] as string[],
+                expressions: [] as TCorePropositionalExpression[],
             }
             const after = {
                 id: "p1",
-                metadata: { title: "T" },
                 rootExpressionId: "r2",
-                variables: [],
-                expressions: [],
+                variables: [] as string[],
+                expressions: [] as TCorePropositionalExpression[],
             }
             expect(defaultComparePremise(before, after)).toEqual([
                 { field: "rootExpressionId", before: "r1", after: "r2" },
@@ -2406,18 +2366,42 @@ describe("diffArguments", () => {
             expect(diff.premises.removed[0].id).toBe("premise-1")
         })
 
-        it("detects modified premise title", () => {
+        it("detects modified premise (rootExpressionId change)", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
-            const { engine: engineB } = buildSimpleEngine(ARG)
-            engineB.getPremise("premise-1")!.setTitle("Updated title")
+            const engineB = new ArgumentEngine(ARG)
+            const pm = engineB.createPremiseWithId("premise-1", {
+                title: "First premise",
+            })
+            pm.addVariable(makeVar("var-p", "P"))
+            pm.addVariable(makeVar("var-q", "Q"))
+            // Different root expression to trigger a rootExpressionId change
+            pm.addExpression(
+                makeOpExpr("expr-iff", "iff", {
+                    parentId: null,
+                    position: null,
+                })
+            )
+            pm.addExpression(
+                makeVarExpr("expr-p", "var-p", {
+                    parentId: "expr-iff",
+                    position: 0,
+                })
+            )
+            pm.addExpression(
+                makeVarExpr("expr-q", "var-q", {
+                    parentId: "expr-iff",
+                    position: 1,
+                })
+            )
+            engineB.addSupportingPremise("premise-1")
 
             const diff = diffArguments(engineA, engineB)
             expect(diff.premises.modified).toHaveLength(1)
             expect(diff.premises.modified[0].changes).toEqual([
                 {
-                    field: "metadata.title",
-                    before: "First premise",
-                    after: "Updated title",
+                    field: "rootExpressionId",
+                    before: "expr-implies",
+                    after: "expr-iff",
                 },
             ])
         })
@@ -2567,20 +2551,34 @@ describe("diffArguments", () => {
         it("uses custom comparator extending default", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
             const { engine: engineB } = buildSimpleEngine(ARG)
-            engineB.getPremise("premise-1")!.setTitle("Updated")
+            engineB.getPremise("premise-1")!.setExtras({ title: "Updated" })
 
             const diff = diffArguments(engineA, engineB, {
-                comparePremise: (before, after) => [
-                    ...defaultComparePremise(before, after),
+                comparePremise: (before, after) => {
+                    const changes = [...defaultComparePremise(before, after)]
+                    const bTitle = (before as Record<string, unknown>).title
+                    const aTitle = (after as Record<string, unknown>).title
+                    if (bTitle !== aTitle) {
+                        changes.push({
+                            field: "title",
+                            before: bTitle,
+                            after: aTitle,
+                        })
+                    }
                     // Custom: always report a "custom" field
-                    { field: "customField", before: "a", after: "b" },
-                ],
+                    changes.push({
+                        field: "customField",
+                        before: "a",
+                        after: "b",
+                    })
+                    return changes
+                },
             })
 
             expect(diff.premises.modified).toHaveLength(1)
             expect(diff.premises.modified[0].changes).toEqual([
                 {
-                    field: "metadata.title",
+                    field: "title",
                     before: "First premise",
                     after: "Updated",
                 },
@@ -2591,9 +2589,9 @@ describe("diffArguments", () => {
         it("custom comparator replaces default entirely", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
             const { engine: engineB } = buildSimpleEngine(ARG)
-            engineB.getPremise("premise-1")!.setTitle("Updated")
+            engineB.getPremise("premise-1")!.setExtras({ title: "Updated" })
 
-            // Custom comparator that ignores title changes
+            // Custom comparator that ignores extras changes
             const diff = diffArguments(engineA, engineB, {
                 comparePremise: () => [],
             })
@@ -3120,59 +3118,86 @@ describe("ArgumentEngine — three-valued evaluation", () => {
     })
 })
 
-describe("metadata record", () => {
-    it("argument metadata has title and description under metadata field", () => {
-        const arg: TCoreArgument = {
-            id: "arg-1",
-            version: 1,
-            metadata: { title: "Test" },
-            createdAt: Date.now(),
-            published: false,
-        }
-        expect(arg.metadata.title).toBe("Test")
-        expect(arg.metadata.description).toBeUndefined()
-    })
-
-    it("argument metadata schema accepts additional string keys", () => {
-        const valid = Value.Check(CoreArgumentMetadataSchema, {
-            title: "Test",
-            custom: "value",
-        })
-        expect(valid).toBe(true)
-    })
-
-    it("argument metadata schema rejects additional non-string keys", () => {
-        const invalid = Value.Check(CoreArgumentMetadataSchema, {
+describe("schema shapes with additionalProperties", () => {
+    it("CoreArgumentSchema accepts { id, version } with additional properties", () => {
+        const valid = Value.Check(CoreArgumentSchema, {
+            id: "x",
+            version: 0,
             title: "Test",
             custom: 42,
         })
+        expect(valid).toBe(true)
+    })
+
+    it("CoreArgumentSchema rejects missing required fields", () => {
+        const invalid = Value.Check(CoreArgumentSchema, { id: "x" })
         expect(invalid).toBe(false)
     })
 
-    it("premise metadata has optional title under metadata field", () => {
-        const data: TCorePremiseMeta = {
-            id: "p-1",
-            metadata: { title: "My Premise" },
-        }
-        expect(data.metadata.title).toBe("My Premise")
-    })
-
-    it("premise metadata schema accepts additional string keys", () => {
-        const valid = Value.Check(CorePremiseMetadataSchema, {
-            custom: "val",
-        })
-        expect(valid).toBe(true)
-    })
-
-    it("variable has metadata record", () => {
-        const valid = Value.Check(CoreVariableMetadataSchema, {})
-        expect(valid).toBe(true)
-    })
-
-    it("variable metadata schema accepts arbitrary string keys", () => {
-        const valid = Value.Check(CoreVariableMetadataSchema, {
+    it("CorePropositionalVariableSchema accepts { id, argumentId, argumentVersion, symbol } with additional properties", () => {
+        const valid = Value.Check(CorePropositionalVariableSchema, {
+            id: "v-1",
+            argumentId: "a-1",
+            argumentVersion: 0,
+            symbol: "P",
             label: "Proposition P",
         })
         expect(valid).toBe(true)
+    })
+
+    it("CorePremiseSchema accepts minimal shape with additional properties", () => {
+        const valid = Value.Check(CorePremiseSchema, {
+            id: "p-1",
+            variables: [],
+            expressions: [],
+            title: "My Premise",
+            priority: 1,
+        })
+        expect(valid).toBe(true)
+    })
+})
+
+describe("field preservation — unknown fields survive round-trips", () => {
+    const ARG_WITH_EXTRAS = {
+        id: "arg-1",
+        version: 1,
+        title: "My Argument",
+        customField: 42,
+    }
+
+    it("preserves unknown fields on the argument through getArgument()", () => {
+        const engine = new ArgumentEngine(ARG_WITH_EXTRAS as TCoreArgument)
+        const result = engine.getArgument()
+        expect((result as Record<string, unknown>).title).toBe("My Argument")
+        expect((result as Record<string, unknown>).customField).toBe(42)
+    })
+
+    it("preserves unknown fields on the argument through toData()", () => {
+        const engine = new ArgumentEngine(ARG_WITH_EXTRAS as TCoreArgument)
+        const data = engine.toData()
+        expect((data.argument as Record<string, unknown>).title).toBe(
+            "My Argument"
+        )
+        expect((data.argument as Record<string, unknown>).customField).toBe(42)
+    })
+
+    it("preserves extras on premises through toData()", () => {
+        const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
+        const pm = engine.createPremise({
+            title: "My Premise",
+            priority: "high",
+        })
+        const data = pm.toData()
+        expect((data as Record<string, unknown>).title).toBe("My Premise")
+        expect((data as Record<string, unknown>).priority).toBe("high")
+    })
+
+    it("preserves extras on premises through engine.toData()", () => {
+        const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
+        engine.createPremise({ title: "Premise One" })
+        const data = engine.toData()
+        expect((data.premises[0] as Record<string, unknown>).title).toBe(
+            "Premise One"
+        )
     })
 })

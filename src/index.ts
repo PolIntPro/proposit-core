@@ -16,6 +16,5 @@ export {
     defaultComparePremise,
     defaultCompareExpression,
 } from "./lib/core/diff.js"
-export { importArgumentFromYaml } from "./lib/core/import.js"
 export { parseFormula } from "./lib/core/parser/formula.js"
 export type { FormulaAST } from "./lib/core/parser/formula.js"

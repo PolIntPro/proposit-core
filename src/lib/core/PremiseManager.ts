@@ -30,7 +30,7 @@ import { VariableManager } from "./VariableManager.js"
 
 export class PremiseManager {
     private id: string
-    private metadata: Record<string, string>
+    private extras: Record<string, unknown>
     private rootExpressionId: string | undefined
     private variables: VariableManager
     private expressions: ExpressionManager
@@ -40,11 +40,11 @@ export class PremiseManager {
     constructor(
         id: string,
         argument: TCoreArgument,
-        metadata?: Record<string, string>
+        extras?: Record<string, unknown>
     ) {
         this.id = id
         this.argument = argument
-        this.metadata = metadata ?? {}
+        this.extras = extras ?? {}
         this.rootExpressionId = undefined
         this.variables = new VariableManager()
         this.expressions = new ExpressionManager()
@@ -230,24 +230,12 @@ export class PremiseManager {
         return this.id
     }
 
-    public getTitle(): string | undefined {
-        return this.metadata.title
+    public getExtras(): Record<string, unknown> {
+        return { ...this.extras }
     }
 
-    public setTitle(title: string | undefined): void {
-        if (title === undefined) {
-            delete this.metadata.title
-        } else {
-            this.metadata.title = title
-        }
-    }
-
-    public getMetadata(): Record<string, string> {
-        return { ...this.metadata }
-    }
-
-    public setMetadata(metadata: Record<string, string>): void {
-        this.metadata = { ...metadata }
+    public setExtras(extras: Record<string, unknown>): void {
+        this.extras = { ...extras }
     }
 
     public getRootExpressionId(): string | undefined {
@@ -671,12 +659,12 @@ export class PremiseManager {
         const variables = Array.from(referencedVariableIds).sort()
 
         return {
+            ...this.extras,
             id: this.id,
-            metadata: { ...this.metadata },
             rootExpressionId: this.rootExpressionId,
             variables,
             expressions,
-        }
+        } as TCorePremise
     }
 
     // -------------------------------------------------------------------------

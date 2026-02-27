@@ -88,15 +88,6 @@ export type TCorePropositionalExpression<
         TCorePropositionalExpressionTypes,
 > = Extract<TCorePropositionalExpressionCombined, { type: T }>
 
-export const CoreVariableMetadataSchema = Type.Record(
-    Type.String(),
-    Type.String(),
-    {
-        description: "User-facing descriptive metadata for a variable.",
-    }
-)
-export type TCoreVariableMetadata = Static<typeof CoreVariableMetadataSchema>
-
 export const CorePropositionalVariableSchema = Type.Object(
     {
         id: UUID,
@@ -106,9 +97,9 @@ export const CorePropositionalVariableSchema = Type.Object(
             description:
                 'Human-readable symbol for this variable (e.g. "P", "Q").',
         }),
-        metadata: CoreVariableMetadataSchema,
     },
     {
+        additionalProperties: true,
         description:
             "A named propositional variable belonging to a specific argument version.",
     }
@@ -118,35 +109,9 @@ export type TCorePropositionalVariable = Static<
     typeof CorePropositionalVariableSchema
 >
 
-export const CorePremiseMetadataSchema = Type.Object(
-    {
-        title: Type.Optional(
-            Type.String({
-                description:
-                    "An optional title for this premise, for display purposes.",
-            })
-        ),
-    },
-    {
-        additionalProperties: Type.String(),
-        description: "User-facing descriptive metadata for a premise.",
-    }
-)
-export type TCorePremiseMetadata = Static<typeof CorePremiseMetadataSchema>
-
-export const CorePremiseMetaSchema = Type.Object(
+export const CorePremiseSchema = Type.Object(
     {
         id: UUID,
-        metadata: CorePremiseMetadataSchema,
-    },
-    {
-        description: "Identity and display metadata for a premise.",
-    }
-)
-export type TCorePremiseMeta = Static<typeof CorePremiseMetaSchema>
-
-export const CorePremiseDataSchema = Type.Object(
-    {
         rootExpressionId: Type.Optional(
             Type.String({
                 description:
@@ -162,14 +127,10 @@ export const CorePremiseDataSchema = Type.Object(
         }),
     },
     {
-        description: "Expression tree and variable references for a premise.",
+        additionalProperties: true,
+        description:
+            "A premise containing an expression tree and variable references.",
     }
 )
-export type TCorePremiseData = Static<typeof CorePremiseDataSchema>
-
-export const CorePremiseSchema = Type.Intersect([
-    CorePremiseMetaSchema,
-    CorePremiseDataSchema,
-])
 
 export type TCorePremise = Static<typeof CorePremiseSchema>
