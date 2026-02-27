@@ -104,9 +104,9 @@ export async function hydrateEngine(
  */
 export async function persistEngine(engine: ArgumentEngine): Promise<void> {
     const arg = engine.getArgument()
-    const { id, title, description } = arg
+    const { id, metadata } = arg
 
-    await writeArgumentMeta({ id, title, description })
+    await writeArgumentMeta({ id, metadata })
     await writeVersionMeta(id, {
         version: arg.version,
         createdAt: arg.createdAt,
@@ -123,7 +123,7 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
         const data = pm.toData()
         await writePremiseMeta(id, arg.version, {
             id: data.id,
-            title: data.title,
+            metadata: data.metadata,
         })
         await writePremiseData(id, arg.version, data.id, {
             rootExpressionId: data.rootExpressionId,
