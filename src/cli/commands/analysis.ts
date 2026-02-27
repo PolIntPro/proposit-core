@@ -32,8 +32,8 @@ export function registerAnalysisCommands(
         )
         .option(
             "--default <value>",
-            "Default boolean value for all assignments (true or false)",
-            "true"
+            "Default value for all assignments (true, false, or unset)",
+            "unset"
         )
         .action(
             async (
@@ -45,9 +45,19 @@ export function registerAnalysisCommands(
                     errorExit(`Analysis file "${filename}" already exists.`)
                 }
 
-                const defaultValue = opts.default !== "false"
+                if (!["true", "false", "unset"].includes(opts.default)) {
+                    errorExit(
+                        `Default must be "true", "false", or "unset", got "${opts.default}".`
+                    )
+                }
+                const defaultValue =
+                    opts.default === "true"
+                        ? true
+                        : opts.default === "false"
+                          ? false
+                          : null
                 const variables = await readVariables(argumentId, version)
-                const assignments: Record<string, boolean> = {}
+                const assignments: Record<string, boolean | null> = {}
                 for (const v of variables) {
                     assignments[v.symbol] = defaultValue
                 }
@@ -56,6 +66,7 @@ export function registerAnalysisCommands(
                     argumentId,
                     argumentVersion: version,
                     assignments,
+                    rejectedExpressionIds: [],
                 })
                 printLine(filename)
             }
@@ -92,7 +103,14 @@ export function registerAnalysisCommands(
                     ([a], [b]) => a.localeCompare(b)
                 )
                 for (const [symbol, value] of sorted) {
-                    printLine(`${symbol} = ${value}`)
+                    printLine(`${symbol} = ${value ?? "unset"}`)
+                }
+                if (data.rejectedExpressionIds.length > 0) {
+                    printLine("")
+                    printLine("Rejected expressions:")
+                    for (const id of data.rejectedExpressionIds) {
+                        printLine(`  ${id}`)
+                    }
                 }
             }
         })
@@ -100,7 +118,7 @@ export function registerAnalysisCommands(
     analysis
         .command("set <variable_symbol> <value>")
         .description(
-            "Update a single variable assignment (value: true or false)"
+            "Update a single variable assignment (value: true, false, or unset)"
         )
         .option(
             "--file <filename>",
@@ -126,17 +144,19 @@ export function registerAnalysisCommands(
                     )
                 }
 
-                const boolValue =
+                const parsedValue =
                     valueArg === "true"
                         ? true
                         : valueArg === "false"
                           ? false
-                          : errorExit(
-                                `Value must be "true" or "false", got "${valueArg}".`
-                            )
+                          : valueArg === "unset"
+                            ? null
+                            : errorExit(
+                                  `Value must be "true", "false", or "unset", got "${valueArg}".`
+                              )
 
                 const data = await readAnalysis(argumentId, version, filename)
-                data.assignments[symbol] = boolValue
+                data.assignments[symbol] = parsedValue
                 await writeAnalysis(argumentId, version, filename, data)
                 printLine("success")
             }
@@ -149,14 +169,68 @@ export function registerAnalysisCommands(
             "--file <filename>",
             "Analysis filename (default: analysis.json)"
         )
-        .option("--value <value>", "Value to reset to (default: true)", "true")
+        .option(
+            "--value <value>",
+            "Value to reset to (default: unset)",
+            "unset"
+        )
         .action(async (opts: { file?: string; value: string }) => {
             const filename = resolveAnalysisFilename(opts.file)
-            const boolValue = opts.value !== "false"
+            if (!["true", "false", "unset"].includes(opts.value)) {
+                errorExit(
+                    `Value must be "true", "false", or "unset", got "${opts.value}".`
+                )
+            }
+            const resetValue =
+                opts.value === "true"
+                    ? true
+                    : opts.value === "false"
+                      ? false
+                      : null
             const data = await readAnalysis(argumentId, version, filename)
             for (const symbol of Object.keys(data.assignments)) {
-                data.assignments[symbol] = boolValue
+                data.assignments[symbol] = resetValue
             }
+            await writeAnalysis(argumentId, version, filename, data)
+            printLine("success")
+        })
+
+    analysis
+        .command("reject <expression_id>")
+        .description("Reject an expression (it will evaluate to false)")
+        .option(
+            "--file <filename>",
+            "Analysis filename (default: analysis.json)"
+        )
+        .action(async (expressionId: string, opts: { file?: string }) => {
+            const filename = resolveAnalysisFilename(opts.file)
+            if (!(await analysisFileExists(argumentId, version, filename))) {
+                errorExit(`Analysis file "${filename}" does not exist.`)
+            }
+            const data = await readAnalysis(argumentId, version, filename)
+            if (!data.rejectedExpressionIds.includes(expressionId)) {
+                data.rejectedExpressionIds.push(expressionId)
+            }
+            await writeAnalysis(argumentId, version, filename, data)
+            printLine("success")
+        })
+
+    analysis
+        .command("accept <expression_id>")
+        .description("Accept an expression (restore normal computation)")
+        .option(
+            "--file <filename>",
+            "Analysis filename (default: analysis.json)"
+        )
+        .action(async (expressionId: string, opts: { file?: string }) => {
+            const filename = resolveAnalysisFilename(opts.file)
+            if (!(await analysisFileExists(argumentId, version, filename))) {
+                errorExit(`Analysis file "${filename}" does not exist.`)
+            }
+            const data = await readAnalysis(argumentId, version, filename)
+            data.rejectedExpressionIds = data.rejectedExpressionIds.filter(
+                (id) => id !== expressionId
+            )
             await writeAnalysis(argumentId, version, filename, data)
             printLine("success")
         })
@@ -208,6 +282,24 @@ export function registerAnalysisCommands(
                         code: "UNKNOWN_SYMBOL",
                         message: `Assignment symbol "${sym}" is not defined in this argument version.`,
                     })
+                }
+            }
+
+            // Validate rejected expression IDs
+            if (data.rejectedExpressionIds.length > 0) {
+                const engine = await hydrateEngine(argumentId, version)
+                const allExpressionIds = new Set(
+                    engine
+                        .listPremises()
+                        .flatMap((pm) => pm.getExpressions().map((e) => e.id))
+                )
+                for (const id of data.rejectedExpressionIds) {
+                    if (!allExpressionIds.has(id)) {
+                        issues.push({
+                            code: "UNKNOWN_REJECTED_EXPRESSION",
+                            message: `Rejected expression ID "${id}" does not exist in any premise.`,
+                        })
+                    }
                 }
             }
 
@@ -306,22 +398,30 @@ export function registerAnalysisCommands(
                 const symbolToId = new Map(
                     variables.map((v) => [v.symbol, v.id])
                 )
-                const assignment: Record<string, boolean> = {}
+                const variableAssignment: Record<string, boolean | null> = {}
                 for (const [sym, val] of Object.entries(
                     analysisData.assignments
                 )) {
                     const id = symbolToId.get(sym)
-                    if (id !== undefined) assignment[id] = val
+                    if (id !== undefined) variableAssignment[id] = val
                 }
 
                 const engine = await hydrateEngine(argumentId, version)
-                const result = engine.evaluate(assignment, {
-                    strictUnknownAssignmentKeys:
-                        opts.strictUnknownAssignmentKeys ?? false,
-                    includeExpressionValues: !opts.noExpressionValues,
-                    includeDiagnostics: !opts.noDiagnostics,
-                    validateFirst: !opts.noValidateFirst,
-                })
+                const result = engine.evaluate(
+                    {
+                        variables: variableAssignment,
+                        rejectedExpressionIds: [
+                            ...analysisData.rejectedExpressionIds,
+                        ],
+                    },
+                    {
+                        strictUnknownAssignmentKeys:
+                            opts.strictUnknownAssignmentKeys ?? false,
+                        includeExpressionValues: !opts.noExpressionValues,
+                        includeDiagnostics: !opts.noDiagnostics,
+                        validateFirst: !opts.noValidateFirst,
+                    }
+                )
 
                 if (opts.json) {
                     printJson(result)

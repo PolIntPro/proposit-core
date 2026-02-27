@@ -37,15 +37,16 @@ src/
                         #   TPremise, TLogicalOperatorType
       shared.ts         # UUID, Nullable helpers
     types/
-      evaluation.ts     # All evaluation types: TVariableAssignment, TValidationResult,
-                        #   TArgumentEvaluationResult, TValidityCheckResult, etc.
+      evaluation.ts     # All evaluation types: TTrivalentValue, TVariableAssignment,
+                        #   TExpressionAssignment, TArgumentEvaluationResult, TValidityCheckResult, etc.
     core/
       ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity
       PremiseManager.ts    # PremiseManager — variables, expressions, evaluate, toDisplayString, toData, isInference, isConstraint
       ExpressionManager.ts # Low-level expression tree (addExpression, removeExpression, insertExpression)
       VariableManager.ts   # Low-level variable registry
       evaluation/
-        shared.ts          # makeValidationResult, makeErrorIssue, implicationValue, buildDirectionalVacuity
+        shared.ts          # makeValidationResult, makeErrorIssue, implicationValue, buildDirectionalVacuity,
+                           #   kleeneNot, kleeneAnd, kleeneOr, kleeneImplies, kleeneIff
   cli/
     config.ts             # Path helpers: getStateDir, getArgumentDir, getVersionDir, getPremisesDir, getPremiseDir
     engine.ts             # hydrateEngine(argumentId, version) → ArgumentEngine (reads disk, BFS expression load)
@@ -68,11 +69,11 @@ src/
       variables.ts        # <id> <ver> variables: create, list, show, update, delete, list-unused, delete-unused
       premises.ts         # <id> <ver> premises: create, list, show, update, delete, render
       expressions.ts      # <id> <ver> expressions: create, insert, delete, list, show
-      analysis.ts         # <id> <ver> analysis: create, list, show, set, reset, validate-assignments, delete,
-                          #   evaluate, check-validity, validate-argument, refs, export
+      analysis.ts         # <id> <ver> analysis: create, list, show, set, reset, reject, accept,
+                          #   validate-assignments, delete, evaluate, check-validity, validate-argument, refs, export
 
 test/
-  ExpressionManager.test.ts   # Full test suite (112 tests, Vitest)
+  ExpressionManager.test.ts   # Full test suite (203 tests, Vitest)
 ```
 
 ## Class hierarchy
@@ -101,7 +102,8 @@ $PROPOSIT_HOME/   (default: ~/.proposit-core)
           <premise-id>/
             meta.json      # PremiseMetaSchema: id, title?
             data.json      # PremiseDataSchema: rootExpressionId?, variables (id[]), expressions[]
-        <analysis>.json    # AnalysisFileSchema: argumentId, argumentVersion, assignments (symbol→boolean)
+        <analysis>.json    # AnalysisFileSchema: argumentId, argumentVersion, assignments (symbol→boolean|null),
+                           #   rejectedExpressionIds (string[])
 ```
 
 Analysis files default to `analysis.json`. The names `meta.json`, `variables.json`, and `roles.json` are reserved.
@@ -159,14 +161,22 @@ After `removeExpression` deletes a subtree, `collapseIfNeeded(parentId)` is call
 
 ### Evaluation
 
-`PremiseManager.evaluate(assignment)` walks the expression tree recursively. `formula` nodes are transparent (propagate their child's value). For `implies`/`iff` roots an `inferenceDiagnostic` is computed (vacuous truth, directional vacuity, fired/held flags).
+The evaluation system uses **Kleene three-valued logic** (`true`, `false`, `null`/unknown). Assignments are represented by `TCoreExpressionAssignment`, which contains:
 
-`ArgumentEngine.evaluate(assignment)` orchestrates premise evaluation:
+- `variables: Record<string, boolean | null>` — variable ID → truth value (`null` = unset/unknown)
+- `rejectedExpressionIds: string[]` — expression IDs the user rejects (evaluate to `false`, children skipped)
 
-- Constraint premises must all be `true` for an assignment to be **admissible**.
-- A **counterexample** is an admissible assignment where all supporting premises are true but the conclusion is false.
+**Kleene propagation rules:** `false` dominates AND, `true` dominates OR, `null` propagates otherwise. Helper functions `kleeneNot`, `kleeneAnd`, `kleeneOr`, `kleeneImplies`, `kleeneIff` in `evaluation/shared.ts` implement these rules.
 
-`ArgumentEngine.checkValidity(options?)` enumerates all 2ⁿ assignments and reports whether the argument is **valid** (no counterexamples), **invalid** (at least one found), or `undefined` (truncated).
+`PremiseManager.evaluate(assignment)` walks the expression tree recursively. Rejected expressions return `false` immediately. Missing variables default to `null`. `formula` nodes are transparent (propagate their child's value). For `implies`/`iff` roots an `inferenceDiagnostic` is computed with three-valued fields (unless the root is rejected).
+
+`ArgumentEngine.evaluate(assignment)` orchestrates premise evaluation. All summary flags are three-valued:
+
+- `isAdmissibleAssignment` — `null` if any constraint evaluates to `null`
+- `isCounterexample` — `true` only when admissible, all supports true, conclusion definitively `false`; `null` if indeterminate
+- `preservesTruthUnderAssignment` — inverse of `isCounterexample`
+
+`ArgumentEngine.checkValidity(options?)` enumerates all 2ⁿ assignments (all variables `true`/`false`, no rejections) and reports whether the argument is **valid** (no counterexamples), **invalid** (at least one found), or `undefined` (truncated).
 
 ### Engine hydration from disk
 
@@ -196,7 +206,9 @@ TPropositionalExpression // any of the above
 
 Key evaluation types (all in `src/lib/types/evaluation.ts`):
 
-- `TVariableAssignment` — `Record<string, boolean>` mapping variable IDs to truth values.
+- `TTrivalentValue` — `boolean | null` three-valued truth type (`null` = unknown/unset).
+- `TVariableAssignment` — `Record<string, TTrivalentValue>` mapping variable IDs to three-valued truth values.
+- `TExpressionAssignment` — `{ variables: TVariableAssignment, rejectedExpressionIds: string[] }` full assignment input for evaluation.
 - `TValidationResult` / `TValidationIssue` — structured findings with machine-readable `TValidationCode` strings.
 - `TPremiseEvaluationResult` — per-expression truth values, root value, inference diagnostics.
 - `TArgumentEvaluationResult` — full evaluation output for one assignment.
@@ -228,6 +240,9 @@ Current describe blocks (in order):
 - `PremiseManager — validation and evaluation`
 - `ArgumentEngine — roles and evaluation`
 - `ArgumentEngine — complex argument scenarios across multiple evaluations`
+- `Kleene three-valued logic helpers`
+- `PremiseManager — three-valued evaluation`
+- `ArgumentEngine — three-valued evaluation`
 
 When adding a test for a new feature, add a new `describe` block at the bottom.
 

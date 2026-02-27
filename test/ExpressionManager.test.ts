@@ -5,6 +5,7 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
 } from "../src/lib/schemata"
+import type { TCoreExpressionAssignment } from "../src/lib/types/evaluation"
 import {
     defaultCompareArgument,
     defaultCompareVariable,
@@ -12,6 +13,13 @@ import {
     defaultCompareExpression,
     diffArguments,
 } from "../src/lib/core/diff"
+import {
+    kleeneNot,
+    kleeneAnd,
+    kleeneOr,
+    kleeneImplies,
+    kleeneIff,
+} from "../src/lib/core/evaluation/shared"
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1593,7 +1601,10 @@ describe("PremiseManager — validation and evaluation", () => {
             makeVarExpr("q-expr", VAR_Q.id, { parentId: "impl", position: 1 })
         )
 
-        const result = pm.evaluate({ [VAR_P.id]: true, [VAR_Q.id]: false })
+        const result = pm.evaluate({
+            variables: { [VAR_P.id]: true, [VAR_Q.id]: false },
+            rejectedExpressionIds: [],
+        })
         expect(result.rootValue).toBe(false)
         expect(result.premiseType).toBe("inference")
         expect(result.inferenceDiagnostic).toMatchObject({
@@ -1616,7 +1627,10 @@ describe("PremiseManager — validation and evaluation", () => {
             makeVarExpr("q-expr", VAR_Q.id, { parentId: "iff", position: 1 })
         )
 
-        const result = pm.evaluate({ [VAR_P.id]: false, [VAR_Q.id]: true })
+        const result = pm.evaluate({
+            variables: { [VAR_P.id]: false, [VAR_Q.id]: true },
+            rejectedExpressionIds: [],
+        })
         expect(result.rootValue).toBe(false)
         expect(result.inferenceDiagnostic).toMatchObject({
             kind: "iff",
@@ -1719,7 +1733,10 @@ describe("ArgumentEngine — roles and evaluation", () => {
         eng.addSupportingPremise(support.getId())
         eng.setConclusionPremise(conclusion.getId())
 
-        const result = eng.evaluate({ [VAR_P.id]: false, [VAR_Q.id]: false })
+        const result = eng.evaluate({
+            variables: { [VAR_P.id]: false, [VAR_Q.id]: false },
+            rejectedExpressionIds: [],
+        })
         expect(result.ok).toBe(true)
         expect(result.isAdmissibleAssignment).toBe(false)
         expect(result.isCounterexample).toBe(false)
@@ -1741,7 +1758,9 @@ describe("ArgumentEngine — roles and evaluation", () => {
         expect(validity.ok).toBe(true)
         expect(validity.isValid).toBe(false)
         expect(validity.counterexamples).toHaveLength(1)
-        expect(validity.counterexamples?.[0]?.assignment).toMatchObject({
+        expect(
+            validity.counterexamples?.[0]?.assignment.variables
+        ).toMatchObject({
             [VAR_P.id]: true,
             [VAR_Q.id]: false,
         })
@@ -1823,12 +1842,15 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
 
     function summarizeEvaluation(
         eng: ArgumentEngine,
-        assignment: Record<string, boolean>
+        variables: Record<string, boolean>
     ) {
-        const result = eng.evaluate(assignment)
+        const result = eng.evaluate({
+            variables,
+            rejectedExpressionIds: [],
+        })
         expect(result.ok).toBe(true)
         return {
-            assignment,
+            assignment: variables,
             admissible: result.isAdmissibleAssignment,
             supportsTrue: result.allSupportingPremisesTrue,
             conclusionTrue: result.conclusionTrue,
@@ -1839,12 +1861,15 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
 
     function classifyAtActualAssignment(
         eng: ArgumentEngine,
-        actualAssignment: Record<string, boolean>
+        variables: Record<string, boolean>
     ) {
         const validity = eng.checkValidity({ mode: "exhaustive" })
         expect(validity.ok).toBe(true)
 
-        const evaluation = eng.evaluate(actualAssignment)
+        const evaluation = eng.evaluate({
+            variables,
+            rejectedExpressionIds: [],
+        })
         expect(evaluation.ok).toBe(true)
 
         const premisesTrue =
@@ -1924,7 +1949,9 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         expect(validity.ok).toBe(true)
         expect(validity.isValid).toBe(false)
         expect(validity.counterexamples).toHaveLength(1)
-        expect(validity.counterexamples?.[0]?.assignment).toMatchObject({
+        expect(
+            validity.counterexamples?.[0]?.assignment.variables
+        ).toMatchObject({
             [VAR_P.id]: false,
             [VAR_Q.id]: true,
         })
@@ -2557,5 +2584,520 @@ describe("diffArguments", () => {
             // (and no expression changes either since engines are otherwise identical)
             expect(diff.premises.modified).toEqual([])
         })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Kleene three-valued logic helpers
+// ---------------------------------------------------------------------------
+
+describe("Kleene three-valued logic helpers", () => {
+    describe("kleeneNot", () => {
+        it("NOT true = false", () => {
+            expect(kleeneNot(true)).toBe(false)
+        })
+
+        it("NOT false = true", () => {
+            expect(kleeneNot(false)).toBe(true)
+        })
+
+        it("NOT null = null", () => {
+            expect(kleeneNot(null)).toBeNull()
+        })
+    })
+
+    describe("kleeneAnd", () => {
+        it("true AND true = true", () => {
+            expect(kleeneAnd(true, true)).toBe(true)
+        })
+
+        it("true AND false = false", () => {
+            expect(kleeneAnd(true, false)).toBe(false)
+        })
+
+        it("true AND null = null", () => {
+            expect(kleeneAnd(true, null)).toBeNull()
+        })
+
+        it("false AND true = false", () => {
+            expect(kleeneAnd(false, true)).toBe(false)
+        })
+
+        it("false AND false = false", () => {
+            expect(kleeneAnd(false, false)).toBe(false)
+        })
+
+        it("false AND null = false", () => {
+            expect(kleeneAnd(false, null)).toBe(false)
+        })
+
+        it("null AND true = null", () => {
+            expect(kleeneAnd(null, true)).toBeNull()
+        })
+
+        it("null AND false = false", () => {
+            expect(kleeneAnd(null, false)).toBe(false)
+        })
+
+        it("null AND null = null", () => {
+            expect(kleeneAnd(null, null)).toBeNull()
+        })
+    })
+
+    describe("kleeneOr", () => {
+        it("true OR true = true", () => {
+            expect(kleeneOr(true, true)).toBe(true)
+        })
+
+        it("true OR false = true", () => {
+            expect(kleeneOr(true, false)).toBe(true)
+        })
+
+        it("true OR null = true", () => {
+            expect(kleeneOr(true, null)).toBe(true)
+        })
+
+        it("false OR true = true", () => {
+            expect(kleeneOr(false, true)).toBe(true)
+        })
+
+        it("false OR false = false", () => {
+            expect(kleeneOr(false, false)).toBe(false)
+        })
+
+        it("false OR null = null", () => {
+            expect(kleeneOr(false, null)).toBeNull()
+        })
+
+        it("null OR true = true", () => {
+            expect(kleeneOr(null, true)).toBe(true)
+        })
+
+        it("null OR false = null", () => {
+            expect(kleeneOr(null, false)).toBeNull()
+        })
+
+        it("null OR null = null", () => {
+            expect(kleeneOr(null, null)).toBeNull()
+        })
+    })
+
+    describe("kleeneImplies", () => {
+        it("true -> true = true", () => {
+            expect(kleeneImplies(true, true)).toBe(true)
+        })
+
+        it("true -> false = false", () => {
+            expect(kleeneImplies(true, false)).toBe(false)
+        })
+
+        it("true -> null = null", () => {
+            expect(kleeneImplies(true, null)).toBeNull()
+        })
+
+        it("false -> true = true", () => {
+            expect(kleeneImplies(false, true)).toBe(true)
+        })
+
+        it("false -> false = true", () => {
+            expect(kleeneImplies(false, false)).toBe(true)
+        })
+
+        it("false -> null = true", () => {
+            expect(kleeneImplies(false, null)).toBe(true)
+        })
+
+        it("null -> true = true", () => {
+            expect(kleeneImplies(null, true)).toBe(true)
+        })
+
+        it("null -> false = null", () => {
+            expect(kleeneImplies(null, false)).toBeNull()
+        })
+
+        it("null -> null = null", () => {
+            expect(kleeneImplies(null, null)).toBeNull()
+        })
+    })
+
+    describe("kleeneIff", () => {
+        it("true <-> true = true", () => {
+            expect(kleeneIff(true, true)).toBe(true)
+        })
+
+        it("true <-> false = false", () => {
+            expect(kleeneIff(true, false)).toBe(false)
+        })
+
+        it("true <-> null = null", () => {
+            expect(kleeneIff(true, null)).toBeNull()
+        })
+
+        it("false <-> true = false", () => {
+            expect(kleeneIff(false, true)).toBe(false)
+        })
+
+        it("false <-> false = true", () => {
+            expect(kleeneIff(false, false)).toBe(true)
+        })
+
+        it("false <-> null = null", () => {
+            expect(kleeneIff(false, null)).toBeNull()
+        })
+
+        it("null <-> true = null", () => {
+            expect(kleeneIff(null, true)).toBeNull()
+        })
+
+        it("null <-> false = null", () => {
+            expect(kleeneIff(null, false)).toBeNull()
+        })
+
+        it("null <-> null = null", () => {
+            expect(kleeneIff(null, null)).toBeNull()
+        })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// PremiseManager — three-valued evaluation
+// ---------------------------------------------------------------------------
+
+describe("PremiseManager — three-valued evaluation", () => {
+    it("evaluates unset variables as null", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        // Single variable expression as root
+        pm.addExpression(makeVarExpr("e-p", "var-p"))
+
+        const assignment: TCoreExpressionAssignment = {
+            variables: { "var-p": null },
+            rejectedExpressionIds: [],
+        }
+        const result = pm.evaluate(assignment)
+        expect(result.rootValue).toBeNull()
+        expect(result.expressionValues["e-p"]).toBeNull()
+    })
+
+    it("missing variables default to null", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addExpression(makeVarExpr("e-p", "var-p"))
+
+        const assignment: TCoreExpressionAssignment = {
+            variables: {},
+            rejectedExpressionIds: [],
+        }
+        const result = pm.evaluate(assignment)
+        expect(result.rootValue).toBeNull()
+        expect(result.expressionValues["e-p"]).toBeNull()
+    })
+
+    it("propagates null through AND (Kleene)", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        // (P and Q) as root
+        pm.addExpression(makeOpExpr("and-root", "and"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "and-root", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "and-root", position: 1 })
+        )
+
+        // true AND null = null
+        const r1 = pm.evaluate({
+            variables: { "var-p": true, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r1.rootValue).toBeNull()
+
+        // false AND null = false
+        const r2 = pm.evaluate({
+            variables: { "var-p": false, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r2.rootValue).toBe(false)
+    })
+
+    it("propagates null through OR (Kleene)", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        pm.addExpression(makeOpExpr("or-root", "or"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "or-root", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "or-root", position: 1 })
+        )
+
+        // true OR null = true
+        const r1 = pm.evaluate({
+            variables: { "var-p": true, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r1.rootValue).toBe(true)
+
+        // false OR null = null
+        const r2 = pm.evaluate({
+            variables: { "var-p": false, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r2.rootValue).toBeNull()
+    })
+
+    it("propagates null through implies (Kleene)", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        pm.addExpression(makeOpExpr("imp-root", "implies"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "imp-root", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "imp-root", position: 1 })
+        )
+
+        // false implies null = true
+        const r1 = pm.evaluate({
+            variables: { "var-p": false, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r1.rootValue).toBe(true)
+
+        // null implies true = true
+        const r2 = pm.evaluate({
+            variables: { "var-p": null, "var-q": true },
+            rejectedExpressionIds: [],
+        })
+        expect(r2.rootValue).toBe(true)
+
+        // true implies null = null
+        const r3 = pm.evaluate({
+            variables: { "var-p": true, "var-q": null },
+            rejectedExpressionIds: [],
+        })
+        expect(r3.rootValue).toBeNull()
+    })
+
+    it("rejected operator evaluates to false and skips children", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        // (P and Q)
+        pm.addExpression(makeOpExpr("and-root", "and"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "and-root", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "and-root", position: 1 })
+        )
+
+        const result = pm.evaluate({
+            variables: { "var-p": true, "var-q": true },
+            rejectedExpressionIds: ["and-root"],
+        })
+        expect(result.rootValue).toBe(false)
+        // Children should NOT be in expressionValues because they were skipped
+        expect(result.expressionValues["e-p"]).toBeUndefined()
+        expect(result.expressionValues["e-q"]).toBeUndefined()
+    })
+
+    it("rejected formula evaluates to false", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        // (P) as root formula wrapping variable
+        pm.addExpression(makeFormulaExpr("f-root"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "f-root", position: 0 })
+        )
+
+        const result = pm.evaluate({
+            variables: { "var-p": true },
+            rejectedExpressionIds: ["f-root"],
+        })
+        expect(result.rootValue).toBe(false)
+        // Child skipped
+        expect(result.expressionValues["e-p"]).toBeUndefined()
+    })
+
+    it("rejected nested operator forces false while parent computes normally", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        pm.addVariable(VAR_R)
+        // (P and Q) or R
+        pm.addExpression(makeOpExpr("or-root", "or"))
+        pm.addExpression(
+            makeOpExpr("and-child", "and", {
+                parentId: "or-root",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "and-child", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "and-child", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-r", "var-r", { parentId: "or-root", position: 1 })
+        )
+
+        // Reject the AND operator, set C=true
+        // (false) or true → true
+        const result = pm.evaluate({
+            variables: { "var-p": true, "var-q": true, "var-r": true },
+            rejectedExpressionIds: ["and-child"],
+        })
+        expect(result.rootValue).toBe(true)
+        // AND evaluates to false due to rejection
+        expect(result.expressionValues["and-child"]).toBe(false)
+        // Children of the rejected AND should be skipped
+        expect(result.expressionValues["e-p"]).toBeUndefined()
+        expect(result.expressionValues["e-q"]).toBeUndefined()
+        // R evaluates normally
+        expect(result.expressionValues["e-r"]).toBe(true)
+    })
+
+    it("rejected inference root evaluates to false with no inference diagnostic", () => {
+        const eng = new ArgumentEngine(ARG)
+        const pm = eng.createPremise()
+        pm.addVariable(VAR_P)
+        pm.addVariable(VAR_Q)
+        // P implies Q
+        pm.addExpression(makeOpExpr("imp", "implies"))
+        pm.addExpression(
+            makeVarExpr("e-p", "var-p", { parentId: "imp", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", "var-q", { parentId: "imp", position: 1 })
+        )
+
+        const result = pm.evaluate({
+            variables: { "var-p": true, "var-q": true },
+            rejectedExpressionIds: ["imp"],
+        })
+        expect(result.rootValue).toBe(false)
+        expect(result.inferenceDiagnostic).toBeUndefined()
+        // Children should not have been evaluated
+        expect(result.expressionValues["e-p"]).toBeUndefined()
+        expect(result.expressionValues["e-q"]).toBeUndefined()
+    })
+})
+
+describe("ArgumentEngine — three-valued evaluation", () => {
+    const VAR_A = makeVar("var-a", "A")
+    const VAR_B = makeVar("var-b", "B")
+    const VAR_C = makeVar("var-c", "C")
+    const VAR_D = makeVar("var-d", "D")
+
+    function buildSimpleArgument() {
+        // A implies B (conclusion), C implies A (supporting), D (constraint)
+        const engine = new ArgumentEngine(ARG)
+
+        const conclusion = engine.createPremise("conclusion")
+        conclusion.addVariable(VAR_A)
+        conclusion.addVariable(VAR_B)
+        conclusion.addExpression(makeOpExpr("c-imp", "implies"))
+        conclusion.addExpression(
+            makeVarExpr("c-a", VAR_A.id, { parentId: "c-imp", position: 0 })
+        )
+        conclusion.addExpression(
+            makeVarExpr("c-b", VAR_B.id, { parentId: "c-imp", position: 1 })
+        )
+
+        const supporting = engine.createPremise("supporting")
+        supporting.addVariable(VAR_C)
+        supporting.addVariable(VAR_A)
+        supporting.addExpression(makeOpExpr("s-imp", "implies"))
+        supporting.addExpression(
+            makeVarExpr("s-c", VAR_C.id, { parentId: "s-imp", position: 0 })
+        )
+        supporting.addExpression(
+            makeVarExpr("s-a", VAR_A.id, { parentId: "s-imp", position: 1 })
+        )
+
+        const constraint = engine.createPremise("constraint")
+        constraint.addVariable(VAR_D)
+        constraint.addExpression(makeVarExpr("d-var", VAR_D.id))
+
+        engine.setConclusionPremise(conclusion.getId())
+        engine.addSupportingPremise(supporting.getId())
+
+        return { engine }
+    }
+
+    it("returns null for isAdmissibleAssignment when constraint is null", () => {
+        const { engine } = buildSimpleArgument()
+        const result = engine.evaluate({
+            variables: {
+                [VAR_A.id]: true,
+                [VAR_B.id]: true,
+                [VAR_C.id]: true,
+                [VAR_D.id]: null,
+            },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+        expect(result.isAdmissibleAssignment).toBe(null)
+    })
+
+    it("returns null for isCounterexample when conclusion is null", () => {
+        const { engine } = buildSimpleArgument()
+        const result = engine.evaluate({
+            variables: {
+                [VAR_A.id]: true,
+                [VAR_B.id]: null,
+                [VAR_C.id]: true,
+                [VAR_D.id]: true,
+            },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+        expect(result.isAdmissibleAssignment).toBe(true)
+        expect(result.conclusionTrue).toBe(null)
+        expect(result.isCounterexample).toBe(null)
+    })
+
+    it("rejected conclusion root makes conclusionTrue false", () => {
+        const { engine } = buildSimpleArgument()
+        const result = engine.evaluate({
+            variables: {
+                [VAR_A.id]: true,
+                [VAR_B.id]: true,
+                [VAR_C.id]: true,
+                [VAR_D.id]: true,
+            },
+            rejectedExpressionIds: ["c-imp"],
+        })
+        expect(result.ok).toBe(true)
+        expect(result.conclusionTrue).toBe(false)
+    })
+
+    it("preservesTruthUnderAssignment is null when isCounterexample is null", () => {
+        const { engine } = buildSimpleArgument()
+        const result = engine.evaluate({
+            variables: {
+                [VAR_A.id]: true,
+                [VAR_B.id]: null,
+                [VAR_C.id]: true,
+                [VAR_D.id]: true,
+            },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+        expect(result.isCounterexample).toBe(null)
+        expect(result.preservesTruthUnderAssignment).toBe(null)
     })
 })

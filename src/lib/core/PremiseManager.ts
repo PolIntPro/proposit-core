@@ -8,15 +8,20 @@ import type {
 import { DefaultMap } from "../utils.js"
 import { sortedCopyById, sortedUnique } from "../utils/collections.js"
 import type {
+    TCoreExpressionAssignment,
     TCorePremiseEvaluationResult,
     TCorePremiseInferenceDiagnostic,
+    TCoreTrivalentValue,
     TCoreValidationIssue,
     TCoreValidationResult,
-    TCoreVariableAssignment,
 } from "../types/evaluation.js"
 import {
     buildDirectionalVacuity,
-    implicationValue,
+    kleeneAnd,
+    kleeneIff,
+    kleeneImplies,
+    kleeneNot,
+    kleeneOr,
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/shared.js"
@@ -425,8 +430,19 @@ export class PremiseManager {
         return makeValidationResult(issues)
     }
 
+    /**
+     * Evaluates the premise under a three-valued expression assignment.
+     *
+     * Variable values are looked up in `assignment.variables` using Kleene
+     * three-valued logic (`null` = unknown). Missing variables default to `null`.
+     * Expressions listed in `assignment.rejectedExpressionIds` evaluate to
+     * `false` and their children are not evaluated.
+     *
+     * For inference premises (`implies`/`iff`), an `inferenceDiagnostic` is
+     * computed with three-valued fields unless the root is rejected.
+     */
     public evaluate(
-        assignment: TCoreVariableAssignment,
+        assignment: TCoreExpressionAssignment,
         options?: {
             strictUnknownKeys?: boolean
             requireExactCoverage?: boolean
@@ -452,18 +468,9 @@ export class PremiseManager {
                 .map((expr) => expr.variableId)
         )
 
-        const missingVariableIds = referencedVariableIds.filter(
-            (variableId) => !(variableId in assignment)
-        )
-        if (missingVariableIds.length > 0) {
-            throw new Error(
-                `Missing assignment values for variables: ${missingVariableIds.join(", ")}`
-            )
-        }
-
         if (options?.strictUnknownKeys || options?.requireExactCoverage) {
             const knownVariableIds = new Set(referencedVariableIds)
-            const unknownKeys = Object.keys(assignment).filter(
+            const unknownKeys = Object.keys(assignment.variables).filter(
                 (variableId) => !knownVariableIds.has(variableId)
             )
             if (unknownKeys.length > 0) {
@@ -473,21 +480,29 @@ export class PremiseManager {
             }
         }
 
-        const expressionValues: Record<string, boolean> = {}
-        const evaluateExpression = (expressionId: string): boolean => {
+        const expressionValues: Record<string, TCoreTrivalentValue> = {}
+        const evaluateExpression = (
+            expressionId: string
+        ): TCoreTrivalentValue => {
             const expression = this.expressions.getExpression(expressionId)
             if (!expression) {
                 throw new Error(`Expression "${expressionId}" was not found.`)
             }
 
+            if (assignment.rejectedExpressionIds.includes(expression.id)) {
+                expressionValues[expression.id] = false
+                return false
+            }
+
             if (expression.type === "variable") {
-                const value = assignment[expression.variableId]
+                const value =
+                    assignment.variables[expression.variableId] ?? null
                 expressionValues[expression.id] = value
                 return value
             }
 
             const children = this.expressions.getChildExpressions(expression.id)
-            let value: boolean
+            let value: TCoreTrivalentValue
 
             if (expression.type === "formula") {
                 value = evaluateExpression(children[0].id)
@@ -497,22 +512,26 @@ export class PremiseManager {
 
             switch (expression.operator) {
                 case "not":
-                    value = !evaluateExpression(children[0].id)
+                    value = kleeneNot(evaluateExpression(children[0].id))
                     break
                 case "and":
-                    value = children.every((child) =>
-                        evaluateExpression(child.id)
+                    value = children.reduce<TCoreTrivalentValue>(
+                        (acc, child) =>
+                            kleeneAnd(acc, evaluateExpression(child.id)),
+                        true
                     )
                     break
                 case "or":
-                    value = children.some((child) =>
-                        evaluateExpression(child.id)
+                    value = children.reduce<TCoreTrivalentValue>(
+                        (acc, child) =>
+                            kleeneOr(acc, evaluateExpression(child.id)),
+                        false
                     )
                     break
                 case "implies": {
                     const left = children.find((child) => child.position === 0)
                     const right = children.find((child) => child.position === 1)
-                    value = implicationValue(
+                    value = kleeneImplies(
                         evaluateExpression(left!.id),
                         evaluateExpression(right!.id)
                     )
@@ -521,9 +540,10 @@ export class PremiseManager {
                 case "iff": {
                     const left = children.find((child) => child.position === 0)
                     const right = children.find((child) => child.position === 1)
-                    value =
-                        evaluateExpression(left!.id) ===
+                    value = kleeneIff(
+                        evaluateExpression(left!.id),
                         evaluateExpression(right!.id)
+                    )
                     break
                 }
             }
@@ -533,13 +553,17 @@ export class PremiseManager {
         }
 
         const rootValue = evaluateExpression(rootExpressionId)
-        const variableValues: Record<string, boolean> = {}
+        const variableValues: Record<string, TCoreTrivalentValue> = {}
         for (const variableId of referencedVariableIds) {
-            variableValues[variableId] = assignment[variableId]
+            variableValues[variableId] =
+                assignment.variables[variableId] ?? null
         }
 
         let inferenceDiagnostic: TCorePremiseInferenceDiagnostic | undefined
-        if (this.isInference()) {
+        if (
+            this.isInference() &&
+            !assignment.rejectedExpressionIds.includes(rootExpressionId)
+        ) {
             const root = this.expressions.getExpression(rootExpressionId)
             if (root?.type === "operator") {
                 const children = this.expressions.getChildExpressions(root.id)
@@ -558,9 +582,9 @@ export class PremiseManager {
                             rootValue,
                             antecedentTrue: leftValue,
                             consequentTrue: rightValue,
-                            isVacuouslyTrue: !leftValue,
+                            isVacuouslyTrue: kleeneNot(leftValue),
                             fired: leftValue,
-                            firedAndHeld: leftValue && rightValue,
+                            firedAndHeld: kleeneAnd(leftValue, rightValue),
                         }
                     } else if (root.operator === "iff") {
                         const leftToRight = buildDirectionalVacuity(
@@ -580,8 +604,11 @@ export class PremiseManager {
                             rootValue,
                             leftToRight,
                             rightToLeft,
-                            bothSidesTrue: leftValue && rightValue,
-                            bothSidesFalse: !leftValue && !rightValue,
+                            bothSidesTrue: kleeneAnd(leftValue, rightValue),
+                            bothSidesFalse: kleeneAnd(
+                                kleeneNot(leftValue),
+                                kleeneNot(rightValue)
+                            ),
                         }
                     }
                 }

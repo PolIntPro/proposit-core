@@ -9,15 +9,21 @@ import type {
     TCoreArgumentEvaluationResult,
     TCoreArgumentRoleState,
     TCoreCounterexample,
+    TCoreExpressionAssignment,
     TCorePremiseEvaluationResult,
+    TCoreTrivalentValue,
     TCoreValidationIssue,
     TCoreValidationResult,
     TCoreValidityCheckOptions,
     TCoreValidityCheckResult,
-    TCoreVariableAssignment,
 } from "../types/evaluation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
-import { makeErrorIssue, makeValidationResult } from "./evaluation/shared.js"
+import {
+    kleeneAnd,
+    kleeneNot,
+    makeErrorIssue,
+    makeValidationResult,
+} from "./evaluation/shared.js"
 import { PremiseManager } from "./PremiseManager.js"
 
 /**
@@ -374,17 +380,20 @@ export class ArgumentEngine {
     }
 
     /**
-     * Evaluates the argument under a single variable assignment.
+     * Evaluates the argument under a three-valued expression assignment.
      *
-     * Determines whether the assignment is admissible (all constraints
-     * satisfied), whether all supporting premises hold, whether the
-     * conclusion holds, and whether the assignment is a counterexample.
+     * Variables may be `true`, `false`, or `null` (unknown). Expressions
+     * listed in `rejectedExpressionIds` evaluate to `false` (children
+     * skipped). All result flags (`isAdmissibleAssignment`,
+     * `allSupportingPremisesTrue`, `conclusionTrue`, `isCounterexample`,
+     * `preservesTruthUnderAssignment`) are three-valued: `null` means
+     * the result is indeterminate due to unknown variable values.
      *
      * Returns `{ ok: false }` with validation details if the argument is
      * not structurally evaluable.
      */
     public evaluate(
-        assignment: TCoreVariableAssignment,
+        assignment: TCoreExpressionAssignment,
         options?: TCoreArgumentEvaluationOptions
     ): TCoreArgumentEvaluationResult {
         const validateFirst = options?.validateFirst ?? true
@@ -456,17 +465,22 @@ export class ArgumentEngine {
                 pm.evaluate(assignment, evalOpts)
             )
 
-            const isAdmissibleAssignment = constraintEvaluations.every(
-                (result) => result.rootValue === true
+            const isAdmissibleAssignment =
+                constraintEvaluations.reduce<TCoreTrivalentValue>(
+                    (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
+                    true
+                )
+            const allSupportingPremisesTrue =
+                supportingEvaluations.reduce<TCoreTrivalentValue>(
+                    (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
+                    true
+                )
+            const conclusionTrue: TCoreTrivalentValue =
+                conclusionEvaluation.rootValue ?? null
+            const isCounterexample = kleeneAnd(
+                isAdmissibleAssignment,
+                kleeneAnd(allSupportingPremisesTrue, kleeneNot(conclusionTrue))
             )
-            const allSupportingPremisesTrue = supportingEvaluations.every(
-                (result) => result.rootValue === true
-            )
-            const conclusionTrue = conclusionEvaluation.rootValue === true
-            const isCounterexample =
-                isAdmissibleAssignment &&
-                allSupportingPremisesTrue &&
-                !conclusionTrue
 
             const includeExpressionValues =
                 options?.includeExpressionValues ?? true
@@ -485,7 +499,12 @@ export class ArgumentEngine {
 
             return {
                 ok: true,
-                assignment: { ...assignment },
+                assignment: {
+                    variables: { ...assignment.variables },
+                    rejectedExpressionIds: [
+                        ...assignment.rejectedExpressionIds,
+                    ],
+                },
                 referencedVariableIds,
                 conclusion: strip(conclusionEvaluation),
                 supportingPremises: supportingEvaluations.map(strip),
@@ -494,7 +513,7 @@ export class ArgumentEngine {
                 allSupportingPremisesTrue,
                 conclusionTrue,
                 isCounterexample,
-                preservesTruthUnderAssignment: !isCounterexample,
+                preservesTruthUnderAssignment: kleeneNot(isCounterexample),
             }
         } catch (error) {
             return {
@@ -606,9 +625,14 @@ export class ArgumentEngine {
                 break
             }
 
-            const assignment: TCoreVariableAssignment = {}
+            const assignment: TCoreExpressionAssignment = {
+                variables: {},
+                rejectedExpressionIds: [],
+            }
             for (let i = 0; i < checkedVariableIds.length; i++) {
-                assignment[checkedVariableIds[i]] = Boolean(mask & (1 << i))
+                assignment.variables[checkedVariableIds[i]] = Boolean(
+                    mask & (1 << i)
+                )
             }
 
             const result = this.evaluate(assignment, {
@@ -628,13 +652,13 @@ export class ArgumentEngine {
 
             numAssignmentsChecked += 1
 
-            if (result.isAdmissibleAssignment) {
+            if (result.isAdmissibleAssignment === true) {
                 numAdmissibleAssignments += 1
             }
 
-            if (result.isCounterexample) {
+            if (result.isCounterexample === true) {
                 counterexamples.push({
-                    assignment,
+                    assignment: result.assignment!,
                     result,
                 })
                 if (mode === "firstCounterexample") {

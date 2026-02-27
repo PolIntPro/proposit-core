@@ -17,16 +17,17 @@ The current variable assignment system has two limitations:
 type TCoreTrivalentValue = boolean | null
 
 interface TCoreExpressionAssignment {
-  // Variable ID -> true/false/null (null = unset/not sure)
-  variables: Record<string, TCoreTrivalentValue>
-  // Expression IDs the user rejects (forced to false)
-  rejectedExpressionIds: string[]
+    // Variable ID -> true/false/null (null = unset/not sure)
+    variables: Record<string, TCoreTrivalentValue>
+    // Expression IDs the user rejects (forced to false)
+    rejectedExpressionIds: string[]
 }
 ```
 
 `TCoreExpressionAssignment` replaces the existing `TCoreVariableAssignment` (`Record<string, boolean>`).
 
 **Semantics:**
+
 - Variables: `true` (believe it), `false` (reject it), `null` (not sure)
 - Operators/formulas: absent from `rejectedExpressionIds` means accepted (compute normally from children); present means rejected (evaluates to `false`, children not evaluated)
 
@@ -34,21 +35,22 @@ interface TCoreExpressionAssignment {
 
 `null` propagates through operators using Kleene's strong three-valued logic:
 
-| A | B | A AND B | A OR B | NOT A | A -> B | A <-> B |
-|---|---|---------|--------|-------|--------|---------|
-| T | T | T | T | F | T | T |
-| T | F | F | T | F | F | F |
-| T | null | null | T | F | null | null |
-| F | T | F | T | T | T | F |
-| F | F | F | F | T | T | T |
-| F | null | F | null | T | T | null |
-| null | T | null | T | null | T | null |
-| null | F | F | null | null | null | null |
-| null | null | null | null | null | null | null |
+| A    | B    | A AND B | A OR B | NOT A | A -> B | A <-> B |
+| ---- | ---- | ------- | ------ | ----- | ------ | ------- |
+| T    | T    | T       | T      | F     | T      | T       |
+| T    | F    | F       | T      | F     | F      | F       |
+| T    | null | null    | T      | F     | null   | null    |
+| F    | T    | F       | T      | T     | T      | F       |
+| F    | F    | F       | F      | T     | T      | T       |
+| F    | null | F       | null   | T     | T      | null    |
+| null | T    | null    | T      | null  | T      | null    |
+| null | F    | F       | null   | null  | null   | null    |
+| null | null | null    | null   | null  | null   | null    |
 
 ### Evaluation Logic
 
 **PremiseManager.evaluate():**
+
 - Accepts `TCoreExpressionAssignment` instead of `TCoreVariableAssignment`.
 - Variable nodes: look up in `assignment.variables`. If absent, treat as `null`.
 - Operator/formula nodes: if ID is in `rejectedExpressionIds`, return `false` (skip children). Otherwise evaluate children with Kleene logic.
@@ -59,12 +61,13 @@ interface TCoreExpressionAssignment {
 Diagnostic fields like `antecedentTrue`, `consequentTrue`, `isVacuouslyTrue`, `fired`, `firedAndHeld` become `TCoreTrivalentValue` to reflect indeterminate states.
 
 **ArgumentEngine.evaluate():**
+
 - Accepts `TCoreExpressionAssignment`.
 - Summary flags become three-valued:
-  - `isAdmissibleAssignment`: `null` if any constraint evaluates to `null`
-  - `allSupportingPremisesTrue`: `null` if any supporting premise evaluates to `null`
-  - `conclusionTrue`: three-valued
-  - `isCounterexample`: `true` only when admissible, all supports true, conclusion definitively `false`. `null` if indeterminate.
+    - `isAdmissibleAssignment`: `null` if any constraint evaluates to `null`
+    - `allSupportingPremisesTrue`: `null` if any supporting premise evaluates to `null`
+    - `conclusionTrue`: three-valued
+    - `isCounterexample`: `true` only when admissible, all supports true, conclusion definitively `false`. `null` if indeterminate.
 
 **ArgumentEngine.checkValidity():**
 No interface change. Enumerates `true`/`false` for all variables with all operators accepted. Since no `null` inputs exist, results are always definite booleans.
@@ -75,13 +78,13 @@ Analysis file schema gains a required `rejectedExpressionIds` field:
 
 ```typescript
 CoreAnalysisFileSchema = Type.Object({
-  argumentId: UUID,
-  argumentVersion: Type.Number(),
-  assignments: Type.Record(
-    Type.String(),
-    Type.Union([Type.Boolean(), Type.Null()])
-  ),
-  rejectedExpressionIds: Type.Array(Type.String()),
+    argumentId: UUID,
+    argumentVersion: Type.Number(),
+    assignments: Type.Record(
+        Type.String(),
+        Type.Union([Type.Boolean(), Type.Null()])
+    ),
+    rejectedExpressionIds: Type.Array(Type.String()),
 })
 ```
 

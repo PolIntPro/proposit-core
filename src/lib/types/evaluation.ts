@@ -18,8 +18,19 @@ export interface TCoreArgumentEngineData {
     roles: TCoreArgumentRoleState
 }
 
-/** Maps variable IDs to boolean truth values. */
-export type TCoreVariableAssignment = Record<string, boolean>
+/** Three-valued truth value: true, false, or null (unset/unknown). */
+export type TCoreTrivalentValue = boolean | null
+
+/** Maps variable IDs to three-valued truth values. */
+export type TCoreVariableAssignment = Record<string, TCoreTrivalentValue>
+
+/** Full expression assignment: variable truth values and rejected expression IDs. */
+export interface TCoreExpressionAssignment {
+    /** Variable ID → true/false/null (null = unset/not sure). */
+    variables: TCoreVariableAssignment
+    /** Expression IDs the user rejects (evaluate to false, children skipped). */
+    rejectedExpressionIds: string[]
+}
 
 /** Severity level for validation issues. */
 export type TCoreValidationSeverity = "error" | "warning"
@@ -65,15 +76,15 @@ export interface TCoreValidationResult {
 
 export interface TCoreDirectionalVacuity {
     /** Truth value of the antecedent for this directional implication view. */
-    antecedentTrue: boolean
+    antecedentTrue: TCoreTrivalentValue
     /** Truth value of the consequent for this directional implication view. */
-    consequentTrue: boolean
+    consequentTrue: TCoreTrivalentValue
     /** Result of evaluating `antecedent -> consequent`. */
-    implicationValue: boolean
-    /** `true` iff the implication is true because the antecedent is false. */
-    isVacuouslyTrue: boolean
-    /** `true` iff the antecedent was true (the implication "fired"). */
-    fired: boolean
+    implicationValue: TCoreTrivalentValue
+    /** `true` iff the implication is true because the antecedent is false; `null` if indeterminate. */
+    isVacuouslyTrue: TCoreTrivalentValue
+    /** `true` iff the antecedent was true (the implication "fired"); `null` if indeterminate. */
+    fired: TCoreTrivalentValue
 }
 
 export type TCorePremiseInferenceDiagnostic =
@@ -81,26 +92,26 @@ export type TCorePremiseInferenceDiagnostic =
           kind: "implies"
           premiseId: string
           rootExpressionId: string
-          leftValue: boolean
-          rightValue: boolean
-          rootValue: boolean
-          antecedentTrue: boolean
-          consequentTrue: boolean
-          isVacuouslyTrue: boolean
-          fired: boolean
-          firedAndHeld: boolean
+          leftValue: TCoreTrivalentValue
+          rightValue: TCoreTrivalentValue
+          rootValue: TCoreTrivalentValue
+          antecedentTrue: TCoreTrivalentValue
+          consequentTrue: TCoreTrivalentValue
+          isVacuouslyTrue: TCoreTrivalentValue
+          fired: TCoreTrivalentValue
+          firedAndHeld: TCoreTrivalentValue
       }
     | {
           kind: "iff"
           premiseId: string
           rootExpressionId: string
-          leftValue: boolean
-          rightValue: boolean
-          rootValue: boolean
+          leftValue: TCoreTrivalentValue
+          rightValue: TCoreTrivalentValue
+          rootValue: TCoreTrivalentValue
           leftToRight: TCoreDirectionalVacuity
           rightToLeft: TCoreDirectionalVacuity
-          bothSidesTrue: boolean
-          bothSidesFalse: boolean
+          bothSidesTrue: TCoreTrivalentValue
+          bothSidesFalse: TCoreTrivalentValue
       }
 
 export interface TCorePremiseEvaluationResult {
@@ -111,11 +122,11 @@ export interface TCorePremiseEvaluationResult {
     /** Root expression ID, if the premise has a root. */
     rootExpressionId?: string
     /** Truth value of the root expression, if the premise was evaluable. */
-    rootValue?: boolean
+    rootValue?: TCoreTrivalentValue
     /** Per-expression truth values keyed by expression ID. */
-    expressionValues: Record<string, boolean>
+    expressionValues: Record<string, TCoreTrivalentValue>
     /** Referenced variable truth values keyed by variable ID. */
-    variableValues: Record<string, boolean>
+    variableValues: Record<string, TCoreTrivalentValue>
     /** Inference-specific diagnostics for `implies`/`iff` roots. */
     inferenceDiagnostic?: TCorePremiseInferenceDiagnostic
 }
@@ -136,8 +147,8 @@ export interface TCoreArgumentEvaluationResult {
     ok: boolean
     /** Validation output when `ok === false`, or when validation was requested and included. */
     validation?: TCoreValidationResult
-    /** The assignment used for this evaluation (variableId -> boolean). */
-    assignment?: TCoreVariableAssignment
+    /** The assignment used for this evaluation. */
+    assignment?: TCoreExpressionAssignment
     /** All variable IDs referenced across evaluated supporting/conclusion/constraint premises. */
     referencedVariableIds?: string[]
     /** Evaluation result for the designated conclusion premise. */
@@ -147,15 +158,15 @@ export interface TCoreArgumentEvaluationResult {
     /** Evaluation results for constraint premises (used to determine admissibility). */
     constraintPremises?: TCorePremiseEvaluationResult[]
     /** `true` iff all constraint premises evaluate to true under the assignment. */
-    isAdmissibleAssignment?: boolean
+    isAdmissibleAssignment?: TCoreTrivalentValue
     /** `true` iff every supporting premise evaluates to true. */
-    allSupportingPremisesTrue?: boolean
+    allSupportingPremisesTrue?: TCoreTrivalentValue
     /** The truth value of the conclusion premise root expression. */
-    conclusionTrue?: boolean
+    conclusionTrue?: TCoreTrivalentValue
     /** `true` iff constraints are satisfied, all supporting premises are true, and the conclusion is false. */
-    isCounterexample?: boolean
+    isCounterexample?: TCoreTrivalentValue
     /** Convenience inverse of `isCounterexample` for the evaluated assignment. */
-    preservesTruthUnderAssignment?: boolean
+    preservesTruthUnderAssignment?: TCoreTrivalentValue
 }
 
 export interface TCoreValidityCheckOptions {
@@ -173,7 +184,7 @@ export interface TCoreValidityCheckOptions {
 
 export interface TCoreCounterexample {
     /** Assignment under which the argument fails to preserve truth. */
-    assignment: TCoreVariableAssignment
+    assignment: TCoreExpressionAssignment
     /** Full argument evaluation result for that assignment. */
     result: TCoreArgumentEvaluationResult
 }

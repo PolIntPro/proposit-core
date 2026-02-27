@@ -13,6 +13,7 @@
 ### Task 1: Kleene Three-Valued Logic Helpers
 
 **Files:**
+
 - Modify: `src/lib/core/evaluation/shared.ts`
 - Test: `test/ExpressionManager.test.ts`
 
@@ -159,6 +160,7 @@ git commit -m "Add Kleene three-valued logic helpers"
 ### Task 2: Update Core Types
 
 **Files:**
+
 - Modify: `src/lib/types/evaluation.ts`
 
 This task replaces `TCoreVariableAssignment` with `TCoreExpressionAssignment` and updates all result types to use `TCoreTrivalentValue`. This will cause compilation errors throughout the codebase — they are fixed in subsequent tasks.
@@ -191,11 +193,13 @@ In the same file, update these interfaces:
 `TCorePremiseInferenceDiagnostic` (line 79): Change all `boolean` fields (except `kind`, `premiseId`, `rootExpressionId`) to `TCoreTrivalentValue`.
 
 `TCorePremiseEvaluationResult` (line 106):
+
 - `rootValue?: TCoreTrivalentValue`
 - `expressionValues: Record<string, TCoreTrivalentValue>`
 - `variableValues: Record<string, TCoreTrivalentValue>`
 
 `TCoreArgumentEvaluationResult` (line 134):
+
 - `assignment?: TCoreExpressionAssignment`
 - `isAdmissibleAssignment?: TCoreTrivalentValue`
 - `allSupportingPremisesTrue?: TCoreTrivalentValue`
@@ -204,6 +208,7 @@ In the same file, update these interfaces:
 - `preservesTruthUnderAssignment?: TCoreTrivalentValue`
 
 `TCoreCounterexample` (line 174):
+
 - `assignment: TCoreExpressionAssignment`
 
 **Step 3: Verify typecheck fails as expected**
@@ -223,6 +228,7 @@ git commit -m "Update evaluation types for three-valued expression assignments"
 ### Task 3: Update evaluation/shared.ts Helpers
 
 **Files:**
+
 - Modify: `src/lib/core/evaluation/shared.ts`
 
 **Step 1: Update implicationValue to three-valued**
@@ -274,6 +280,7 @@ git commit -m "Update evaluation helpers for three-valued logic"
 ### Task 4: Update PremiseManager.evaluate
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts:428-600`
 - Test: `test/ExpressionManager.test.ts`
 
@@ -607,6 +614,7 @@ In `src/lib/core/PremiseManager.ts`, update the `evaluate` method (lines 428-600
 4. Remove the `missingVariableIds` check (lines 455-462). Missing variables now evaluate to `null`.
 
 5. Update `strictUnknownKeys` to check `assignment.variables` instead of `assignment`:
+
 ```typescript
 if (options?.strictUnknownKeys || options?.requireExactCoverage) {
     const knownVariableIds = new Set(referencedVariableIds)
@@ -626,6 +634,7 @@ if (options?.strictUnknownKeys || options?.requireExactCoverage) {
 7. Change `evaluateExpression` return type to `TCoreTrivalentValue`.
 
 8. Add rejection check at the top of `evaluateExpression`, after the expression lookup but before any child evaluation:
+
 ```typescript
 if (assignment.rejectedExpressionIds.includes(expression.id)) {
     expressionValues[expression.id] = false
@@ -634,6 +643,7 @@ if (assignment.rejectedExpressionIds.includes(expression.id)) {
 ```
 
 9. Update variable lookup:
+
 ```typescript
 if (expression.type === "variable") {
     const value = assignment.variables[expression.variableId] ?? null
@@ -645,6 +655,7 @@ if (expression.type === "variable") {
 10. Change `let value: boolean` to `let value: TCoreTrivalentValue`.
 
 11. Update operator evaluation to use Kleene helpers:
+
 ```typescript
 case "not":
     value = kleeneNot(evaluateExpression(children[0].id))
@@ -682,6 +693,7 @@ case "iff": {
 ```
 
 12. Update `variableValues` to three-valued:
+
 ```typescript
 const variableValues: Record<string, TCoreTrivalentValue> = {}
 for (const variableId of referencedVariableIds) {
@@ -708,6 +720,7 @@ git commit -m "Update PremiseManager.evaluate for three-valued expression assign
 ### Task 5: Update ArgumentEngine.evaluate and checkValidity
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts:386-664`
 - Test: `test/ExpressionManager.test.ts`
 
@@ -728,20 +741,62 @@ describe("ArgumentEngine — three-valued evaluation", () => {
         const conclusion = engine.createPremise("conclusion")
         conclusion.addVariable(vA.id)
         conclusion.addVariable(vB.id)
-        conclusion.addExpression({ id: "c-imp", type: "operator", operator: "implies", parentId: null, position: 0 })
-        conclusion.addExpression({ id: "c-a", type: "variable", variableId: vA.id, parentId: "c-imp", position: 0 })
-        conclusion.addExpression({ id: "c-b", type: "variable", variableId: vB.id, parentId: "c-imp", position: 1 })
+        conclusion.addExpression({
+            id: "c-imp",
+            type: "operator",
+            operator: "implies",
+            parentId: null,
+            position: 0,
+        })
+        conclusion.addExpression({
+            id: "c-a",
+            type: "variable",
+            variableId: vA.id,
+            parentId: "c-imp",
+            position: 0,
+        })
+        conclusion.addExpression({
+            id: "c-b",
+            type: "variable",
+            variableId: vB.id,
+            parentId: "c-imp",
+            position: 1,
+        })
 
         const supporting = engine.createPremise("supporting")
         supporting.addVariable(vC.id)
         supporting.addVariable(vA.id)
-        supporting.addExpression({ id: "s-imp", type: "operator", operator: "implies", parentId: null, position: 0 })
-        supporting.addExpression({ id: "s-c", type: "variable", variableId: vC.id, parentId: "s-imp", position: 0 })
-        supporting.addExpression({ id: "s-a", type: "variable", variableId: vA.id, parentId: "s-imp", position: 1 })
+        supporting.addExpression({
+            id: "s-imp",
+            type: "operator",
+            operator: "implies",
+            parentId: null,
+            position: 0,
+        })
+        supporting.addExpression({
+            id: "s-c",
+            type: "variable",
+            variableId: vC.id,
+            parentId: "s-imp",
+            position: 0,
+        })
+        supporting.addExpression({
+            id: "s-a",
+            type: "variable",
+            variableId: vA.id,
+            parentId: "s-imp",
+            position: 1,
+        })
 
         const constraint = engine.createPremise("constraint")
         constraint.addVariable(vD.id)
-        constraint.addExpression({ id: "d-var", type: "variable", variableId: vD.id, parentId: null, position: 0 })
+        constraint.addExpression({
+            id: "d-var",
+            type: "variable",
+            variableId: vD.id,
+            parentId: null,
+            position: 0,
+        })
 
         engine.setConclusionPremise(conclusion.getId())
         engine.addSupportingPremise(supporting.getId())
@@ -752,7 +807,12 @@ describe("ArgumentEngine — three-valued evaluation", () => {
     it("returns null for isAdmissibleAssignment when constraint is null", () => {
         const { engine, vA, vB, vC, vD } = buildSimpleArgument()
         const result = engine.evaluate({
-            variables: { [vA.id]: true, [vB.id]: true, [vC.id]: true, [vD.id]: null },
+            variables: {
+                [vA.id]: true,
+                [vB.id]: true,
+                [vC.id]: true,
+                [vD.id]: null,
+            },
             rejectedExpressionIds: [],
         })
         expect(result.ok).toBe(true)
@@ -762,7 +822,12 @@ describe("ArgumentEngine — three-valued evaluation", () => {
     it("returns null for isCounterexample when conclusion is null", () => {
         const { engine, vA, vB, vC, vD } = buildSimpleArgument()
         const result = engine.evaluate({
-            variables: { [vA.id]: true, [vB.id]: null, [vC.id]: true, [vD.id]: true },
+            variables: {
+                [vA.id]: true,
+                [vB.id]: null,
+                [vC.id]: true,
+                [vD.id]: true,
+            },
             rejectedExpressionIds: [],
         })
         expect(result.ok).toBe(true)
@@ -774,7 +839,12 @@ describe("ArgumentEngine — three-valued evaluation", () => {
     it("rejected inference root makes premise false", () => {
         const { engine, vA, vB, vC, vD } = buildSimpleArgument()
         const result = engine.evaluate({
-            variables: { [vA.id]: true, [vB.id]: true, [vC.id]: true, [vD.id]: true },
+            variables: {
+                [vA.id]: true,
+                [vB.id]: true,
+                [vC.id]: true,
+                [vD.id]: true,
+            },
             rejectedExpressionIds: ["c-imp"],
         })
         expect(result.ok).toBe(true)
@@ -797,16 +867,20 @@ In `src/lib/core/ArgumentEngine.ts`:
 2. Add imports for `TCoreExpressionAssignment`, `TCoreTrivalentValue`, `kleeneAnd`, `kleeneNot` from the relevant modules.
 
 3. Update summary flag computation (around line 459):
+
 ```typescript
-const isAdmissibleAssignment = constraintEvaluations.reduce<TCoreTrivalentValue>(
-    (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
-    true
-)
-const allSupportingPremisesTrue = supportingEvaluations.reduce<TCoreTrivalentValue>(
-    (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
-    true
-)
-const conclusionTrue: TCoreTrivalentValue = conclusionEvaluation.rootValue ?? null
+const isAdmissibleAssignment =
+    constraintEvaluations.reduce<TCoreTrivalentValue>(
+        (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
+        true
+    )
+const allSupportingPremisesTrue =
+    supportingEvaluations.reduce<TCoreTrivalentValue>(
+        (acc, result) => kleeneAnd(acc, result.rootValue ?? null),
+        true
+    )
+const conclusionTrue: TCoreTrivalentValue =
+    conclusionEvaluation.rootValue ?? null
 const isCounterexample = kleeneAnd(
     isAdmissibleAssignment,
     kleeneAnd(allSupportingPremisesTrue, kleeneNot(conclusionTrue))
@@ -814,6 +888,7 @@ const isCounterexample = kleeneAnd(
 ```
 
 4. Update the assignment copy in the return value:
+
 ```typescript
 assignment: {
     variables: { ...assignment.variables },
@@ -822,6 +897,7 @@ assignment: {
 ```
 
 5. Update `preservesTruthUnderAssignment`:
+
 ```typescript
 preservesTruthUnderAssignment: kleeneNot(isCounterexample),
 ```
@@ -831,6 +907,7 @@ preservesTruthUnderAssignment: kleeneNot(isCounterexample),
 In the `checkValidity` method (around line 609):
 
 1. Change assignment construction:
+
 ```typescript
 const assignment: TCoreExpressionAssignment = {
     variables: {},
@@ -842,6 +919,7 @@ for (let i = 0; i < checkedVariableIds.length; i++) {
 ```
 
 2. Update the admissibility and counterexample checks to use `=== true` for type safety:
+
 ```typescript
 if (result.isAdmissibleAssignment === true) {
     numAdmissibleAssignments += 1
@@ -867,6 +945,7 @@ git commit -m "Update ArgumentEngine for three-valued expression assignments"
 ### Task 6: Fix Existing Tests
 
 **Files:**
+
 - Modify: `test/ExpressionManager.test.ts`
 
 All existing tests that call `pm.evaluate(assignment)` or `engine.evaluate(assignment)` pass a plain `Record<string, boolean>`. These must be wrapped in `{ variables: ..., rejectedExpressionIds: [] }`.
@@ -901,6 +980,7 @@ git commit -m "Update existing tests for expression assignment format"
 ### Task 7: Update Analysis Schema and CLI Commands
 
 **Files:**
+
 - Modify: `src/lib/schemata/analysis.ts`
 - Modify: `src/cli/commands/analysis.ts`
 
@@ -935,14 +1015,12 @@ In `src/cli/commands/analysis.ts`, update the `create` command (around line 28):
 
 - Change `--default` option description: `"Default value for all assignments (true, false, or unset)"`, default: `"unset"`
 - Update default value parsing:
+
 ```typescript
 const defaultValue =
-    opts.default === "true"
-        ? true
-        : opts.default === "false"
-          ? false
-          : null
+    opts.default === "true" ? true : opts.default === "false" ? false : null
 ```
+
 - Change assignments type: `const assignments: Record<string, boolean | null> = {}`
 - Add `rejectedExpressionIds: []` to the write call.
 
@@ -971,11 +1049,7 @@ Around line 145, update value parsing:
 
 ```typescript
 const resetValue =
-    opts.value === "true"
-        ? true
-        : opts.value === "false"
-          ? false
-          : null
+    opts.value === "true" ? true : opts.value === "false" ? false : null
 ```
 
 Update `--value` option description and default to `"unset"`.
@@ -998,10 +1072,7 @@ Add after the `reset` command:
 analysis
     .command("reject <expression_id>")
     .description("Reject an expression (it will evaluate to false)")
-    .option(
-        "--file <filename>",
-        "Analysis filename (default: analysis.json)"
-    )
+    .option("--file <filename>", "Analysis filename (default: analysis.json)")
     .action(async (expressionId: string, opts: { file?: string }) => {
         const filename = resolveAnalysisFilename(opts.file)
         if (!(await analysisFileExists(argumentId, version, filename))) {
@@ -1017,21 +1088,17 @@ analysis
 
 analysis
     .command("accept <expression_id>")
-    .description(
-        "Accept an expression (restore normal computation)"
-    )
-    .option(
-        "--file <filename>",
-        "Analysis filename (default: analysis.json)"
-    )
+    .description("Accept an expression (restore normal computation)")
+    .option("--file <filename>", "Analysis filename (default: analysis.json)")
     .action(async (expressionId: string, opts: { file?: string }) => {
         const filename = resolveAnalysisFilename(opts.file)
         if (!(await analysisFileExists(argumentId, version, filename))) {
             errorExit(`Analysis file "${filename}" does not exist.`)
         }
         const data = await readAnalysis(argumentId, version, filename)
-        data.rejectedExpressionIds =
-            data.rejectedExpressionIds.filter((id) => id !== expressionId)
+        data.rejectedExpressionIds = data.rejectedExpressionIds.filter(
+            (id) => id !== expressionId
+        )
         await writeAnalysis(argumentId, version, filename, data)
         printLine("success")
     })
@@ -1064,9 +1131,7 @@ In the validate-assignments command (around line 164), add validation for `rejec
 // Validate rejected expression IDs
 const engine = await hydrateEngine(argumentId, version)
 const allExpressionIds = new Set(
-    engine.listPremises().flatMap((pm) =>
-        pm.getExpressions().map((e) => e.id)
-    )
+    engine.listPremises().flatMap((pm) => pm.getExpressions().map((e) => e.id))
 )
 const unknownExpressionIds = data.rejectedExpressionIds.filter(
     (id) => !allExpressionIds.has(id)
