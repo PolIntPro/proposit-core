@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto"
 import yaml from "js-yaml"
 import { Value } from "typebox/value"
-import { CoreYamlArgumentSchema } from "../schemata/import.js"
-import type { TCoreYamlArgument } from "../schemata/import.js"
+import { CoreYamlArgumentSchema } from "../lib/schemata/import.js"
+import type { TCoreYamlArgument } from "../lib/schemata/import.js"
 import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
-} from "../schemata/index.js"
-import type { FormulaAST } from "./parser/formula.js"
-import { parseFormula } from "./parser/formula.js"
-import { ArgumentEngine } from "./ArgumentEngine.js"
+} from "../lib/schemata/index.js"
+import type { FormulaAST } from "../lib/core/parser/formula.js"
+import { parseFormula } from "../lib/core/parser/formula.js"
+import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
 
 /**
  * Validates that `implies` and `iff` nodes appear only at the AST root.
@@ -26,7 +26,7 @@ function validateRootOnly(
             ? `premise "${premiseTitle}" (index ${premiseIndex})`
             : `premise at index ${premiseIndex}`
         throw new Error(
-            `${ast.type === "implies" ? "Implication (→)" : "Biconditional (↔)"} operator must be at the root of a formula, but found nested in ${label}.`
+            `${ast.type === "implies" ? "Implication (\u2192)" : "Biconditional (\u2194)"} operator must be at the root of a formula, but found nested in ${label}.`
         )
     }
     switch (ast.type) {

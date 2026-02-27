@@ -10,6 +10,6 @@ export type FormulaAST =
     | { type: "iff"; left: FormulaAST; right: FormulaAST }
 
 export function parseFormula(input: string): FormulaAST {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- generated parser has no type declarations
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     return pegParse(input) as FormulaAST
 }

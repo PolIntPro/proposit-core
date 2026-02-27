@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
-import { importArgumentFromYaml } from "../src/lib/core/import"
+import { importArgumentFromYaml } from "../src/cli/import"
 import type { TCoreExpressionAssignment } from "../src/lib/types/evaluation"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))

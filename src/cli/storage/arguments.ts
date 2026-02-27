@@ -2,32 +2,30 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import Value from "typebox/value"
 import {
-    CoreArgumentMetaSchema,
-    CoreArgumentVersionMetaSchema,
-    type TCoreArgumentMeta,
-    type TCoreArgumentVersionMeta,
-} from "../../lib/schemata/index.js"
+    CliArgumentMetaSchema,
+    CliArgumentVersionMetaSchema,
+    type TCliArgumentMeta,
+    type TCliArgumentVersionMeta,
+} from "../schemata.js"
 import { getArgumentDir, getArgumentsDir, getVersionDir } from "../config.js"
 import { errorExit } from "../output.js"
 
 export async function readArgumentMeta(
     argumentId: string
-): Promise<TCoreArgumentMeta> {
+): Promise<TCliArgumentMeta> {
     const filePath = path.join(getArgumentDir(argumentId), "meta.json")
     const content = await fs.readFile(filePath, "utf-8").catch(() => {
         errorExit(`Argument "${argumentId}" not found.`)
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(CoreArgumentMetaSchema, raw)
+        return Value.Parse(CliArgumentMetaSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
 }
 
-export async function writeArgumentMeta(
-    meta: TCoreArgumentMeta
-): Promise<void> {
+export async function writeArgumentMeta(meta: TCliArgumentMeta): Promise<void> {
     const dir = getArgumentDir(meta.id)
     await fs.mkdir(dir, { recursive: true })
     await fs.writeFile(
@@ -39,14 +37,14 @@ export async function writeArgumentMeta(
 export async function readVersionMeta(
     argumentId: string,
     version: number
-): Promise<TCoreArgumentVersionMeta> {
+): Promise<TCliArgumentVersionMeta> {
     const filePath = path.join(getVersionDir(argumentId, version), "meta.json")
     const content = await fs.readFile(filePath, "utf-8").catch(() => {
         errorExit(`Version ${version} of argument "${argumentId}" not found.`)
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(CoreArgumentVersionMetaSchema, raw)
+        return Value.Parse(CliArgumentVersionMetaSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
@@ -54,7 +52,7 @@ export async function readVersionMeta(
 
 export async function writeVersionMeta(
     argumentId: string,
-    meta: TCoreArgumentVersionMeta
+    meta: TCliArgumentVersionMeta
 ): Promise<void> {
     const dir = getVersionDir(argumentId, meta.version)
     await fs.mkdir(dir, { recursive: true })

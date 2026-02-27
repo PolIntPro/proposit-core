@@ -62,7 +62,7 @@ export function registerPremiseCommands(
             const id = randomUUID()
             await writePremiseMeta(argumentId, version, {
                 id,
-                metadata: opts.title ? { title: opts.title } : {},
+                ...(opts.title ? { title: opts.title } : {}),
             })
             await writePremiseData(argumentId, version, id, {
                 variables: [],
@@ -88,7 +88,8 @@ export function registerPremiseCommands(
                     ])
 
                     // Hydrate a temporary PremiseManager for display string
-                    const pm = new PremiseManager(pid, argument, meta.metadata)
+                    const { id: _id, ...premiseExtras } = meta
+                    const pm = new PremiseManager(pid, argument, premiseExtras)
                     for (const v of allVariables)
                         pm.addVariable({ ...v, argumentVersion: version })
 
@@ -140,7 +141,7 @@ export function registerPremiseCommands(
             } else {
                 for (const { meta, pm } of results) {
                     const display = pm.toDisplayString() || "(empty)"
-                    const title = meta.metadata.title ?? "(untitled)"
+                    const title = meta.title ?? "(untitled)"
                     const premiseType = pm.isInference()
                         ? "inference"
                         : "constraint"
@@ -204,9 +205,9 @@ export function registerPremiseCommands(
                     premiseId
                 )
                 if (opts.clearTitle) {
-                    delete meta.metadata.title
+                    delete meta.title
                 } else if (opts.title !== undefined) {
-                    meta.metadata.title = opts.title
+                    meta.title = opts.title
                 }
                 await writePremiseMeta(argumentId, version, meta)
                 printLine("success")
@@ -240,9 +241,7 @@ export function registerPremiseCommands(
                         ? "inference"
                         : "constraint"
                 printLine(`id:           ${meta.id}`)
-                printLine(
-                    `title:        ${meta.metadata.title ?? "(untitled)"}`
-                )
+                printLine(`title:        ${meta.title ?? "(untitled)"}`)
                 printLine(`type:         ${premiseType}`)
                 printLine(`root expr id: ${data.rootExpressionId ?? "(none)"}`)
                 printLine(`variables:    ${data.variables.length}`)
@@ -264,7 +263,12 @@ export function registerPremiseCommands(
                 readPremiseData(argumentId, version, premiseId),
             ])
 
-            const pm = new PremiseManager(premiseId, argument, meta.metadata)
+            const { id: _id, ...renderPremiseExtras } = meta
+            const pm = new PremiseManager(
+                premiseId,
+                argument,
+                renderPremiseExtras
+            )
             for (const v of allVariables)
                 pm.addVariable({ ...v, argumentVersion: version })
 

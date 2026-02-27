@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { parseFormula } from "../src/lib/core/parser/formula"
 import type { FormulaAST } from "../src/lib/core/parser/formula"
-import { importArgumentFromYaml } from "../src/lib/core/import"
+import { importArgumentFromYaml } from "../src/cli/import"
 
 // ---------------------------------------------------------------------------
 // parseFormula

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
 import type { TCoreArgument } from "../lib/schemata/index.js"
+import type { TCliArgumentMeta, TCliArgumentVersionMeta } from "./schemata.js"
 import { getPremisesDir } from "./config.js"
 import {
     readArgumentMeta,
@@ -50,7 +51,8 @@ export async function hydrateEngine(
             readPremiseData(argumentId, version, premiseId),
         ])
 
-        const pm = engine.createPremiseWithId(premiseId, meta.metadata)
+        const { id: _id, ...premiseExtras } = meta
+        const pm = engine.createPremiseWithId(premiseId, premiseExtras)
 
         for (const variable of allVariables) {
             pm.addVariable({ ...variable, argumentVersion: version })
@@ -104,14 +106,21 @@ export async function hydrateEngine(
  */
 export async function persistEngine(engine: ArgumentEngine): Promise<void> {
     const arg = engine.getArgument()
-    const { id, metadata } = arg
+    const { id } = arg
 
-    await writeArgumentMeta({ id, metadata })
+    // Extract CLI-specific fields from the argument (which has extras via
+    // additionalProperties) and write them as flat argument/version meta.
+    const argRecord = arg as Record<string, unknown>
+    await writeArgumentMeta({
+        id,
+        title: argRecord.title,
+        description: argRecord.description,
+    } as TCliArgumentMeta)
     await writeVersionMeta(id, {
         version: arg.version,
-        createdAt: arg.createdAt,
-        published: arg.published,
-    })
+        createdAt: argRecord.createdAt,
+        published: argRecord.published,
+    } as TCliArgumentVersionMeta)
 
     const variables = engine.listPremises()[0]?.getVariables() ?? []
     await writeVariables(id, arg.version, variables)
@@ -121,10 +130,17 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
     await fs.mkdir(getPremisesDir(id, arg.version), { recursive: true })
     for (const pm of engine.listPremises()) {
         const data = pm.toData()
+        const {
+            id: premiseId,
+            rootExpressionId: _r,
+            variables: _v,
+            expressions: _e,
+            ...premiseMeta
+        } = data as Record<string, unknown>
         await writePremiseMeta(id, arg.version, {
             id: data.id,
-            metadata: data.metadata,
-        })
+            ...premiseMeta,
+        } as import("./schemata.js").TCliPremiseMeta)
         await writePremiseData(id, arg.version, data.id, {
             rootExpressionId: data.rootExpressionId,
             variables: data.variables,

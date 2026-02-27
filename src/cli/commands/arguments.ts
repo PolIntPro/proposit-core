@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { Command } from "commander"
-import { importArgumentFromYaml } from "../../lib/core/import.js"
+import { importArgumentFromYaml } from "../import.js"
 import { getVersionDir } from "../config.js"
 import { persistEngine } from "../engine.js"
 import {
@@ -36,7 +36,7 @@ export function registerArgumentCommands(program: Command): void {
             const id = randomUUID()
             const createdAt = Date.now()
 
-            await writeArgumentMeta({ id, metadata: { title, description } })
+            await writeArgumentMeta({ id, title, description })
             await writeVersionMeta(id, {
                 version: 0,
                 createdAt,
@@ -94,8 +94,8 @@ export function registerArgumentCommands(program: Command): void {
                 printJson(
                     items.map(({ meta, vMeta }) => ({
                         id: meta.id,
-                        title: meta.metadata.title,
-                        description: meta.metadata.description,
+                        title: meta.title,
+                        description: meta.description,
                         latestVersion: vMeta.version,
                         latestCreatedAt: vMeta.createdAt,
                         latestPublished: vMeta.published,
@@ -104,7 +104,7 @@ export function registerArgumentCommands(program: Command): void {
             } else {
                 for (const { meta, vMeta } of items) {
                     printLine(
-                        `${meta.id} | ${meta.metadata.title} (created ${new Date(vMeta.createdAt).toLocaleString()})`
+                        `${meta.id} | ${meta.title} (created ${new Date(vMeta.createdAt).toLocaleString()})`
                     )
                 }
             }
