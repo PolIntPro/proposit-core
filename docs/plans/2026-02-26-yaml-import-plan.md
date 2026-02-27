@@ -13,11 +13,13 @@
 ### Task 1: Add dependencies
 
 **Files:**
+
 - Modify: `package.json`
 
 **Step 1: Install js-yaml, @types/js-yaml, and peggy**
 
 Run:
+
 ```bash
 pnpm add js-yaml && pnpm add -D @types/js-yaml peggy
 ```
@@ -25,11 +27,13 @@ pnpm add js-yaml && pnpm add -D @types/js-yaml peggy
 **Step 2: Add parser generation script to package.json**
 
 Add to `scripts`:
+
 ```json
 "generate:parser": "peggy --format es -o src/lib/core/parser/formula.js src/lib/core/parser/formula.peggy"
 ```
 
 Update the `build` script to run parser generation first:
+
 ```json
 "build": "pnpm run generate:parser && pnpm tsc -p tsconfig.build.json"
 ```
@@ -58,6 +62,7 @@ git commit -m "Add js-yaml, peggy dependencies and parser generation script"
 ### Task 2: Write the PEG grammar and typed wrapper
 
 **Files:**
+
 - Create: `src/lib/core/parser/formula.peggy`
 - Create: `src/lib/core/parser/formula.ts`
 
@@ -121,6 +126,7 @@ _ "whitespace"
 **Step 2: Generate the parser JS file**
 
 Run:
+
 ```bash
 pnpm run generate:parser
 ```
@@ -151,6 +157,7 @@ export function parseFormula(input: string): FormulaAST {
 **Step 4: Verify typecheck passes**
 
 Run:
+
 ```bash
 pnpm run typecheck
 ```
@@ -169,6 +176,7 @@ git commit -m "Add PEG formula grammar and typed parser wrapper"
 ### Task 3: Write formula parser tests
 
 **Files:**
+
 - Create: `test/import.test.ts`
 
 **Step 1: Write failing tests for parseFormula**
@@ -475,6 +483,7 @@ describe("parseFormula", () => {
 **Step 2: Run tests to verify they pass**
 
 Run:
+
 ```bash
 pnpm run test
 ```
@@ -493,6 +502,7 @@ git commit -m "Add parseFormula test suite"
 ### Task 4: Write the YAML input schema
 
 **Files:**
+
 - Create: `src/lib/schemata/import.ts`
 - Modify: `src/lib/schemata/index.ts`
 
@@ -533,6 +543,7 @@ export * from "./import.js"
 **Step 3: Run typecheck**
 
 Run:
+
 ```bash
 pnpm run typecheck
 ```
@@ -551,6 +562,7 @@ git commit -m "Add Typebox schema for YAML argument input"
 ### Task 5: Implement importArgumentFromYaml
 
 **Files:**
+
 - Create: `src/lib/core/import.ts`
 - Modify: `src/lib/index.ts`
 - Modify: `src/index.ts`
@@ -755,10 +767,7 @@ function buildExpressions(
  */
 export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const raw = yaml.load(yamlString)
-    const input: TCoreYamlArgument = Value.Parse(
-        CoreYamlArgumentSchema,
-        raw
-    )
+    const input: TCoreYamlArgument = Value.Parse(CoreYamlArgumentSchema, raw)
 
     // Parse all formulas and validate root-only constraint
     const parsedFormulas: FormulaAST[] = []
@@ -771,11 +780,8 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             const label = premise.title
                 ? `premise "${premise.title}" (index ${i})`
                 : `premise at index ${i}`
-            const msg =
-                error instanceof Error ? error.message : String(error)
-            throw new Error(
-                `Failed to parse formula for ${label}: ${msg}`
-            )
+            const msg = error instanceof Error ? error.message : String(error)
+            throw new Error(`Failed to parse formula for ${label}: ${msg}`)
         }
         validateRootOnly(ast, true, i, premise.title)
         parsedFormulas.push(ast)
@@ -879,6 +885,7 @@ export type { FormulaAST } from "./lib/core/parser/formula"
 **Step 4: Run typecheck**
 
 Run:
+
 ```bash
 pnpm run typecheck
 ```
@@ -897,6 +904,7 @@ git commit -m "Implement importArgumentFromYaml function"
 ### Task 6: Write importArgumentFromYaml tests
 
 **Files:**
+
 - Modify: `test/import.test.ts`
 
 **Step 1: Add import tests**
@@ -1138,9 +1146,7 @@ premises:
   - role: "conclusion"
     formula: "(P → Q) ∧ R"
 `
-        expect(() => importArgumentFromYaml(yaml)).toThrow(
-            /root/i
-        )
+        expect(() => importArgumentFromYaml(yaml)).toThrow(/root/i)
     })
 
     it("uses ASCII formula variants correctly", () => {
@@ -1174,6 +1180,7 @@ Note: The ASCII formula test's expected `toDisplayString` may need adjustment ba
 **Step 2: Run tests**
 
 Run:
+
 ```bash
 pnpm run test
 ```
@@ -1192,11 +1199,13 @@ git commit -m "Add importArgumentFromYaml test suite"
 ### Task 7: Run full checks and fix issues
 
 **Files:**
+
 - Potentially any file from Tasks 1-6
 
 **Step 1: Run full check suite**
 
 Run:
+
 ```bash
 pnpm run check
 ```

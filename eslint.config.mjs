@@ -53,5 +53,9 @@ export default defineConfig([
         files: ["*.mjs"],
         extends: [tseslint.configs.disableTypeChecked],
     },
-    globalIgnores(["dist/", "node_modules/", "src/lib/core/parser/formula-gen.js"]),
+    globalIgnores([
+        "dist/",
+        "node_modules/",
+        "src/lib/core/parser/formula-gen.js",
+    ]),
 ])

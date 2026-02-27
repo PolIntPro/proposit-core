@@ -12,25 +12,25 @@ A single YAML file represents one argument:
 title: "Modus Ponens Example"
 description: "A simple modus ponens argument"
 premises:
-  - title: "If it rains, the ground is wet"
-    role: "conclusion"
-    formula: "Rain → Wet"
-  - title: "It is raining"
-    formula: "Rain"
-  - title: "Connection"
-    formula: "(A ∨ ¬B) → C"
+    - title: "If it rains, the ground is wet"
+      role: "conclusion"
+      formula: "Rain → Wet"
+    - title: "It is raining"
+      formula: "Rain"
+    - title: "Connection"
+      formula: "(A ∨ ¬B) → C"
 ```
 
 ### Fields
 
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `title` | yes | — | Argument title |
-| `description` | no | `""` | Argument description |
-| `premises` | yes | — | Non-empty array of premise objects |
-| `premises[].title` | no | — | Premise title |
-| `premises[].role` | no | `"supporting"` | `"conclusion"` or `"supporting"` |
-| `premises[].formula` | yes | — | Formula string (see Proposit_Grammar.md) |
+| Field                | Required | Default        | Description                              |
+| -------------------- | -------- | -------------- | ---------------------------------------- |
+| `title`              | yes      | —              | Argument title                           |
+| `description`        | no       | `""`           | Argument description                     |
+| `premises`           | yes      | —              | Non-empty array of premise objects       |
+| `premises[].title`   | no       | —              | Premise title                            |
+| `premises[].role`    | no       | `"supporting"` | `"conclusion"` or `"supporting"`         |
+| `premises[].formula` | yes      | —              | Formula string (see Proposit_Grammar.md) |
 
 ### Implicit Variable Declaration
 
@@ -44,13 +44,13 @@ A PEG parser built with `peggy` (dev dependency). The grammar is compiled to Jav
 
 ### Operator Precedence (low to high)
 
-| Precedence | Operators | Unicode | ASCII | Associativity |
-|------------|-----------|---------|-------|---------------|
-| 1 (lowest) | implies | `→` | `->` | None (root-only) |
-| 1 | biconditional | `↔` | `<->` | None (root-only) |
-| 2 | disjunction | `∨` | `\|\|` | Left |
-| 3 | conjunction | `∧` | `&&` | Left |
-| 4 (highest) | negation | `¬` | `!` | Right (prefix) |
+| Precedence  | Operators     | Unicode | ASCII  | Associativity    |
+| ----------- | ------------- | ------- | ------ | ---------------- |
+| 1 (lowest)  | implies       | `→`     | `->`   | None (root-only) |
+| 1           | biconditional | `↔`     | `<->`  | None (root-only) |
+| 2           | disjunction   | `∨`     | `\|\|` | Left             |
+| 3           | conjunction   | `∧`     | `&&`   | Left             |
+| 4 (highest) | negation      | `¬`     | `!`    | Right (prefix)   |
 
 Atoms: parenthesized sub-expressions `( ... )` or identifiers matching `[A-Za-z_][A-Za-z0-9_]*`.
 
@@ -62,12 +62,12 @@ Atoms: parenthesized sub-expressions `( ... )` or identifiers matching `[A-Za-z_
 
 ```typescript
 type FormulaAST =
-  | { type: "variable"; name: string }
-  | { type: "not"; operand: FormulaAST }
-  | { type: "and"; operands: FormulaAST[] }
-  | { type: "or"; operands: FormulaAST[] }
-  | { type: "implies"; left: FormulaAST; right: FormulaAST }
-  | { type: "iff"; left: FormulaAST; right: FormulaAST }
+    | { type: "variable"; name: string }
+    | { type: "not"; operand: FormulaAST }
+    | { type: "and"; operands: FormulaAST[] }
+    | { type: "or"; operands: FormulaAST[] }
+    | { type: "implies"; left: FormulaAST; right: FormulaAST }
+    | { type: "iff"; left: FormulaAST; right: FormulaAST }
 ```
 
 `and`/`or` collect multiple operands (e.g., `A ∧ B ∧ C` becomes `{ type: "and", operands: [A, B, C] }`) to match the internal model where operators have n children.
@@ -91,9 +91,9 @@ Standalone function (not an instance method), consistent with `diffArguments`.
 5. Create `ArgumentEngine` with generated UUID, title, description, version 0
 6. Register all collected variables with the engine
 7. For each premise:
-   - Create a `PremiseManager` (with title if provided)
-   - Convert `FormulaAST` into internal `TPropositionalExpression` nodes (generating UUIDs, assigning parentIds and positions)
-   - Add expressions to the premise
+    - Create a `PremiseManager` (with title if provided)
+    - Convert `FormulaAST` into internal `TPropositionalExpression` nodes (generating UUIDs, assigning parentIds and positions)
+    - Add expressions to the premise
 8. Assign roles: set conclusion premise, add all others as supporting
 
 ### Error Handling
@@ -130,6 +130,7 @@ docs/Proposit_Grammar.md  # Grammar documentation with examples
 ## Public API
 
 Exported from `src/index.ts`:
+
 - `importArgumentFromYaml(yamlString: string): ArgumentEngine`
 - `parseFormula(formulaString: string): FormulaAST`
 - `FormulaAST` type

@@ -193,10 +193,7 @@ function buildExpressions(
  */
 export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const raw = yaml.load(yamlString)
-    const input: TCoreYamlArgument = Value.Parse(
-        CoreYamlArgumentSchema,
-        raw
-    )
+    const input: TCoreYamlArgument = Value.Parse(CoreYamlArgumentSchema, raw)
 
     // Parse all formulas and validate root-only constraint
     const parsedFormulas: FormulaAST[] = []
@@ -209,11 +206,8 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             const label = premise.title
                 ? `premise "${premise.title}" (index ${i})`
                 : `premise at index ${i}`
-            const msg =
-                error instanceof Error ? error.message : String(error)
-            throw new Error(
-                `Failed to parse formula for ${label}: ${msg}`
-            )
+            const msg = error instanceof Error ? error.message : String(error)
+            throw new Error(`Failed to parse formula for ${label}: ${msg}`)
         }
         validateRootOnly(ast, true, i, premise.title)
         parsedFormulas.push(ast)
