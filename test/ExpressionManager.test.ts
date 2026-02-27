@@ -3200,4 +3200,24 @@ describe("field preservation — unknown fields survive round-trips", () => {
             "Premise One"
         )
     })
+
+    it("setExtras replaces all extras, not merges", () => {
+        const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
+        const pm = engine.createPremise({ a: "1", b: "2" })
+        pm.setExtras({ c: "3" })
+        expect(pm.getExtras()).toEqual({ c: "3" })
+        expect(pm.getExtras()).not.toHaveProperty("a")
+    })
+
+    it("structural fields in toData() cannot be shadowed by extras", () => {
+        const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
+        const pm = engine.createPremise({
+            id: "should-be-overridden",
+            rootExpressionId: "fake",
+        })
+        const data = pm.toData()
+        expect(data.id).not.toBe("should-be-overridden")
+        expect(data.id).toBe(pm.getId())
+        expect(data.rootExpressionId).toBeUndefined()
+    })
 })
