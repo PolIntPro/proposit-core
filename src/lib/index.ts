@@ -13,5 +13,10 @@ export {
     defaultComparePremise,
     defaultCompareExpression,
 } from "./core/diff.js"
+export * from "./types/relationships.js"
+export {
+    analyzePremiseRelationships,
+    buildPremiseProfile,
+} from "./core/relationships.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { FormulaAST } from "./core/parser/formula.js"
