@@ -17,7 +17,7 @@ function collectVariableAppearances(
     side: TCorePremiseSide
 ): TCoreVariableAppearance[] {
     const appearances: TCoreVariableAppearance[] = []
-    const stack: Array<{ id: string; negationDepth: number }> = [
+    const stack: { id: string; negationDepth: number }[] = [
         { id: expressionId, negationDepth: 0 },
     ]
 
@@ -30,8 +30,7 @@ function collectVariableAppearances(
             appearances.push({
                 variableId: expr.variableId,
                 side,
-                polarity:
-                    negationDepth % 2 === 0 ? "positive" : "negative",
+                polarity: negationDepth % 2 === 0 ? "positive" : "negative",
             })
         } else {
             const nextDepth =
@@ -154,11 +153,11 @@ function bfsToTarget(
     const visited = new Set<string>()
     visited.add(sourceId)
 
-    const queue: Array<{
+    const queue: {
         premiseId: string
         polarityMatch: boolean
         entryVariables: VariableEdge[]
-    }> = []
+    }[] = []
 
     // Seed with direct edges from source
     const sourceEdges = graph.get(sourceId) ?? []
@@ -188,15 +187,12 @@ function bfsToTarget(
     }
 
     while (queue.length > 0) {
-        const { premiseId, polarityMatch, entryVariables } =
-            queue.shift()!
+        const { premiseId, polarityMatch, entryVariables } = queue.shift()!
         const edges = graph.get(premiseId) ?? []
 
         for (const edge of edges) {
             if (edge.targetPremiseId === targetId) {
-                const stepMatch = edge.variables.every(
-                    (v) => v.polarityMatch
-                )
+                const stepMatch = edge.variables.every((v) => v.polarityMatch)
                 // XOR logic: both match or both mismatch = overall match
                 const finalMatch =
                     (polarityMatch && stepMatch) ||
@@ -215,9 +211,7 @@ function bfsToTarget(
             }
             if (!visited.has(edge.targetPremiseId)) {
                 visited.add(edge.targetPremiseId)
-                const stepMatch = edge.variables.every(
-                    (v) => v.polarityMatch
-                )
+                const stepMatch = edge.variables.every((v) => v.polarityMatch)
                 const nextMatch =
                     (polarityMatch && stepMatch) ||
                     (!polarityMatch && !stepMatch)
@@ -282,16 +276,12 @@ function classifyConstraintPremise(
     focusedProfile: TCorePremiseProfile,
     connectedVarIds: Set<string>
 ): TCorePremiseRelationResult {
-    const premiseVarIds = new Set(
-        premise.getVariables().map((v) => v.id)
-    )
+    const premiseVarIds = new Set(premise.getVariables().map((v) => v.id))
     const focusedVarIds = new Set(
         focusedProfile.appearances.map((a) => a.variableId)
     )
 
-    const directOverlap = [...premiseVarIds].some((id) =>
-        focusedVarIds.has(id)
-    )
+    const directOverlap = [...premiseVarIds].some((id) => focusedVarIds.has(id))
     const transitiveOverlap = [...premiseVarIds].some((id) =>
         connectedVarIds.has(id)
     )
@@ -401,11 +391,7 @@ export function analyzePremiseRelationships(
         // Constraint premises get special handling
         if (!profile.isInference) {
             results.push(
-                classifyConstraintPremise(
-                    pm,
-                    focusedProfile,
-                    connectedVarIds
-                )
+                classifyConstraintPremise(pm, focusedProfile, connectedVarIds)
             )
             continue
         }
@@ -417,9 +403,7 @@ export function analyzePremiseRelationships(
                 focusedPremise.getVariables().map((v) => v.id)
             )
             const pmVarIds = new Set(pm.getVariables().map((v) => v.id))
-            const shares = [...pmVarIds].some((id) =>
-                focusedVarIds.has(id)
-            )
+            const shares = [...pmVarIds].some((id) => focusedVarIds.has(id))
             results.push({
                 premiseId: pmId,
                 relationship: shares ? "restricting" : "unrelated",

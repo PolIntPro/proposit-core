@@ -3254,8 +3254,16 @@ describe("buildPremiseProfile", () => {
         expect(profile.isInference).toBe(true)
         expect(profile.appearances).toEqual(
             expect.arrayContaining([
-                { variableId: VAR_A.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_B.id, side: "consequent", polarity: "positive" },
+                {
+                    variableId: VAR_A.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_B.id,
+                    side: "consequent",
+                    polarity: "positive",
+                },
             ])
         )
         expect(profile.appearances).toHaveLength(2)
@@ -3281,8 +3289,16 @@ describe("buildPremiseProfile", () => {
         const profile = buildPremiseProfile(pm)
         expect(profile.appearances).toEqual(
             expect.arrayContaining([
-                { variableId: VAR_F.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_A.id, side: "consequent", polarity: "negative" },
+                {
+                    variableId: VAR_F.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_A.id,
+                    side: "consequent",
+                    polarity: "negative",
+                },
             ])
         )
     })
@@ -3305,7 +3321,10 @@ describe("buildPremiseProfile", () => {
             makeOpExpr("not-inner", "not", { parentId: "and-1", position: 0 })
         )
         pm.addExpression(
-            makeVarExpr("ve-a", VAR_A.id, { parentId: "not-inner", position: 0 })
+            makeVarExpr("ve-a", VAR_A.id, {
+                parentId: "not-inner",
+                position: 0,
+            })
         )
         pm.addExpression(
             makeVarExpr("ve-b", VAR_B.id, { parentId: "and-1", position: 1 })
@@ -3317,9 +3336,21 @@ describe("buildPremiseProfile", () => {
         const profile = buildPremiseProfile(pm)
         expect(profile.appearances).toEqual(
             expect.arrayContaining([
-                { variableId: VAR_A.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_B.id, side: "antecedent", polarity: "negative" },
-                { variableId: VAR_C.id, side: "consequent", polarity: "positive" },
+                {
+                    variableId: VAR_A.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_B.id,
+                    side: "antecedent",
+                    polarity: "negative",
+                },
+                {
+                    variableId: VAR_C.id,
+                    side: "consequent",
+                    polarity: "positive",
+                },
             ])
         )
         expect(profile.appearances).toHaveLength(3)
@@ -3355,10 +3386,26 @@ describe("buildPremiseProfile", () => {
         const profile = buildPremiseProfile(pm)
         expect(profile.appearances).toEqual(
             expect.arrayContaining([
-                { variableId: VAR_A.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_B.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_B.id, side: "consequent", polarity: "positive" },
-                { variableId: VAR_C.id, side: "consequent", polarity: "positive" },
+                {
+                    variableId: VAR_A.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_B.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_B.id,
+                    side: "consequent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_C.id,
+                    side: "consequent",
+                    polarity: "positive",
+                },
             ])
         )
         expect(profile.appearances).toHaveLength(4)
@@ -3382,8 +3429,16 @@ describe("buildPremiseProfile", () => {
         expect(profile.isInference).toBe(true)
         expect(profile.appearances).toEqual(
             expect.arrayContaining([
-                { variableId: VAR_A.id, side: "antecedent", polarity: "positive" },
-                { variableId: VAR_B.id, side: "consequent", polarity: "positive" },
+                {
+                    variableId: VAR_A.id,
+                    side: "antecedent",
+                    polarity: "positive",
+                },
+                {
+                    variableId: VAR_B.id,
+                    side: "consequent",
+                    polarity: "positive",
+                },
             ])
         )
     })
@@ -3422,8 +3477,6 @@ describe("analyzePremiseRelationships — direct relationships", () => {
     const VAR_B = makeVar("var-b", "B")
     const VAR_C = makeVar("var-c", "C")
     const VAR_D = makeVar("var-d", "D")
-    const VAR_E = makeVar("var-e", "E")
-    const VAR_F = makeVar("var-f", "F")
 
     /** Build an implies premise: left → right (single variables). */
     function buildImplies(
@@ -3604,14 +3657,14 @@ describe("analyzePremiseRelationships — direct relationships", () => {
         buildImplies(eng, "p2", VAR_B, VAR_C)
 
         const result = analyzePremiseRelationships(eng, "p2")
-        expect(result.premises.find((p) => p.premiseId === "p2")).toBeUndefined()
+        expect(
+            result.premises.find((p) => p.premiseId === "p2")
+        ).toBeUndefined()
     })
 
     it("throws when focused premise does not exist", () => {
         const eng = new ArgumentEngine(ARG)
-        expect(() =>
-            analyzePremiseRelationships(eng, "nonexistent")
-        ).toThrow()
+        expect(() => analyzePremiseRelationships(eng, "nonexistent")).toThrow()
     })
 
     it("returns empty premises array when argument has only the focused premise", () => {
