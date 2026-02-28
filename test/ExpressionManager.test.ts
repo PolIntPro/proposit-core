@@ -3820,3 +3820,231 @@ describe("analyzePremiseRelationships — transitive relationships", () => {
         expect(p1Result.transitive).toBe(true)
     })
 })
+
+describe("analyzePremiseRelationships — precedence and edge cases", () => {
+    const VAR_A = makeVar("var-a", "A")
+    const VAR_B = makeVar("var-b", "B")
+    const VAR_C = makeVar("var-c", "C")
+    const VAR_D = makeVar("var-d", "D")
+
+    function buildImplies(
+        eng: ArgumentEngine,
+        premiseId: string,
+        leftVar: TCorePropositionalVariable,
+        rightVar: TCorePropositionalVariable
+    ): PremiseManager {
+        const pm = eng.createPremiseWithId(premiseId)
+        pm.addVariable(leftVar)
+        if (leftVar.id !== rightVar.id) pm.addVariable(rightVar)
+        pm.addExpression(makeOpExpr(`${premiseId}-impl`, "implies"))
+        pm.addExpression(
+            makeVarExpr(`${premiseId}-ve-l`, leftVar.id, {
+                parentId: `${premiseId}-impl`,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr(`${premiseId}-ve-r`, rightVar.id, {
+                parentId: `${premiseId}-impl`,
+                position: 1,
+            })
+        )
+        return pm
+    }
+
+    it("contradicting takes precedence over supporting", () => {
+        // P1: A → (¬B ∧ C), P2 (focused): (B ∧ C) → D
+        // B: contradicting (¬B in conseq, B in ante), C: supporting (C in conseq, C in ante)
+        // Precedence: contradicting wins
+        const eng = new ArgumentEngine(ARG)
+        const p1 = eng.createPremiseWithId("p1")
+        p1.addVariable(VAR_A)
+        p1.addVariable(VAR_B)
+        p1.addVariable(VAR_C)
+        p1.addExpression(makeOpExpr("p1-impl", "implies"))
+        p1.addExpression(
+            makeVarExpr("p1-ve-a", VAR_A.id, {
+                parentId: "p1-impl",
+                position: 0,
+            })
+        )
+        p1.addExpression(
+            makeOpExpr("p1-and", "and", {
+                parentId: "p1-impl",
+                position: 1,
+            })
+        )
+        p1.addExpression(
+            makeOpExpr("p1-not", "not", {
+                parentId: "p1-and",
+                position: 0,
+            })
+        )
+        p1.addExpression(
+            makeVarExpr("p1-ve-b", VAR_B.id, {
+                parentId: "p1-not",
+                position: 0,
+            })
+        )
+        p1.addExpression(
+            makeVarExpr("p1-ve-c", VAR_C.id, {
+                parentId: "p1-and",
+                position: 1,
+            })
+        )
+
+        const p2 = eng.createPremiseWithId("p2")
+        p2.addVariable(VAR_B)
+        p2.addVariable(VAR_C)
+        p2.addVariable(VAR_D)
+        p2.addExpression(makeOpExpr("p2-impl", "implies"))
+        p2.addExpression(
+            makeOpExpr("p2-and", "and", {
+                parentId: "p2-impl",
+                position: 0,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-b", VAR_B.id, {
+                parentId: "p2-and",
+                position: 0,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-c", VAR_C.id, {
+                parentId: "p2-and",
+                position: 1,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-d", VAR_D.id, {
+                parentId: "p2-impl",
+                position: 1,
+            })
+        )
+
+        const result = analyzePremiseRelationships(eng, "p2")
+        const p1Result = result.premises.find((p) => p.premiseId === "p1")!
+        expect(p1Result.relationship).toBe("contradicting")
+    })
+
+    it("restricting takes precedence over supporting", () => {
+        // P1: B → (B ∧ C), P2 (focused): (B ∧ C) → D
+        // B: restricting (in both ante and conseq of P1, in ante of P2)
+        // C: supporting (in conseq of P1, in ante of P2)
+        // Precedence: restricting wins
+        const eng = new ArgumentEngine(ARG)
+        const p1 = eng.createPremiseWithId("p1")
+        p1.addVariable(VAR_B)
+        p1.addVariable(VAR_C)
+        p1.addExpression(makeOpExpr("p1-impl", "implies"))
+        p1.addExpression(
+            makeVarExpr("p1-ve-b1", VAR_B.id, {
+                parentId: "p1-impl",
+                position: 0,
+            })
+        )
+        p1.addExpression(
+            makeOpExpr("p1-and", "and", {
+                parentId: "p1-impl",
+                position: 1,
+            })
+        )
+        p1.addExpression(
+            makeVarExpr("p1-ve-b2", VAR_B.id, {
+                parentId: "p1-and",
+                position: 0,
+            })
+        )
+        p1.addExpression(
+            makeVarExpr("p1-ve-c", VAR_C.id, {
+                parentId: "p1-and",
+                position: 1,
+            })
+        )
+
+        const p2 = eng.createPremiseWithId("p2")
+        p2.addVariable(VAR_B)
+        p2.addVariable(VAR_C)
+        p2.addVariable(VAR_D)
+        p2.addExpression(makeOpExpr("p2-impl", "implies"))
+        p2.addExpression(
+            makeOpExpr("p2-and", "and", {
+                parentId: "p2-impl",
+                position: 0,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-b", VAR_B.id, {
+                parentId: "p2-and",
+                position: 0,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-c", VAR_C.id, {
+                parentId: "p2-and",
+                position: 1,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-d", VAR_D.id, {
+                parentId: "p2-impl",
+                position: 1,
+            })
+        )
+
+        const result = analyzePremiseRelationships(eng, "p2")
+        const p1Result = result.premises.find((p) => p.premiseId === "p1")!
+        expect(p1Result.relationship).toBe("restricting")
+    })
+
+    it("handles constraint-focused premise by classifying all sharers as restricting", () => {
+        // P1: A → B, P2 (focused): A ∧ B (constraint)
+        const eng = new ArgumentEngine(ARG)
+        buildImplies(eng, "p1", VAR_A, VAR_B)
+        const p2 = eng.createPremiseWithId("p2")
+        p2.addVariable(VAR_A)
+        p2.addVariable(VAR_B)
+        p2.addExpression(makeOpExpr("p2-and", "and"))
+        p2.addExpression(
+            makeVarExpr("p2-ve-a", VAR_A.id, {
+                parentId: "p2-and",
+                position: 0,
+            })
+        )
+        p2.addExpression(
+            makeVarExpr("p2-ve-b", VAR_B.id, {
+                parentId: "p2-and",
+                position: 1,
+            })
+        )
+
+        const result = analyzePremiseRelationships(eng, "p2")
+        const p1Result = result.premises.find((p) => p.premiseId === "p1")!
+        expect(p1Result.relationship).toBe("restricting")
+    })
+
+    it("handles empty premise as unrelated", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.createPremiseWithId("p1") // empty
+        buildImplies(eng, "p2", VAR_A, VAR_B)
+
+        const result = analyzePremiseRelationships(eng, "p2")
+        const p1Result = result.premises.find((p) => p.premiseId === "p1")!
+        expect(p1Result.relationship).toBe("unrelated")
+    })
+
+    it("handles graph cycles without hanging", () => {
+        // P1: A → B, P2: B → A, P3 (focused): A → C
+        const eng = new ArgumentEngine(ARG)
+        buildImplies(eng, "p1", VAR_A, VAR_B)
+        buildImplies(eng, "p2", VAR_B, VAR_A)
+        buildImplies(eng, "p3", VAR_A, VAR_C)
+
+        // Should complete without infinite loop
+        const result = analyzePremiseRelationships(eng, "p3")
+        expect(result.premises).toHaveLength(2)
+        const p1Result = result.premises.find((p) => p.premiseId === "p1")!
+        expect(p1Result.relationship).toBe("supporting")
+    })
+})
