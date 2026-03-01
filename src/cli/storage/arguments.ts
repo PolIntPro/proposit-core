@@ -1,6 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import Value from "typebox/value"
+import { Value } from "typebox/value"
 import {
     CliArgumentMetaSchema,
     CliArgumentVersionMetaSchema,
@@ -44,7 +44,7 @@ export async function readVersionMeta(
     })
     const raw: unknown = JSON.parse(content)
     try {
-        return Value.Parse(CliArgumentVersionMetaSchema, raw)
+        return Value.Decode(CliArgumentVersionMetaSchema, raw)
     } catch {
         errorExit(`Invalid or corrupt file: ${filePath}`)
     }
