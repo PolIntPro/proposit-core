@@ -11,6 +11,12 @@ import {
 } from "../src/lib/schemata"
 import type { TCoreExpressionAssignment } from "../src/lib/types/evaluation"
 import {
+    POSITION_MIN,
+    POSITION_MAX,
+    POSITION_INITIAL,
+    midpoint,
+} from "../src/lib/utils/position"
+import {
     defaultCompareArgument,
     defaultCompareVariable,
     defaultComparePremise,
@@ -4099,5 +4105,36 @@ describe("analyzePremiseRelationships — precedence and edge cases", () => {
         expect(result.premises).toHaveLength(2)
         const p1Result = result.premises.find((p) => p.premiseId === "p1")!
         expect(p1Result.relationship).toBe("supporting")
+    })
+})
+
+describe("position utilities", () => {
+    it("POSITION_INITIAL is midpoint of range", () => {
+        expect(POSITION_INITIAL).toBe(Math.floor(Number.MAX_SAFE_INTEGER / 2))
+    })
+
+    it("POSITION_MIN is 0", () => {
+        expect(POSITION_MIN).toBe(0)
+    })
+
+    it("POSITION_MAX is MAX_SAFE_INTEGER", () => {
+        expect(POSITION_MAX).toBe(Number.MAX_SAFE_INTEGER)
+    })
+
+    it("midpoint computes average of two numbers", () => {
+        expect(midpoint(0, 100)).toBe(50)
+        expect(midpoint(10, 20)).toBe(15)
+    })
+
+    it("midpoint works with large numbers", () => {
+        const a = POSITION_INITIAL
+        const b = POSITION_MAX
+        const m = midpoint(a, b)
+        expect(m).toBeGreaterThan(a)
+        expect(m).toBeLessThan(b)
+    })
+
+    it("midpoint of equal values returns that value", () => {
+        expect(midpoint(50, 50)).toBe(50)
     })
 })
