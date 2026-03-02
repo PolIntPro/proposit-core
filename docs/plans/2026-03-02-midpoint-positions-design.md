@@ -36,12 +36,12 @@ function midpoint(a: number, b: number): number {
 
 Position computation rules for inserting a child under a given parent:
 
-| Scenario | Position |
-|----------|----------|
-| First child (no siblings) | `POSITION_INITIAL` |
-| Append (after last sibling) | `midpoint(last.position, POSITION_MAX)` |
-| Prepend (before first sibling) | `midpoint(POSITION_MIN, first.position)` |
-| Between two siblings | `midpoint(left.position, right.position)` |
+| Scenario                       | Position                                  |
+| ------------------------------ | ----------------------------------------- |
+| First child (no siblings)      | `POSITION_INITIAL`                        |
+| Append (after last sibling)    | `midpoint(last.position, POSITION_MAX)`   |
+| Prepend (before first sibling) | `midpoint(POSITION_MIN, first.position)`  |
+| Between two siblings           | `midpoint(left.position, right.position)` |
 
 ~52 bisections at the same insertion point before losing floating-point precision.
 

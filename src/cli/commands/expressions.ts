@@ -54,7 +54,10 @@ export function registerExpressionCommands(
             "Parent expression ID (omit for root)"
         )
         .option("--position <n>", "Position among siblings")
-        .option("--before <sibling_id>", "Insert before this sibling expression")
+        .option(
+            "--before <sibling_id>",
+            "Insert before this sibling expression"
+        )
         .option("--after <sibling_id>", "Insert after this sibling expression")
         .option(
             "--variable-id <variable_id>",

@@ -13,6 +13,7 @@
 ### Task 1: Position Utilities
 
 **Files:**
+
 - Create: `src/lib/utils/position.ts`
 - Test: `test/ExpressionManager.test.ts` (new describe block at bottom)
 
@@ -96,6 +97,7 @@ git commit -m "Add position utility constants and midpoint helper"
 ### Task 2: Schema Change — Make Position Non-Nullable
 
 **Files:**
+
 - Modify: `src/lib/schemata/propositional.ts:26-32` (position field)
 - Test: `test/ExpressionManager.test.ts:50-93` (helper functions)
 
@@ -130,6 +132,7 @@ Also remove the `Nullable` import if it's no longer used elsewhere in this file.
 In `test/ExpressionManager.test.ts`, update the three helper functions so they default to `POSITION_INITIAL` instead of `null`:
 
 `makeVarExpr` (lines 50-64): Change the opts type and default:
+
 ```typescript
 function makeVarExpr(
     id: string,
@@ -149,6 +152,7 @@ function makeVarExpr(
 ```
 
 `makeOpExpr` (lines 66-80): Same pattern:
+
 ```typescript
 function makeOpExpr(
     id: string,
@@ -168,6 +172,7 @@ function makeOpExpr(
 ```
 
 `makeFormulaExpr` (lines 82-94): Same pattern:
+
 ```typescript
 function makeFormulaExpr(
     id: string,
@@ -212,6 +217,7 @@ git commit -m "Make position non-nullable in expression schema"
 ### Task 3: Update ExpressionManager Internals
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 
 All changes are mechanical null-check removals now that position is always a number.
@@ -219,112 +225,116 @@ All changes are mechanical null-check removals now that position is always a num
 **Step 1: Update `addExpression`** (lines 96-108)
 
 Change from:
+
 ```typescript
-        if (expression.position !== null) {
-            const occupiedPositions = getOrCreate(
-                this.childPositionsByParentId,
-                expression.parentId,
-                () => new Set()
-            )
-            if (occupiedPositions.has(expression.position)) {
-                throw new Error(
-                    `Position ${expression.position} is already used under parent "${expression.parentId}".`
-                )
-            }
-            occupiedPositions.add(expression.position)
-        }
+if (expression.position !== null) {
+    const occupiedPositions = getOrCreate(
+        this.childPositionsByParentId,
+        expression.parentId,
+        () => new Set()
+    )
+    if (occupiedPositions.has(expression.position)) {
+        throw new Error(
+            `Position ${expression.position} is already used under parent "${expression.parentId}".`
+        )
+    }
+    occupiedPositions.add(expression.position)
+}
 ```
 
 to:
+
 ```typescript
-        const occupiedPositions = getOrCreate(
-            this.childPositionsByParentId,
-            expression.parentId,
-            () => new Set()
-        )
-        if (occupiedPositions.has(expression.position)) {
-            throw new Error(
-                `Position ${expression.position} is already used under parent "${expression.parentId}".`
-            )
-        }
-        occupiedPositions.add(expression.position)
+const occupiedPositions = getOrCreate(
+    this.childPositionsByParentId,
+    expression.parentId,
+    () => new Set()
+)
+if (occupiedPositions.has(expression.position)) {
+    throw new Error(
+        `Position ${expression.position} is already used under parent "${expression.parentId}".`
+    )
+}
+occupiedPositions.add(expression.position)
 ```
 
 **Step 2: Update `removeExpression`** (lines 164-168)
 
 Change from:
+
 ```typescript
-            if (expression.position !== null) {
-                this.childPositionsByParentId
-                    .get(expression.parentId)
-                    ?.delete(expression.position)
-            }
+if (expression.position !== null) {
+    this.childPositionsByParentId
+        .get(expression.parentId)
+        ?.delete(expression.position)
+}
 ```
 
 to:
+
 ```typescript
-            this.childPositionsByParentId
-                .get(expression.parentId)
-                ?.delete(expression.position)
+this.childPositionsByParentId
+    .get(expression.parentId)
+    ?.delete(expression.position)
 ```
 
 **Step 3: Update `collapseIfNeeded`** — formula branch (lines 193-197)
 
 Change from:
+
 ```typescript
-                if (operator.position !== null) {
-                    this.childPositionsByParentId
-                        .get(grandparentId)
-                        ?.delete(operator.position)
-                }
+if (operator.position !== null) {
+    this.childPositionsByParentId.get(grandparentId)?.delete(operator.position)
+}
 ```
 
 to:
+
 ```typescript
-                this.childPositionsByParentId
-                    .get(grandparentId)
-                    ?.delete(operator.position)
+this.childPositionsByParentId.get(grandparentId)?.delete(operator.position)
 ```
 
 **Step 4: Update `collapseIfNeeded`** — operator 0-children branch (lines 217-221)
 
 Change from:
+
 ```typescript
-            if (grandparentPosition !== null) {
-                this.childPositionsByParentId
-                    .get(grandparentId)
-                    ?.delete(grandparentPosition)
-            }
+if (grandparentPosition !== null) {
+    this.childPositionsByParentId
+        .get(grandparentId)
+        ?.delete(grandparentPosition)
+}
 ```
 
 to:
+
 ```typescript
-            this.childPositionsByParentId
-                .get(grandparentId)
-                ?.delete(grandparentPosition)
+this.childPositionsByParentId.get(grandparentId)?.delete(grandparentPosition)
 ```
 
 **Step 5: Update `getChildExpressions`** (lines 299-310)
 
 Change from:
+
 ```typescript
-        return children.sort((a, b) => {
-            if (a.position === null && b.position === null) {
-                return a.id.localeCompare(b.id)
-            }
-            if (a.position === null) {
-                return 1
-            }
-            if (b.position === null) {
-                return -1
-            }
-            return a.position - b.position
-        })
+return children.sort((a, b) => {
+    if (a.position === null && b.position === null) {
+        return a.id.localeCompare(b.id)
+    }
+    if (a.position === null) {
+        return 1
+    }
+    if (b.position === null) {
+        return -1
+    }
+    return a.position - b.position
+})
 ```
 
 to:
+
 ```typescript
-        return children.sort((a, b) => a.position - b.position)
+return children.sort((a, b) => a.position - b.position)
 ```
 
 **Step 6: Update `reparent`** (lines 369-407)
@@ -334,58 +344,63 @@ Change the signature from `newPosition: number | null` to `newPosition: number`.
 Remove the null checks on position in both detach and attach phases:
 
 Detach (lines 380-384): Change from:
+
 ```typescript
-        if (expression.position !== null) {
-            this.childPositionsByParentId
-                .get(expression.parentId)
-                ?.delete(expression.position)
-        }
+if (expression.position !== null) {
+    this.childPositionsByParentId
+        .get(expression.parentId)
+        ?.delete(expression.position)
+}
 ```
+
 to:
+
 ```typescript
-        this.childPositionsByParentId
-            .get(expression.parentId)
-            ?.delete(expression.position)
+this.childPositionsByParentId
+    .get(expression.parentId)
+    ?.delete(expression.position)
 ```
 
 Attach (lines 400-406): Change from:
+
 ```typescript
-        if (newPosition !== null) {
-            getOrCreate(
-                this.childPositionsByParentId,
-                newParentId,
-                () => new Set()
-            ).add(newPosition)
-        }
+if (newPosition !== null) {
+    getOrCreate(
+        this.childPositionsByParentId,
+        newParentId,
+        () => new Set()
+    ).add(newPosition)
+}
 ```
+
 to:
+
 ```typescript
-        getOrCreate(
-            this.childPositionsByParentId,
-            newParentId,
-            () => new Set()
-        ).add(newPosition)
+getOrCreate(this.childPositionsByParentId, newParentId, () => new Set()).add(
+    newPosition
+)
 ```
 
 **Step 7: Update `insertExpression`** (lines 561-567)
 
 Change from:
+
 ```typescript
-        if (anchorPosition !== null) {
-            getOrCreate(
-                this.childPositionsByParentId,
-                anchorParentId,
-                () => new Set()
-            ).add(anchorPosition)
-        }
+if (anchorPosition !== null) {
+    getOrCreate(
+        this.childPositionsByParentId,
+        anchorParentId,
+        () => new Set()
+    ).add(anchorPosition)
+}
 ```
+
 to:
+
 ```typescript
-        getOrCreate(
-            this.childPositionsByParentId,
-            anchorParentId,
-            () => new Set()
-        ).add(anchorPosition)
+getOrCreate(this.childPositionsByParentId, anchorParentId, () => new Set()).add(
+    anchorPosition
+)
 ```
 
 **Step 8: Run tests**
@@ -410,6 +425,7 @@ git commit -m "Remove nullable position handling from ExpressionManager"
 ### Task 4: Add `appendExpression` and `addExpressionRelative` to ExpressionManager
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 - Test: `test/ExpressionManager.test.ts` (new describe block)
 
@@ -436,7 +452,10 @@ describe("ExpressionManager — appendExpression and addExpressionRelative", () 
     it("appendExpression appends after last child", () => {
         const pm = premiseWithVars()
         pm.addExpression(
-            makeOpExpr("root", "and", { parentId: null, position: POSITION_INITIAL })
+            makeOpExpr("root", "and", {
+                parentId: null,
+                position: POSITION_INITIAL,
+            })
         )
         pm.appendExpression("root", {
             id: "c1",
@@ -464,7 +483,10 @@ describe("ExpressionManager — appendExpression and addExpressionRelative", () 
     it("addExpressionRelative before inserts before sibling", () => {
         const pm = premiseWithVars()
         pm.addExpression(
-            makeOpExpr("root", "and", { parentId: null, position: POSITION_INITIAL })
+            makeOpExpr("root", "and", {
+                parentId: null,
+                position: POSITION_INITIAL,
+            })
         )
         pm.appendExpression("root", {
             id: "c1",
@@ -491,7 +513,10 @@ describe("ExpressionManager — appendExpression and addExpressionRelative", () 
     it("addExpressionRelative after inserts after sibling", () => {
         const pm = premiseWithVars()
         pm.addExpression(
-            makeOpExpr("root", "and", { parentId: null, position: POSITION_INITIAL })
+            makeOpExpr("root", "and", {
+                parentId: null,
+                position: POSITION_INITIAL,
+            })
         )
         pm.appendExpression("root", {
             id: "c1",
@@ -527,7 +552,10 @@ describe("ExpressionManager — appendExpression and addExpressionRelative", () 
     it("addExpressionRelative after last child appends", () => {
         const pm = premiseWithVars()
         pm.addExpression(
-            makeOpExpr("root", "and", { parentId: null, position: POSITION_INITIAL })
+            makeOpExpr("root", "and", {
+                parentId: null,
+                position: POSITION_INITIAL,
+            })
         )
         pm.appendExpression("root", {
             id: "c1",
@@ -614,8 +642,14 @@ Add after `addExpression` in `ExpressionManager`:
 ```
 
 Add import at top of file:
+
 ```typescript
-import { POSITION_INITIAL, POSITION_MAX, POSITION_MIN, midpoint } from "../utils/position.js"
+import {
+    POSITION_INITIAL,
+    POSITION_MAX,
+    POSITION_MIN,
+    midpoint,
+} from "../utils/position.js"
 ```
 
 **Step 5: Implement `addExpressionRelative` on ExpressionManager**
@@ -684,11 +718,13 @@ git commit -m "Add appendExpression and addExpressionRelative to ExpressionManag
 ### Task 5: Add `appendExpression` and `addExpressionRelative` to PremiseManager
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 
 **Step 1: Implement `appendExpression` on PremiseManager**
 
 Add the import for the type at the top of `PremiseManager.ts`:
+
 ```typescript
 import type { TExpressionWithoutPosition } from "./ExpressionManager.js"
 ```
@@ -830,6 +866,7 @@ git commit -m "Add appendExpression and addExpressionRelative to PremiseManager"
 ### Task 6: Export New Types
 
 **Files:**
+
 - Modify: `src/lib/index.ts`
 - Modify: `src/index.ts`
 
@@ -885,6 +922,7 @@ git commit -m "Export position utilities and TExpressionWithoutPosition"
 ### Task 7: CLI Updates
 
 **Files:**
+
 - Modify: `src/cli/commands/expressions.ts`
 
 **Step 1: Update `expressions create` command**
@@ -901,59 +939,44 @@ Update the action's opts type to include `before?: string` and `after?: string`.
 Update the action body. After constructing the expression object, replace the `pm.addExpression(expression)` call (lines 131-139) with routing logic:
 
 ```typescript
-                const hasBefore = opts.before !== undefined
-                const hasAfter = opts.after !== undefined
-                const hasPosition = opts.position !== undefined
+const hasBefore = opts.before !== undefined
+const hasAfter = opts.after !== undefined
+const hasPosition = opts.position !== undefined
 
-                if ((hasBefore || hasAfter) && hasPosition) {
-                    errorExit(
-                        "Cannot combine --before/--after with --position."
-                    )
-                }
-                if (hasBefore && hasAfter) {
-                    errorExit("Cannot combine --before and --after.")
-                }
+if ((hasBefore || hasAfter) && hasPosition) {
+    errorExit("Cannot combine --before/--after with --position.")
+}
+if (hasBefore && hasAfter) {
+    errorExit("Cannot combine --before and --after.")
+}
 
-                try {
-                    if (hasBefore) {
-                        const { position: _p, ...exprWithoutPosition } = expression
-                        pm.addExpressionRelative(
-                            opts.before!,
-                            "before",
-                            exprWithoutPosition
-                        )
-                    } else if (hasAfter) {
-                        const { position: _p, ...exprWithoutPosition } = expression
-                        pm.addExpressionRelative(
-                            opts.after!,
-                            "after",
-                            exprWithoutPosition
-                        )
-                    } else if (hasPosition) {
-                        pm.addExpression(expression)
-                    } else {
-                        const { position: _p, ...exprWithoutPosition } = expression
-                        pm.appendExpression(parentId, exprWithoutPosition)
-                    }
-                } catch (e) {
-                    errorExit(
-                        e instanceof Error
-                            ? e.message
-                            : "Failed to add expression."
-                    )
-                }
+try {
+    if (hasBefore) {
+        const { position: _p, ...exprWithoutPosition } = expression
+        pm.addExpressionRelative(opts.before!, "before", exprWithoutPosition)
+    } else if (hasAfter) {
+        const { position: _p, ...exprWithoutPosition } = expression
+        pm.addExpressionRelative(opts.after!, "after", exprWithoutPosition)
+    } else if (hasPosition) {
+        pm.addExpression(expression)
+    } else {
+        const { position: _p, ...exprWithoutPosition } = expression
+        pm.appendExpression(parentId, exprWithoutPosition)
+    }
+} catch (e) {
+    errorExit(e instanceof Error ? e.message : "Failed to add expression.")
+}
 ```
 
 Also update the position default (line 88-89). When using `--position`, parse it as a number. When not using `--position`, set a placeholder value (this value gets ignored for before/after/append paths, but `addExpression` still needs it for the escape hatch path):
 
 ```typescript
-                const position =
-                    opts.position !== undefined
-                        ? Number(opts.position)
-                        : POSITION_INITIAL
+const position =
+    opts.position !== undefined ? Number(opts.position) : POSITION_INITIAL
 ```
 
 Add import at top of file:
+
 ```typescript
 import { POSITION_INITIAL } from "../../lib/utils/position.js"
 ```
@@ -963,10 +986,8 @@ import { POSITION_INITIAL } from "../../lib/utils/position.js"
 In the insert command (around line 199-200), update the position default from `null` to `POSITION_INITIAL`:
 
 ```typescript
-                const position =
-                    opts.position !== undefined
-                        ? Number(opts.position)
-                        : POSITION_INITIAL
+const position =
+    opts.position !== undefined ? Number(opts.position) : POSITION_INITIAL
 ```
 
 Note: `insertExpression` overrides the position anyway (it inherits the anchor's position), so this value is just a placeholder. But it must be a valid number now.
@@ -976,9 +997,9 @@ Note: `insertExpression` overrides the position anyway (it inherits the anchor's
 In the list command (line 302), remove the `?? "null"` fallback since position is always a number:
 
 ```typescript
-                    printLine(
-                        `${expr.id} | ${expr.type} | parent=${expr.parentId ?? "null"} | position=${expr.position}${extra ? ` | ${extra}` : ""}`
-                    )
+printLine(
+    `${expr.id} | ${expr.type} | parent=${expr.parentId ?? "null"} | position=${expr.position}${extra ? ` | ${extra}` : ""}`
+)
 ```
 
 **Step 4: Update `expressions show` display**
@@ -986,7 +1007,7 @@ In the list command (line 302), remove the `?? "null"` fallback since position i
 In the show command (line 334), same change:
 
 ```typescript
-                    printLine(`position:   ${expr.position}`)
+printLine(`position:   ${expr.position}`)
 ```
 
 **Step 5: Run typecheck**

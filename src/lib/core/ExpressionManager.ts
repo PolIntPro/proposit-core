@@ -141,10 +141,7 @@ export class ExpressionManager {
         const position =
             children.length === 0
                 ? POSITION_INITIAL
-                : midpoint(
-                      children[children.length - 1].position,
-                      POSITION_MAX
-                  )
+                : midpoint(children[children.length - 1].position, POSITION_MAX)
         this.addExpression({
             ...expression,
             parentId,
