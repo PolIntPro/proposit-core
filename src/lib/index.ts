@@ -20,3 +20,10 @@ export {
 } from "./core/relationships.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { FormulaAST } from "./core/parser/formula.js"
+export type { TExpressionWithoutPosition } from "./core/ExpressionManager.js"
+export {
+    POSITION_MIN,
+    POSITION_MAX,
+    POSITION_INITIAL,
+    midpoint,
+} from "./utils/position.js"
