@@ -4,6 +4,7 @@ import type {
     TCoreLogicalOperatorType,
     TCorePropositionalExpression,
 } from "../../lib/schemata/index.js"
+import { POSITION_INITIAL } from "../../lib/utils/position.js"
 import { hydrateEngine } from "../engine.js"
 import { errorExit, printJson, printLine } from "../output.js"
 import { readVersionMeta } from "../storage/arguments.js"
@@ -53,6 +54,8 @@ export function registerExpressionCommands(
             "Parent expression ID (omit for root)"
         )
         .option("--position <n>", "Position among siblings")
+        .option("--before <sibling_id>", "Insert before this sibling expression")
+        .option("--after <sibling_id>", "Insert after this sibling expression")
         .option(
             "--variable-id <variable_id>",
             "Variable ID (for type=variable)"
@@ -69,6 +72,8 @@ export function registerExpressionCommands(
                     id?: string
                     parentId?: string
                     position?: string
+                    before?: string
+                    after?: string
                     variableId?: string
                     operator?: string
                 }
@@ -86,7 +91,9 @@ export function registerExpressionCommands(
                 const id = opts.id ?? randomUUID()
                 const parentId = opts.parentId ?? null
                 const position =
-                    opts.position !== undefined ? Number(opts.position) : null
+                    opts.position !== undefined
+                        ? Number(opts.position)
+                        : POSITION_INITIAL
 
                 let expression: TCorePropositionalExpression
                 if (opts.type === "variable") {
@@ -128,8 +135,43 @@ export function registerExpressionCommands(
                     )
                 }
 
+                const hasBefore = opts.before !== undefined
+                const hasAfter = opts.after !== undefined
+                const hasPosition = opts.position !== undefined
+
+                if ((hasBefore || hasAfter) && hasPosition) {
+                    errorExit(
+                        "Cannot combine --before/--after with --position."
+                    )
+                }
+                if (hasBefore && hasAfter) {
+                    errorExit("Cannot combine --before and --after.")
+                }
+
                 try {
-                    pm.addExpression(expression)
+                    if (hasBefore) {
+                        const { position: _p, ...exprWithoutPosition } =
+                            expression
+                        pm.addExpressionRelative(
+                            opts.before!,
+                            "before",
+                            exprWithoutPosition
+                        )
+                    } else if (hasAfter) {
+                        const { position: _p, ...exprWithoutPosition } =
+                            expression
+                        pm.addExpressionRelative(
+                            opts.after!,
+                            "after",
+                            exprWithoutPosition
+                        )
+                    } else if (hasPosition) {
+                        pm.addExpression(expression)
+                    } else {
+                        const { position: _p, ...exprWithoutPosition } =
+                            expression
+                        pm.appendExpression(parentId, exprWithoutPosition)
+                    }
                 } catch (e) {
                     errorExit(
                         e instanceof Error
@@ -197,7 +239,9 @@ export function registerExpressionCommands(
                 const id = opts.id ?? randomUUID()
                 const parentId = opts.parentId ?? null
                 const position =
-                    opts.position !== undefined ? Number(opts.position) : null
+                    opts.position !== undefined
+                        ? Number(opts.position)
+                        : POSITION_INITIAL
 
                 let expression: TCorePropositionalExpression
                 if (opts.type === "variable") {
@@ -299,7 +343,7 @@ export function registerExpressionCommands(
                 for (const expr of sorted) {
                     const extra = typeSpecificInfo(expr)
                     printLine(
-                        `${expr.id} | ${expr.type} | parent=${expr.parentId ?? "null"} | position=${expr.position ?? "null"}${extra ? ` | ${extra}` : ""}`
+                        `${expr.id} | ${expr.type} | parent=${expr.parentId ?? "null"} | position=${expr.position}${extra ? ` | ${extra}` : ""}`
                     )
                 }
             }
@@ -331,7 +375,7 @@ export function registerExpressionCommands(
                     printLine(`id:         ${expr.id}`)
                     printLine(`type:       ${expr.type}`)
                     printLine(`parentId:   ${expr.parentId ?? "null"}`)
-                    printLine(`position:   ${expr.position ?? "null"}`)
+                    printLine(`position:   ${expr.position}`)
                     if (expr.type === "variable") {
                         printLine(`variableId: ${expr.variableId}`)
                     }

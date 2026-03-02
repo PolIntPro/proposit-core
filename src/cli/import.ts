@@ -10,6 +10,7 @@ import type {
 import type { FormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
 import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
+import { POSITION_INITIAL } from "../lib/utils/position.js"
 
 /**
  * Validates that `implies` and `iff` nodes appear only at the AST root.
@@ -79,7 +80,7 @@ function collectVariableNames(ast: FormulaAST, names: Set<string>): void {
 function buildExpressions(
     ast: FormulaAST,
     parentId: string | null,
-    position: number | null,
+    position: number,
     argumentId: string,
     argumentVersion: number,
     variablesByName: Map<string, TCorePropositionalVariable>,
@@ -272,7 +273,7 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
         buildExpressions(
             parsedFormulas[i],
             null,
-            null,
+            POSITION_INITIAL,
             argumentId,
             0,
             variablesByName,
