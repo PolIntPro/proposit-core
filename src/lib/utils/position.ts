@@ -3,5 +3,5 @@ export const POSITION_MAX = Number.MAX_SAFE_INTEGER
 export const POSITION_INITIAL = Math.floor(POSITION_MAX / 2)
 
 export function midpoint(a: number, b: number): number {
-    return (a + b) / 2
+    return a + (b - a) / 2
 }
