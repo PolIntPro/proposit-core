@@ -23,13 +23,11 @@ const BasePropositionalExpressionSchema = Type.Object({
             "The ID of the parent operator expression, or null if this is a top-level expression.",
     }),
 
-    position: Nullable(
-        Type.Integer({
-            minimum: 0,
-            description:
-                "The ordering of this expression among its siblings under the same parent. Must be unique within (parentId, argumentId, argumentVersion).",
-        })
-    ),
+    position: Type.Number({
+        minimum: 0,
+        description:
+            "The ordering of this expression among its siblings under the same parent. Must be unique within (parentId, argumentId, argumentVersion).",
+    }),
 })
 
 export const CorePropositionalVariableExpressionSchema = Type.Interface(

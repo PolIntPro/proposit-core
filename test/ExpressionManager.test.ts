@@ -56,7 +56,7 @@ function makeVar(id: string, symbol: string): TCorePropositionalVariable {
 function makeVarExpr(
     id: string,
     variableId: string,
-    opts: { parentId?: string | null; position?: number | null } = {}
+    opts: { parentId?: string | null; position?: number } = {}
 ): TCorePropositionalExpression {
     return {
         id,
@@ -65,14 +65,14 @@ function makeVarExpr(
         type: "variable",
         variableId,
         parentId: opts.parentId ?? null,
-        position: opts.position ?? null,
+        position: opts.position ?? POSITION_INITIAL,
     }
 }
 
 function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
-    opts: { parentId?: string | null; position?: number | null } = {}
+    opts: { parentId?: string | null; position?: number } = {}
 ): TCorePropositionalExpression {
     return {
         id,
@@ -81,13 +81,13 @@ function makeOpExpr(
         type: "operator",
         operator,
         parentId: opts.parentId ?? null,
-        position: opts.position ?? null,
+        position: opts.position ?? POSITION_INITIAL,
     }
 }
 
 function makeFormulaExpr(
     id: string,
-    opts: { parentId?: string | null; position?: number | null } = {}
+    opts: { parentId?: string | null; position?: number } = {}
 ): TCorePropositionalExpression {
     return {
         id,
@@ -95,7 +95,7 @@ function makeFormulaExpr(
         argumentVersion: ARG.version,
         type: "formula",
         parentId: opts.parentId ?? null,
-        position: opts.position ?? null,
+        position: opts.position ?? POSITION_INITIAL,
     }
 }
 
@@ -267,10 +267,16 @@ describe("addExpression", () => {
             const op = makeOpExpr("op-1", "implies")
             premise.addExpression(op)
             premise.addExpression(
-                makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
+                makeVarExpr("expr-1", VAR_P.id, {
+                    parentId: "op-1",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1" })
+                makeVarExpr("expr-2", VAR_Q.id, {
+                    parentId: "op-1",
+                    position: 1,
+                })
             )
 
             expect(() =>
@@ -285,10 +291,16 @@ describe("addExpression", () => {
             const op = makeOpExpr("op-1", "iff")
             premise.addExpression(op)
             premise.addExpression(
-                makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
+                makeVarExpr("expr-1", VAR_P.id, {
+                    parentId: "op-1",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1" })
+                makeVarExpr("expr-2", VAR_Q.id, {
+                    parentId: "op-1",
+                    position: 1,
+                })
             )
 
             expect(() =>
@@ -303,15 +315,24 @@ describe("addExpression", () => {
             const op = makeOpExpr("op-1", "and")
             premise.addExpression(op)
             premise.addExpression(
-                makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
+                makeVarExpr("expr-1", VAR_P.id, {
+                    parentId: "op-1",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1" })
+                makeVarExpr("expr-2", VAR_Q.id, {
+                    parentId: "op-1",
+                    position: 1,
+                })
             )
 
             expect(() =>
                 premise.addExpression(
-                    makeVarExpr("expr-3", VAR_R.id, { parentId: "op-1" })
+                    makeVarExpr("expr-3", VAR_R.id, {
+                        parentId: "op-1",
+                        position: 2,
+                    })
                 )
             ).not.toThrow()
         })
@@ -321,15 +342,24 @@ describe("addExpression", () => {
             const op = makeOpExpr("op-1", "or")
             premise.addExpression(op)
             premise.addExpression(
-                makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
+                makeVarExpr("expr-1", VAR_P.id, {
+                    parentId: "op-1",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1" })
+                makeVarExpr("expr-2", VAR_Q.id, {
+                    parentId: "op-1",
+                    position: 1,
+                })
             )
 
             expect(() =>
                 premise.addExpression(
-                    makeVarExpr("expr-3", VAR_R.id, { parentId: "op-1" })
+                    makeVarExpr("expr-3", VAR_R.id, {
+                        parentId: "op-1",
+                        position: 2,
+                    })
                 )
             ).not.toThrow()
         })
@@ -522,10 +552,16 @@ describe("removeExpression", () => {
         const premise = premiseWithVars()
         premise.addExpression(makeOpExpr("op-1", "and"))
         premise.addExpression(
-            makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
+            makeVarExpr("expr-1", VAR_P.id, {
+                parentId: "op-1",
+                position: 0,
+            })
         )
         premise.addExpression(
-            makeVarExpr("expr-2", VAR_Q.id, { parentId: "op-1" })
+            makeVarExpr("expr-2", VAR_Q.id, {
+                parentId: "op-1",
+                position: 1,
+            })
         )
 
         premise.removeExpression("op-1")
@@ -2195,11 +2231,11 @@ describe("diffArguments", () => {
         it("detects variableId change on variable expression", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             const after = makeVarExpr("e1", "var-q", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "variableId", before: "var-p", after: "var-q" },
@@ -2209,11 +2245,11 @@ describe("diffArguments", () => {
         it("detects operator change on operator expression", () => {
             const before = makeOpExpr("e1", "and", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             const after = makeOpExpr("e1", "or", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "operator", before: "and", after: "or" },
@@ -2223,11 +2259,11 @@ describe("diffArguments", () => {
         it("detects type change between expression types", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             const after = makeOpExpr("e1", "and", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "type", before: "variable", after: "operator" },
@@ -2252,7 +2288,7 @@ describe("diffArguments", () => {
         pm.addExpression(
             makeOpExpr("expr-implies", "implies", {
                 parentId: null,
-                position: null,
+                position: POSITION_INITIAL,
             })
         )
         pm.addExpression(
@@ -2322,7 +2358,7 @@ describe("diffArguments", () => {
             pm.addExpression(
                 makeOpExpr("expr-implies", "implies", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             pm.addExpression(
@@ -2358,7 +2394,7 @@ describe("diffArguments", () => {
             pm2.addExpression(
                 makeVarExpr("expr-p2", "var-p", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
 
@@ -2388,7 +2424,7 @@ describe("diffArguments", () => {
             pm.addExpression(
                 makeOpExpr("expr-iff", "iff", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             pm.addExpression(
@@ -2427,7 +2463,7 @@ describe("diffArguments", () => {
             pmA.addExpression(
                 makeOpExpr("expr-and", "and", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             pmA.addExpression(
@@ -2462,7 +2498,7 @@ describe("diffArguments", () => {
             pmB.addExpression(
                 makeOpExpr("expr-and", "and", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             pmB.addExpression(
@@ -2514,7 +2550,7 @@ describe("diffArguments", () => {
             pmConc.addExpression(
                 makeOpExpr("expr-impl-conc", "implies", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             pmConc.addVariable(makeVar("var-q", "Q"))
@@ -2548,7 +2584,7 @@ describe("diffArguments", () => {
             pm2.addExpression(
                 makeVarExpr("expr-p2", "var-p", {
                     parentId: null,
-                    position: null,
+                    position: POSITION_INITIAL,
                 })
             )
             engineB.addSupportingPremise("premise-2")
