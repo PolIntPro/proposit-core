@@ -15,6 +15,7 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
+import type { TCoreMutationResult } from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -25,6 +26,7 @@ import {
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/shared.js"
+import { ChangeCollector } from "./ChangeCollector.js"
 import type { TExpressionWithoutPosition } from "./ExpressionManager.js"
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
@@ -99,7 +101,9 @@ export class PremiseManager {
      * @throws If the expression is a variable reference and the variable has not been registered.
      * @throws If the expression does not belong to this argument.
      */
-    public addExpression(expression: TCorePropositionalExpression): void {
+    public addExpression(
+        expression: TCorePropositionalExpression
+    ): TCoreMutationResult<TCorePropositionalExpression> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -128,17 +132,28 @@ export class PremiseManager {
             }
         }
 
-        // Delegate structural validation (operator type checks, position
-        // uniqueness, child limits) to ExpressionManager.
-        this.expressions.addExpression(expression)
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            // Delegate structural validation (operator type checks, position
+            // uniqueness, child limits) to ExpressionManager.
+            this.expressions.addExpression(expression)
 
-        if (expression.parentId === null) {
-            this.rootExpressionId = expression.id
-        }
-        if (expression.type === "variable") {
-            this.expressionsByVariableId
-                .get(expression.variableId)
-                .add(expression.id)
+            if (expression.parentId === null) {
+                this.rootExpressionId = expression.id
+            }
+            if (expression.type === "variable") {
+                this.expressionsByVariableId
+                    .get(expression.variableId)
+                    .add(expression.id)
+            }
+
+            return {
+                result: { ...expression },
+                changes: collector.toChangeset(),
+            }
+        } finally {
+            this.expressions.setCollector(null)
         }
     }
 
@@ -155,7 +170,7 @@ export class PremiseManager {
     public appendExpression(
         parentId: string | null,
         expression: TExpressionWithoutPosition
-    ): void {
+    ): TCoreMutationResult<TCorePropositionalExpression> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -184,15 +199,24 @@ export class PremiseManager {
             }
         }
 
-        this.expressions.appendExpression(parentId, expression)
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            this.expressions.appendExpression(parentId, expression)
 
-        if (parentId === null) {
-            this.syncRootExpressionId()
-        }
-        if (expression.type === "variable") {
-            this.expressionsByVariableId
-                .get(expression.variableId)
-                .add(expression.id)
+            if (parentId === null) {
+                this.syncRootExpressionId()
+            }
+            if (expression.type === "variable") {
+                this.expressionsByVariableId
+                    .get(expression.variableId)
+                    .add(expression.id)
+            }
+
+            const stored = this.expressions.getExpression(expression.id)!
+            return { result: { ...stored }, changes: collector.toChangeset() }
+        } finally {
+            this.expressions.setCollector(null)
         }
     }
 
@@ -208,7 +232,7 @@ export class PremiseManager {
         siblingId: string,
         relativePosition: "before" | "after",
         expression: TExpressionWithoutPosition
-    ): void {
+    ): TCoreMutationResult<TCorePropositionalExpression> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -229,16 +253,25 @@ export class PremiseManager {
             )
         }
 
-        this.expressions.addExpressionRelative(
-            siblingId,
-            relativePosition,
-            expression
-        )
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            this.expressions.addExpressionRelative(
+                siblingId,
+                relativePosition,
+                expression
+            )
 
-        if (expression.type === "variable") {
-            this.expressionsByVariableId
-                .get(expression.variableId)
-                .add(expression.id)
+            if (expression.type === "variable") {
+                this.expressionsByVariableId
+                    .get(expression.variableId)
+                    .add(expression.id)
+            }
+
+            const stored = this.expressions.getExpression(expression.id)!
+            return { result: { ...stored }, changes: collector.toChangeset() }
+        } finally {
+            this.expressions.setCollector(null)
         }
     }
 
@@ -253,15 +286,24 @@ export class PremiseManager {
      */
     public removeExpression(
         expressionId: string
-    ): TCorePropositionalExpression | undefined {
-        // Snapshot the subtree before deletion so we can clean up
-        // expressionsByVariableId for cascade-deleted descendants — they are
-        // not individually surfaced by ExpressionManager.removeExpression.
-        const subtree = this.collectSubtree(expressionId)
+    ): TCoreMutationResult<TCorePropositionalExpression | undefined> {
+        // Snapshot the expression before removal (for result).
+        const snapshot = this.expressions.getExpression(expressionId)
 
-        const removed = this.expressions.removeExpression(expressionId)
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            if (!snapshot) {
+                return { result: undefined, changes: collector.toChangeset() }
+            }
 
-        if (removed) {
+            // Snapshot the subtree before deletion so we can clean up
+            // expressionsByVariableId for cascade-deleted descendants — they are
+            // not individually surfaced by ExpressionManager.removeExpression.
+            const subtree = this.collectSubtree(expressionId)
+
+            this.expressions.removeExpression(expressionId)
+
             for (const expr of subtree) {
                 if (expr.type === "variable") {
                     this.expressionsByVariableId
@@ -269,10 +311,12 @@ export class PremiseManager {
                         ?.delete(expr.id)
                 }
             }
-        }
 
-        this.syncRootExpressionId()
-        return removed
+            this.syncRootExpressionId()
+            return { result: { ...snapshot }, changes: collector.toChangeset() }
+        } finally {
+            this.expressions.setCollector(null)
+        }
     }
 
     /**
@@ -293,7 +337,7 @@ export class PremiseManager {
         expression: TCorePropositionalExpression,
         leftNodeId?: string,
         rightNodeId?: string
-    ): void {
+    ): TCoreMutationResult<TCorePropositionalExpression> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -308,15 +352,28 @@ export class PremiseManager {
             )
         }
 
-        this.expressions.insertExpression(expression, leftNodeId, rightNodeId)
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            this.expressions.insertExpression(
+                expression,
+                leftNodeId,
+                rightNodeId
+            )
 
-        if (expression.type === "variable") {
-            this.expressionsByVariableId
-                .get(expression.variableId)
-                .add(expression.id)
+            if (expression.type === "variable") {
+                this.expressionsByVariableId
+                    .get(expression.variableId)
+                    .add(expression.id)
+            }
+
+            this.syncRootExpressionId()
+
+            const stored = this.expressions.getExpression(expression.id)!
+            return { result: { ...stored }, changes: collector.toChangeset() }
+        } finally {
+            this.expressions.setCollector(null)
         }
-
-        this.syncRootExpressionId()
     }
 
     /**

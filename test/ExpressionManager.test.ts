@@ -133,7 +133,7 @@ describe("addExpression", () => {
         const premise = premiseWithVars()
         const expr = makeVarExpr("expr-1", VAR_P.id)
         premise.addExpression(expr)
-        expect(premise.removeExpression("expr-1")).toMatchObject({
+        expect(premise.removeExpression("expr-1").result).toMatchObject({
             id: "expr-1",
         })
     })
@@ -142,7 +142,9 @@ describe("addExpression", () => {
         const premise = premiseWithVars()
         const op = makeOpExpr("op-1", "and")
         premise.addExpression(op)
-        expect(premise.removeExpression("op-1")).toMatchObject({ id: "op-1" })
+        expect(premise.removeExpression("op-1").result).toMatchObject({
+            id: "op-1",
+        })
     })
 
     it("adds a child expression under an existing operator parent", () => {
@@ -154,7 +156,9 @@ describe("addExpression", () => {
         premise.addExpression(child)
 
         // child still present: removing op cascades to child, returning root
-        expect(premise.removeExpression("op-1")).toMatchObject({ id: "op-1" })
+        expect(premise.removeExpression("op-1").result).toMatchObject({
+            id: "op-1",
+        })
     })
 
     it("throws when an expression with the same ID already exists", () => {
@@ -536,7 +540,7 @@ describe("insertExpression", () => {
 describe("removeExpression", () => {
     it("returns undefined when the expression does not exist", () => {
         const premise = premiseWithVars()
-        expect(premise.removeExpression("nonexistent")).toBeUndefined()
+        expect(premise.removeExpression("nonexistent").result).toBeUndefined()
     })
 
     it("removes and returns a root expression", () => {
@@ -544,10 +548,10 @@ describe("removeExpression", () => {
         const expr = makeVarExpr("expr-1", VAR_P.id)
         premise.addExpression(expr)
 
-        const removed = premise.removeExpression("expr-1")
+        const { result: removed } = premise.removeExpression("expr-1")
         expect(removed).toMatchObject({ id: "expr-1", type: "variable" })
         // Confirm it is gone
-        expect(premise.removeExpression("expr-1")).toBeUndefined()
+        expect(premise.removeExpression("expr-1").result).toBeUndefined()
     })
 
     it("cascades to direct children", () => {
@@ -569,8 +573,8 @@ describe("removeExpression", () => {
         premise.removeExpression("op-1")
 
         // Children should be gone
-        expect(premise.removeExpression("expr-1")).toBeUndefined()
-        expect(premise.removeExpression("expr-2")).toBeUndefined()
+        expect(premise.removeExpression("expr-1").result).toBeUndefined()
+        expect(premise.removeExpression("expr-2").result).toBeUndefined()
     })
 
     it("cascades recursively through nested descendants", () => {
@@ -586,8 +590,8 @@ describe("removeExpression", () => {
 
         premise.removeExpression("op-root")
 
-        expect(premise.removeExpression("op-inner")).toBeUndefined()
-        expect(premise.removeExpression("expr-leaf")).toBeUndefined()
+        expect(premise.removeExpression("op-inner").result).toBeUndefined()
+        expect(premise.removeExpression("expr-leaf").result).toBeUndefined()
     })
 
     it("frees the position so it can be reused after removal", () => {
@@ -624,7 +628,7 @@ describe("removeExpression", () => {
             makeVarExpr("expr-1", VAR_P.id, { parentId: "op-1" })
         )
 
-        const removed = premise.removeExpression("op-1")
+        const { result: removed } = premise.removeExpression("op-1")
         expect(removed).toMatchObject({ id: "op-1", type: "operator" })
     })
 })
@@ -644,7 +648,7 @@ describe("removeExpression — operator collapse", () => {
         premise.removeExpression("expr-p")
 
         // op-not had 0 children remaining and must have been auto-deleted
-        expect(premise.removeExpression("op-not")).toBeUndefined()
+        expect(premise.removeExpression("op-not").result).toBeUndefined()
         expect(premise.toDisplayString()).toBe("")
     })
 
@@ -662,7 +666,7 @@ describe("removeExpression — operator collapse", () => {
         premise.removeExpression("expr-p")
 
         // op-and had 1 child left → it is removed, expr-q is promoted to root
-        expect(premise.removeExpression("op-and")).toBeUndefined()
+        expect(premise.removeExpression("op-and").result).toBeUndefined()
         // expr-q is now the root
         expect(premise.toDisplayString()).toBe("Q")
     })
@@ -688,8 +692,8 @@ describe("removeExpression — operator collapse", () => {
         // → op-outer now has 1 child (expr-q) → op-outer is deleted, expr-q promoted to root
         premise.removeExpression("expr-p")
 
-        expect(premise.removeExpression("op-inner")).toBeUndefined()
-        expect(premise.removeExpression("op-outer")).toBeUndefined()
+        expect(premise.removeExpression("op-inner").result).toBeUndefined()
+        expect(premise.removeExpression("op-outer").result).toBeUndefined()
         expect(premise.toDisplayString()).toBe("Q")
     })
 
@@ -718,7 +722,7 @@ describe("removeExpression — operator collapse", () => {
         // op-root now has 2 children: expr-q (pos 0) and expr-r (pos 1) — no further collapse
         premise.removeExpression("expr-p")
 
-        expect(premise.removeExpression("op-and")).toBeUndefined()
+        expect(premise.removeExpression("op-and").result).toBeUndefined()
         // op-root still exists with expr-q and expr-r as children
         expect(premise.toDisplayString()).toBe("(Q ∨ R)")
     })
@@ -761,7 +765,7 @@ describe("removeExpression — operator collapse", () => {
         premise.removeExpression("expr-p")
 
         // op-implies is removed; expr-q (the consequent) is promoted to root
-        expect(premise.removeExpression("op-implies")).toBeUndefined()
+        expect(premise.removeExpression("op-implies").result).toBeUndefined()
         expect(premise.toDisplayString()).toBe("Q")
     })
 })
@@ -1043,9 +1047,9 @@ describe("stress test", () => {
         const rootId = pm.toData().rootExpressionId!
         const termIds = termIdsByPremise.get(pm)!
 
-        expect(pm.removeExpression(rootId)).toMatchObject({ id: rootId })
+        expect(pm.removeExpression(rootId).result).toMatchObject({ id: rootId })
         for (const termId of termIds) {
-            expect(pm.removeExpression(termId)).toBeUndefined()
+            expect(pm.removeExpression(termId).result).toBeUndefined()
         }
     })
 
@@ -1057,9 +1061,9 @@ describe("stress test", () => {
         pm1.removeExpression(pm1.toData().rootExpressionId!)
 
         // Second premise root is still present
-        expect(pm2.removeExpression(root2)).toMatchObject({ id: root2 })
+        expect(pm2.removeExpression(root2).result).toMatchObject({ id: root2 })
         for (const termId of termIdsByPremise.get(pm2)!) {
-            expect(pm2.removeExpression(termId)).toBeUndefined()
+            expect(pm2.removeExpression(termId).result).toBeUndefined()
         }
     })
 
@@ -1146,7 +1150,7 @@ describe("formula", () => {
     it("adds a root formula expression", () => {
         const premise = premiseWithVars()
         premise.addExpression(makeFormulaExpr("f-1"))
-        expect(premise.removeExpression("f-1")).toMatchObject({
+        expect(premise.removeExpression("f-1").result).toMatchObject({
             id: "f-1",
             type: "formula",
         })
@@ -1225,7 +1229,7 @@ describe("formula", () => {
         premise.removeExpression("expr-p")
 
         // Formula had 0 children remaining and must have been auto-deleted.
-        expect(premise.removeExpression("f-1")).toBeUndefined()
+        expect(premise.removeExpression("f-1").result).toBeUndefined()
         expect(premise.toDisplayString()).toBe("")
     })
 
@@ -1254,9 +1258,9 @@ describe("formula", () => {
         // → op-and has 1 child left (expr-q) → op-and collapses, expr-q promoted to root
         premise.removeExpression("expr-p")
 
-        expect(premise.removeExpression("f-inner")).toBeUndefined()
-        expect(premise.removeExpression("f-outer")).toBeUndefined()
-        expect(premise.removeExpression("op-and")).toBeUndefined()
+        expect(premise.removeExpression("f-inner").result).toBeUndefined()
+        expect(premise.removeExpression("f-outer").result).toBeUndefined()
+        expect(premise.removeExpression("op-and").result).toBeUndefined()
         expect(premise.toDisplayString()).toBe("Q")
     })
 
@@ -4415,5 +4419,232 @@ describe("ChangeCollector", () => {
         expect(cs.premises).toBeUndefined()
         expect(cs.roles).toBeUndefined()
         expect(cs.argument).toBeUndefined()
+    })
+})
+
+// ---------------------------------------------------------------------------
+// PremiseManager — mutation changesets
+// ---------------------------------------------------------------------------
+
+describe("PremiseManager — mutation changesets", () => {
+    function setup() {
+        const eng = new ArgumentEngine({ id: "arg1", version: 0 })
+        const pm = eng.createPremise()
+        const v1 = {
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+        }
+        const v2 = {
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg1",
+            argumentVersion: 0,
+        }
+        pm.addVariable(v1)
+        pm.addVariable(v2)
+        return { eng, pm, v1, v2 }
+    }
+
+    it("addExpression returns the added expression in result and changes", () => {
+        const { pm } = setup()
+        const expr: TCorePropositionalExpression = {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1,
+        }
+        const { result, changes } = pm.addExpression(expr)
+        expect(result.id).toBe("e1")
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("e1")
+        expect(changes.expressions?.modified).toEqual([])
+        expect(changes.expressions?.removed).toEqual([])
+    })
+
+    it("removeExpression with collapse returns all affected expressions", () => {
+        const { pm } = setup()
+        // Build: and(v1, v2)
+        pm.addExpression({
+            id: "op",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "op",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "op",
+            position: 2,
+        })
+        // Remove e1 -> operator collapses (1 child), e2 gets promoted
+        const { result, changes } = pm.removeExpression("e1")
+        expect(result?.id).toBe("e1")
+        // e1 removed, operator removed (collapse)
+        const removedIds = changes.expressions!.removed.map((e) => e.id).sort()
+        expect(removedIds).toContain("e1")
+        expect(removedIds).toContain("op")
+        // e2 modified (reparented to root)
+        expect(changes.expressions!.modified).toHaveLength(1)
+        expect(changes.expressions!.modified[0].id).toBe("e2")
+        expect(changes.expressions!.modified[0].parentId).toBeNull()
+    })
+
+    it("insertExpression returns added expression and records reparented children", () => {
+        const { pm } = setup()
+        // Build: and(v1, v2), then insert formula wrapping v1
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+            position: 2,
+        })
+        // Insert a formula node wrapping e1
+        const { result, changes } = pm.insertExpression(
+            {
+                id: "f1",
+                type: "formula",
+                argumentId: "arg1",
+                argumentVersion: 0,
+                parentId: "and1",
+                position: 1,
+            },
+            "e1"
+        )
+        expect(result.id).toBe("f1")
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("f1")
+        // e1 was reparented under f1
+        expect(changes.expressions?.modified?.length).toBeGreaterThanOrEqual(1)
+        const modifiedE1 = changes.expressions?.modified?.find(
+            (e) => e.id === "e1"
+        )
+        expect(modifiedE1?.parentId).toBe("f1")
+    })
+
+    it("appendExpression returns expression with computed position", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+            position: 1,
+        })
+        const { result, changes } = pm.appendExpression("and1", {
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+        })
+        expect(result.id).toBe("e2")
+        expect(result.position).toBeGreaterThan(1) // computed position after e1
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("e2")
+    })
+
+    it("addExpressionRelative returns expression with computed position", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+            position: 3,
+        })
+        const { result, changes } = pm.addExpressionRelative("e1", "after", {
+            id: "e3",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            parentId: "and1",
+        })
+        expect(result.id).toBe("e3")
+        // Should be between e1 (pos 1) and e2 (pos 3)
+        expect(result.position).toBeGreaterThan(1)
+        expect(result.position).toBeLessThan(3)
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("e3")
+    })
+
+    it("removeExpression for non-existent ID returns undefined result and empty changes", () => {
+        const { pm } = setup()
+        const { result, changes } = pm.removeExpression("nonexistent")
+        expect(result).toBeUndefined()
+        expect(changes).toEqual({})
     })
 })
