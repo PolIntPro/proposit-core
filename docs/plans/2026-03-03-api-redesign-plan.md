@@ -17,6 +17,7 @@
 ### Task 1: Add Mutation Result Types
 
 **Files:**
+
 - Create: `src/lib/types/mutation.ts`
 - Modify: `src/lib/index.ts`
 - Modify: `src/index.ts`
@@ -29,7 +30,10 @@ Create `src/lib/types/mutation.ts`:
 import type { TCorePropositionalExpression } from "../schemata/propositional.js"
 import type { TCorePropositionalVariable } from "../schemata/propositional.js"
 import type { TCorePremise } from "../schemata/propositional.js"
-import type { TCoreArgument, TCoreArgumentRoleState } from "../schemata/argument.js"
+import type {
+    TCoreArgument,
+    TCoreArgumentRoleState,
+} from "../schemata/argument.js"
 
 /** Added/modified/removed entities of one type within a single mutation. */
 export interface TCoreEntityChanges<T> {
@@ -66,11 +70,13 @@ export interface TCoreMutationResult<T> {
 **Step 2: Export from lib and public index**
 
 Add to `src/lib/index.ts` after the existing diff export:
+
 ```typescript
 export * from "./types/mutation.js"
 ```
 
 Add to `src/index.ts`:
+
 ```typescript
 export * from "./lib/types/mutation.js"
 ```
@@ -92,6 +98,7 @@ git commit -m "Add mutation result types (TCoreEntityChanges, TCoreChangeset, TC
 ### Task 2: Implement ChangeCollector
 
 **Files:**
+
 - Create: `src/lib/core/ChangeCollector.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -109,7 +116,10 @@ describe("ChangeCollector", () => {
 
     it("collects added expressions", () => {
         const collector = new ChangeCollector()
-        const expr = { id: "e1", type: "variable" } as TCorePropositionalExpression
+        const expr = {
+            id: "e1",
+            type: "variable",
+        } as TCorePropositionalExpression
         collector.addedExpression(expr)
         const cs = collector.toChangeset()
         expect(cs.expressions?.added).toEqual([expr])
@@ -119,8 +129,14 @@ describe("ChangeCollector", () => {
 
     it("collects modified and removed expressions", () => {
         const collector = new ChangeCollector()
-        const modified = { id: "e1", type: "variable" } as TCorePropositionalExpression
-        const removed = { id: "e2", type: "operator" } as TCorePropositionalExpression
+        const modified = {
+            id: "e1",
+            type: "variable",
+        } as TCorePropositionalExpression
+        const removed = {
+            id: "e2",
+            type: "operator",
+        } as TCorePropositionalExpression
         collector.modifiedExpression(modified)
         collector.removedExpression(removed)
         const cs = collector.toChangeset()
@@ -186,17 +202,18 @@ import type {
     TCoreArgument,
     TCoreArgumentRoleState,
 } from "../schemata/argument.js"
-import type {
-    TCoreEntityChanges,
-    TCoreChangeset,
-} from "../types/mutation.js"
+import type { TCoreEntityChanges, TCoreChangeset } from "../types/mutation.js"
 
 function emptyEntityChanges<T>(): TCoreEntityChanges<T> {
     return { added: [], modified: [], removed: [] }
 }
 
 function isEntityChangesEmpty<T>(ec: TCoreEntityChanges<T>): boolean {
-    return ec.added.length === 0 && ec.modified.length === 0 && ec.removed.length === 0
+    return (
+        ec.added.length === 0 &&
+        ec.modified.length === 0 &&
+        ec.removed.length === 0
+    )
 }
 
 /**
@@ -247,7 +264,8 @@ export class ChangeCollector {
 
     toChangeset(): TCoreChangeset {
         const cs: TCoreChangeset = {}
-        if (!isEntityChangesEmpty(this.expressions)) cs.expressions = this.expressions
+        if (!isEntityChangesEmpty(this.expressions))
+            cs.expressions = this.expressions
         if (!isEntityChangesEmpty(this.variables)) cs.variables = this.variables
         if (!isEntityChangesEmpty(this.premises)) cs.premises = this.premises
         if (this.roles !== undefined) cs.roles = this.roles
@@ -278,6 +296,7 @@ git commit -m "Implement ChangeCollector for mutation change tracking"
 ### Task 3: Simplify TCoreArgumentRoleState Schema
 
 **Files:**
+
 - Modify: `src/lib/schemata/argument.ts:16-25`
 - Modify: `src/lib/types/evaluation.ts:8` (TCorePremiseRole type)
 
@@ -312,6 +331,7 @@ export const CoreArgumentRoleStateSchema = Type.Object(
 **Step 2: Remove TCorePremiseRole type from evaluation types**
 
 In `src/lib/types/evaluation.ts`, remove line 8:
+
 ```typescript
 export type TCorePremiseRole = "supporting" | "conclusion"
 ```
@@ -335,6 +355,7 @@ git commit -m "Simplify TCoreArgumentRoleState to conclusion-only (supporting is
 ### Task 4: Update ArgumentEngine for Derived Supporting Premises
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -345,63 +366,68 @@ In `src/lib/core/ArgumentEngine.ts`:
 1. **Remove** the `supportingPremiseIds: Set<string>` field (around constructor area).
 
 2. **Remove** methods:
-   - `addSupportingPremise()` (lines 164-174)
-   - `removeSupportingPremise()` (lines 177-179)
+    - `addSupportingPremise()` (lines 164-174)
+    - `removeSupportingPremise()` (lines 177-179)
 
 3. **Update** `removePremise()` (lines 87-93): Remove the line that deletes from `supportingPremiseIds`:
-   ```typescript
-   public removePremise(premiseId: string): void {
-       this.premises.delete(premiseId)
-       if (this.conclusionPremiseId === premiseId) {
-           this.conclusionPremiseId = undefined
-       }
-   }
-   ```
+
+    ```typescript
+    public removePremise(premiseId: string): void {
+        this.premises.delete(premiseId)
+        if (this.conclusionPremiseId === premiseId) {
+            this.conclusionPremiseId = undefined
+        }
+    }
+    ```
 
 4. **Update** `setConclusionPremise()` (lines 133-143): Remove the check for supporting overlap:
-   ```typescript
-   public setConclusionPremise(premiseId: string): void {
-       const premise = this.premises.get(premiseId)
-       if (!premise) throw new Error(`Premise "${premiseId}" does not exist.`)
-       this.conclusionPremiseId = premiseId
-   }
-   ```
+
+    ```typescript
+    public setConclusionPremise(premiseId: string): void {
+        const premise = this.premises.get(premiseId)
+        if (!premise) throw new Error(`Premise "${premiseId}" does not exist.`)
+        this.conclusionPremiseId = premiseId
+    }
+    ```
 
 5. **Update** `getRoleState()` (lines 120-125):
-   ```typescript
-   public getRoleState(): TCoreArgumentRoleState {
-       return {
-           ...(this.conclusionPremiseId !== undefined
-               ? { conclusionPremiseId: this.conclusionPremiseId }
-               : {}),
-       }
-   }
-   ```
+
+    ```typescript
+    public getRoleState(): TCoreArgumentRoleState {
+        return {
+            ...(this.conclusionPremiseId !== undefined
+                ? { conclusionPremiseId: this.conclusionPremiseId }
+                : {}),
+        }
+    }
+    ```
 
 6. **Update** `listSupportingPremises()` (lines 182-186) to derive from premise type:
-   ```typescript
-   public listSupportingPremises(): PremiseManager[] {
-       return this.listPremises().filter(
-           (pm) =>
-               pm.isInference() && pm.getId() !== this.conclusionPremiseId
-       )
-   }
-   ```
+
+    ```typescript
+    public listSupportingPremises(): PremiseManager[] {
+        return this.listPremises().filter(
+            (pm) =>
+                pm.isInference() && pm.getId() !== this.conclusionPremiseId
+        )
+    }
+    ```
 
 7. **Update** premise classification in `evaluate()` (around lines 427-434). Replace the explicit supportingPremiseIds lookup with the derived list:
-   ```typescript
-   const conclusionPm = this.getConclusionPremise()!
-   const supportingPms = this.listSupportingPremises()
-   const supportingIds = new Set(supportingPms.map((pm) => pm.getId()))
-   const constraintPms = this.listPremises().filter(
-       (pm) =>
-           pm.getId() !== this.conclusionPremiseId &&
-           !supportingIds.has(pm.getId()) &&
-           pm.isConstraint()
-   )
-   ```
 
-   Apply the same pattern in `checkValidity()` (around lines 575-582).
+    ```typescript
+    const conclusionPm = this.getConclusionPremise()!
+    const supportingPms = this.listSupportingPremises()
+    const supportingIds = new Set(supportingPms.map((pm) => pm.getId()))
+    const constraintPms = this.listPremises().filter(
+        (pm) =>
+            pm.getId() !== this.conclusionPremiseId &&
+            !supportingIds.has(pm.getId()) &&
+            pm.isConstraint()
+    )
+    ```
+
+    Apply the same pattern in `checkValidity()` (around lines 575-582).
 
 8. **Update** `validateEvaluability()`: Remove the check for `ARGUMENT_SUPPORTING_PREMISE_NOT_FOUND` (this was checking if IDs in supportingPremiseIds actually exist — no longer needed since the list is derived). Remove `ARGUMENT_ROLE_OVERLAP` check (no longer possible).
 
@@ -437,6 +463,7 @@ git commit -m "Derive supporting premises from expression type, remove explicit 
 ### Task 5: Update CLI for Role Simplification
 
 **Files:**
+
 - Modify: `src/cli/commands/roles.ts`
 - Modify: `src/cli/storage/roles.ts`
 - Modify: `src/cli/engine.ts`
@@ -444,6 +471,7 @@ git commit -m "Derive supporting premises from expression type, remove explicit 
 **Step 1: Remove CLI support-role commands**
 
 In `src/cli/commands/roles.ts`:
+
 - Remove the `roles add-support` command (lines 81-102)
 - Remove the `roles remove-support` command (lines 104-117)
 - Update `roles show` (lines 19-44) to derive supporting premises instead of reading from stored state. The show command should hydrate the engine and call `engine.listSupportingPremises()` to display derived supporting premises.
@@ -451,11 +479,13 @@ In `src/cli/commands/roles.ts`:
 **Step 2: Simplify roles storage**
 
 In `src/cli/storage/roles.ts`:
+
 - The `readRoles()` function reads `CoreArgumentRoleStateSchema` which now only has `conclusionPremiseId`. No code change needed since the schema changed — but verify it handles old files that may still have `supportingPremiseIds` (Typebox with `additionalProperties: false` would strip it; check the schema config).
 
 **Step 3: Update engine hydration**
 
 In `src/cli/engine.ts` (lines 92-97):
+
 - Remove the loop that calls `engine.addSupportingPremise(id)` for each supporting premise ID
 - Keep the `setConclusionPremise` call
 
@@ -493,6 +523,7 @@ git commit -m "Remove CLI support-role commands, simplify role storage and hydra
 ### Task 6: Add Change Tracking to ExpressionManager
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 
 This task makes ExpressionManager aware of the ChangeCollector without changing any public API signatures yet. The collector is optional — when absent, behavior is unchanged.
@@ -516,6 +547,7 @@ setCollector(collector: ChangeCollector | null): void {
 **Step 2: Record changes in addExpression**
 
 After line 122 (`this.expressions.set(expression.id, expression)`), add:
+
 ```typescript
 this.collector?.addedExpression(expression)
 ```
@@ -523,6 +555,7 @@ this.collector?.addedExpression(expression)
 **Step 3: Record changes in removeExpression**
 
 In the removal loop (lines 232-249), after each `this.expressions.delete(id)`:
+
 ```typescript
 this.collector?.removedExpression(expression)
 ```
@@ -530,24 +563,28 @@ this.collector?.removedExpression(expression)
 **Step 4: Record changes in collapseIfNeeded**
 
 In the zero-children formula case (lines 266-274), after deleting the operator:
+
 ```typescript
 this.collector?.removedExpression(operator)
 ```
 
 In the zero-children operator case (lines 288-296):
+
 ```typescript
 this.collector?.removedExpression(operator)
 ```
 
 In the one-child operator case (lines 299-332), after promoting the child:
+
 ```typescript
-this.collector?.modifiedExpression(promoted)  // child got new parentId/position
+this.collector?.modifiedExpression(promoted) // child got new parentId/position
 this.collector?.removedExpression(operator)
 ```
 
 **Step 5: Record changes in reparent**
 
 After line 452 (`this.expressions.set(expressionId, updated)`):
+
 ```typescript
 this.collector?.modifiedExpression(updated)
 ```
@@ -555,6 +592,7 @@ this.collector?.modifiedExpression(updated)
 **Step 6: Record changes in insertExpression**
 
 After line 616 (`this.expressions.set(expression.id, stored)`):
+
 ```typescript
 this.collector?.addedExpression(stored)
 ```
@@ -576,6 +614,7 @@ git commit -m "Add optional ChangeCollector recording to ExpressionManager inter
 ### Task 7: Wrap PremiseManager Expression Methods with TCoreMutationResult
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -636,6 +675,7 @@ For each of `addExpression`, `appendExpression`, `addExpressionRelative`, `remov
 3. Create collector, set it on ExpressionManager, run operation, return result + changeset
 
 Example for `addExpression()`:
+
 ```typescript
 public addExpression(
     expression: TCorePropositionalExpression
@@ -654,6 +694,7 @@ public addExpression(
 ```
 
 Example for `removeExpression()`:
+
 ```typescript
 public removeExpression(
     expressionId: string
@@ -706,6 +747,7 @@ git commit -m "Wrap PremiseManager expression methods with TCoreMutationResult"
 ### Task 8: Wrap PremiseManager Variable and Extras Methods
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -734,6 +776,7 @@ it("setExtras returns the new extras in result", () => {
 **Step 2: Implement**
 
 `addVariable()`:
+
 ```typescript
 public addVariable(
     variable: TCorePropositionalVariable
@@ -747,6 +790,7 @@ public addVariable(
 ```
 
 `removeVariable()`:
+
 ```typescript
 public removeVariable(
     variableId: string
@@ -760,6 +804,7 @@ public removeVariable(
 ```
 
 `setExtras()`:
+
 ```typescript
 public setExtras(
     extras: Record<string, unknown>
@@ -788,6 +833,7 @@ git commit -m "Wrap PremiseManager variable and extras methods with TCoreMutatio
 ### Task 9: Wrap ArgumentEngine Mutating Methods
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -830,6 +876,7 @@ describe("ArgumentEngine — mutation changesets", () => {
 **Step 2: Implement**
 
 `createPremise()`:
+
 ```typescript
 public createPremise(
     extras?: Record<string, unknown>
@@ -840,6 +887,7 @@ public createPremise(
 ```
 
 `createPremiseWithId()`:
+
 ```typescript
 public createPremiseWithId(
     id: string,
@@ -856,6 +904,7 @@ public createPremiseWithId(
 ```
 
 `removePremise()`:
+
 ```typescript
 public removePremise(premiseId: string): TCoreMutationResult<TCorePremise | undefined> {
     const pm = this.premises.get(premiseId)
@@ -873,6 +922,7 @@ public removePremise(premiseId: string): TCoreMutationResult<TCorePremise | unde
 ```
 
 `setConclusionPremise()`:
+
 ```typescript
 public setConclusionPremise(
     premiseId: string
@@ -888,6 +938,7 @@ public setConclusionPremise(
 ```
 
 `clearConclusionPremise()`:
+
 ```typescript
 public clearConclusionPremise(): TCoreMutationResult<TCoreArgumentRoleState> {
     this.conclusionPremiseId = undefined
@@ -921,6 +972,7 @@ git commit -m "Wrap ArgumentEngine mutating methods with TCoreMutationResult"
 ### Task 10: Implement Hash Function and Deterministic Serialization
 
 **Files:**
+
 - Create: `src/lib/core/checksum.ts`
 - Modify: `test/ExpressionManager.test.ts`
 
@@ -953,7 +1005,10 @@ describe("checksum utilities", () => {
     it("entityChecksum uses only specified fields", () => {
         const entity = { id: "1", symbol: "P", extra: "ignored" }
         const cs1 = entityChecksum(entity, ["id", "symbol"])
-        const cs2 = entityChecksum({ id: "1", symbol: "P", extra: "different" }, ["id", "symbol"])
+        const cs2 = entityChecksum(
+            { id: "1", symbol: "P", extra: "different" },
+            ["id", "symbol"]
+        )
         expect(cs1).toBe(cs2)
     })
 
@@ -1033,6 +1088,7 @@ git commit -m "Add hash function, deterministic serialization, and entityChecksu
 ### Task 11: Add Checksum Config and Engine/Premise Checksum Methods
 
 **Files:**
+
 - Create: `src/lib/types/checksum.ts`
 - Modify: `src/lib/core/PremiseManager.ts`
 - Modify: `src/lib/core/ArgumentEngine.ts`
@@ -1043,8 +1099,14 @@ git commit -m "Add hash function, deterministic serialization, and entityChecksu
 Create `src/lib/types/checksum.ts`:
 
 ```typescript
-import type { TCorePropositionalExpression, TCorePropositionalVariable } from "../schemata/propositional.js"
-import type { TCoreArgument, TCoreArgumentRoleState } from "../schemata/argument.js"
+import type {
+    TCorePropositionalExpression,
+    TCorePropositionalVariable,
+} from "../schemata/propositional.js"
+import type {
+    TCoreArgument,
+    TCoreArgumentRoleState,
+} from "../schemata/argument.js"
 
 export interface TCoreChecksumConfig {
     expressionFields?: (keyof TCorePropositionalExpression)[]
@@ -1054,14 +1116,19 @@ export interface TCoreChecksumConfig {
     roleFields?: (keyof TCoreArgumentRoleState)[]
 }
 
-export const DEFAULT_EXPRESSION_CHECKSUM_FIELDS: (keyof TCorePropositionalExpression)[] = [
-    "id", "type", "parentId", "position", "argumentId", "argumentVersion"
-    // "variableId" and "operator" are type-specific — handled by entityChecksum picking only fields that exist
-]
+export const DEFAULT_EXPRESSION_CHECKSUM_FIELDS: (keyof TCorePropositionalExpression)[] =
+    [
+        "id",
+        "type",
+        "parentId",
+        "position",
+        "argumentId",
+        "argumentVersion",
+        // "variableId" and "operator" are type-specific — handled by entityChecksum picking only fields that exist
+    ]
 
-export const DEFAULT_VARIABLE_CHECKSUM_FIELDS: (keyof TCorePropositionalVariable)[] = [
-    "id", "symbol", "argumentId", "argumentVersion"
-]
+export const DEFAULT_VARIABLE_CHECKSUM_FIELDS: (keyof TCorePropositionalVariable)[] =
+    ["id", "symbol", "argumentId", "argumentVersion"]
 ```
 
 Note: The exact default fields for each entity type need to be determined by reading the schema. The key point is that `variableId` (on variable expressions) and `operator` (on operator expressions) should also be included — `entityChecksum` picks only fields that exist on the object, so listing them is safe.
@@ -1215,6 +1282,7 @@ git commit -m "Add lazy hierarchical checksum system with configurable fields"
 ### Task 12: Add Checksum Field to Entity Types
 
 **Files:**
+
 - Modify: `src/lib/schemata/propositional.ts`
 - Modify: `src/lib/schemata/argument.ts`
 - Modify: `src/lib/core/PremiseManager.ts` (populate checksum on returned entities)
@@ -1224,21 +1292,25 @@ git commit -m "Add lazy hierarchical checksum system with configurable fields"
 **Step 1: Add optional checksum field to schemas**
 
 In `src/lib/schemata/propositional.ts`, add to `BasePropositionalExpressionSchema`:
+
 ```typescript
 checksum: Type.Optional(Type.String({ description: "Entity-level checksum for sync detection." })),
 ```
 
 Add to `CorePropositionalVariableSchema`:
+
 ```typescript
 checksum: Type.Optional(Type.String({ description: "Entity-level checksum for sync detection." })),
 ```
 
 Add to `CorePremiseSchema`:
+
 ```typescript
 checksum: Type.Optional(Type.String({ description: "Premise-level checksum for sync detection." })),
 ```
 
 In `src/lib/schemata/argument.ts`, add to `CoreArgumentSchema`:
+
 ```typescript
 checksum: Type.Optional(Type.String({ description: "Argument-level checksum for sync detection." })),
 ```
@@ -1288,6 +1360,7 @@ git commit -m "Add optional checksum field to entity types, populate in getters 
 ### Task 13: Determinism Audit
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts` (if needed)
 - Modify: `src/lib/core/PremiseManager.ts` (if needed)
 - Modify: `src/lib/core/ArgumentEngine.ts` (if needed)
@@ -1297,6 +1370,7 @@ git commit -m "Add optional checksum field to entity types, populate in getters 
 Search for patterns like `Array.from(map.values())`, `[...map.values()]`, `[...set]` in all three core files. Ensure every such array is explicitly sorted before being returned or used in output.
 
 Key methods to check:
+
 - `ExpressionManager.toArray()` — returns `Array.from(this.expressions.values())`
 - `ExpressionManager.getChildExpressions()` — already sorts by position
 - `PremiseManager.getVariables()` — calls `this.variables.toArray()`, sorts by ID
@@ -1326,12 +1400,14 @@ git commit -m "Enforce explicit sort on all Map/Set-derived arrays for determini
 ### Task 14: Update Exports
 
 **Files:**
+
 - Modify: `src/lib/index.ts`
 - Modify: `src/index.ts`
 
 **Step 1: Export new types**
 
 Ensure these are exported:
+
 - `TCoreEntityChanges`, `TCoreChangeset`, `TCoreMutationResult` (from `types/mutation.ts`)
 - `TCoreChecksumConfig` (from `types/checksum.ts`)
 - `computeHash`, `canonicalSerialize`, `entityChecksum` (from `core/checksum.ts` — useful for consumers computing custom checksums)
@@ -1360,6 +1436,7 @@ git commit -m "Export new mutation, checksum types and utilities"
 ### Task 15: Update CLI for New Return Types
 
 **Files:**
+
 - Modify: `src/cli/commands/variables.ts`
 - Modify: `src/cli/commands/premises.ts`
 - Modify: `src/cli/commands/expressions.ts`
@@ -1405,6 +1482,7 @@ git commit -m "Update CLI commands for TCoreMutationResult return types"
 ### Task 16: Update Documentation
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `README.md` (if it exists and documents the API)
 - Modify: CLI examples documentation (if it exists)
@@ -1412,6 +1490,7 @@ git commit -m "Update CLI commands for TCoreMutationResult return types"
 **Step 1: Update CLAUDE.md**
 
 Update these sections:
+
 - **Class hierarchy**: Note that supporting premises are derived
 - **Key design decisions**: Add sections on mutation changesets and checksums
 - **Types**: Add TCoreMutationResult, TCoreChangeset, TCoreEntityChanges, TCoreChecksumConfig

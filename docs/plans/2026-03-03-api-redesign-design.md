@@ -3,6 +3,7 @@
 ## Context
 
 The primary consumer of proposit-core is a web application with:
+
 - A **browser instance** of `ArgumentEngine` for optimistic UI rendering
 - A **server instance** of `ArgumentEngine` for authoritative state + Postgres persistence
 
@@ -29,23 +30,23 @@ Mutation result augmentation (Approach 1 from brainstorming). Keep the current c
 
 ```typescript
 interface TCoreEntityChanges<T> {
-  added: T[]
-  modified: T[]  // contains new state after modification
-  removed: T[]
+    added: T[]
+    modified: T[] // contains new state after modification
+    removed: T[]
 }
 
 interface TCoreChangeset {
-  // Present only when the category was affected
-  expressions?: TCoreEntityChanges<TCorePropositionalExpression>
-  variables?: TCoreEntityChanges<TCorePropositionalVariable>
-  premises?: TCoreEntityChanges<TCorePremise>
-  roles?: TCoreArgumentRoleState       // new state, only when changed
-  argument?: TCoreArgument             // new state, only when changed
+    // Present only when the category was affected
+    expressions?: TCoreEntityChanges<TCorePropositionalExpression>
+    variables?: TCoreEntityChanges<TCorePropositionalVariable>
+    premises?: TCoreEntityChanges<TCorePremise>
+    roles?: TCoreArgumentRoleState // new state, only when changed
+    argument?: TCoreArgument // new state, only when changed
 }
 
 interface TCoreMutationResult<T> {
-  result: T
-  changes: TCoreChangeset
+    result: T
+    changes: TCoreChangeset
 }
 ```
 
@@ -57,26 +58,26 @@ interface TCoreMutationResult<T> {
 
 **PremiseManager** (all mutating methods):
 
-| Method | Current return | New return |
-|--------|---------------|------------|
-| `addVariable(v)` | `void` | `TCoreMutationResult<TCorePropositionalVariable>` |
-| `removeVariable(id)` | `variable \| undefined` | `TCoreMutationResult<TCorePropositionalVariable \| undefined>` |
-| `addExpression(e)` | `void` | `TCoreMutationResult<TCorePropositionalExpression>` |
-| `appendExpression(parentId, e)` | `void` | `TCoreMutationResult<TCorePropositionalExpression>` |
-| `addExpressionRelative(siblingId, pos, e)` | `void` | `TCoreMutationResult<TCorePropositionalExpression>` |
-| `removeExpression(id)` | `expression \| undefined` | `TCoreMutationResult<TCorePropositionalExpression \| undefined>` |
-| `insertExpression(e, left?, right?)` | `void` | `TCoreMutationResult<TCorePropositionalExpression>` |
-| `setExtras(extras)` | `void` | `TCoreMutationResult<Record<string, unknown>>` |
+| Method                                     | Current return            | New return                                                       |
+| ------------------------------------------ | ------------------------- | ---------------------------------------------------------------- |
+| `addVariable(v)`                           | `void`                    | `TCoreMutationResult<TCorePropositionalVariable>`                |
+| `removeVariable(id)`                       | `variable \| undefined`   | `TCoreMutationResult<TCorePropositionalVariable \| undefined>`   |
+| `addExpression(e)`                         | `void`                    | `TCoreMutationResult<TCorePropositionalExpression>`              |
+| `appendExpression(parentId, e)`            | `void`                    | `TCoreMutationResult<TCorePropositionalExpression>`              |
+| `addExpressionRelative(siblingId, pos, e)` | `void`                    | `TCoreMutationResult<TCorePropositionalExpression>`              |
+| `removeExpression(id)`                     | `expression \| undefined` | `TCoreMutationResult<TCorePropositionalExpression \| undefined>` |
+| `insertExpression(e, left?, right?)`       | `void`                    | `TCoreMutationResult<TCorePropositionalExpression>`              |
+| `setExtras(extras)`                        | `void`                    | `TCoreMutationResult<Record<string, unknown>>`                   |
 
 **ArgumentEngine** (all mutating methods):
 
-| Method | Current return | New return |
-|--------|---------------|------------|
-| `createPremise(extras?)` | `PremiseManager` | `TCoreMutationResult<PremiseManager>` |
-| `createPremiseWithId(id, extras?)` | `PremiseManager` | `TCoreMutationResult<PremiseManager>` |
-| `removePremise(id)` | `void` | `TCoreMutationResult<TCorePremise>` |
-| `setConclusionPremise(id)` | `void` | `TCoreMutationResult<TCoreArgumentRoleState>` |
-| `clearConclusionPremise()` | `void` | `TCoreMutationResult<TCoreArgumentRoleState>` |
+| Method                             | Current return   | New return                                    |
+| ---------------------------------- | ---------------- | --------------------------------------------- |
+| `createPremise(extras?)`           | `PremiseManager` | `TCoreMutationResult<PremiseManager>`         |
+| `createPremiseWithId(id, extras?)` | `PremiseManager` | `TCoreMutationResult<PremiseManager>`         |
+| `removePremise(id)`                | `void`           | `TCoreMutationResult<TCorePremise>`           |
+| `setConclusionPremise(id)`         | `void`           | `TCoreMutationResult<TCoreArgumentRoleState>` |
+| `clearConclusionPremise()`         | `void`           | `TCoreMutationResult<TCoreArgumentRoleState>` |
 
 `removePremise` returns the removed premise's data (via `toData()`) as `result`.
 
@@ -86,12 +87,12 @@ A lightweight `ChangeCollector` class scoped to a single public method call:
 
 ```typescript
 class ChangeCollector {
-  addedExpression(expr: TCorePropositionalExpression): void
-  modifiedExpression(expr: TCorePropositionalExpression): void
-  removedExpression(expr: TCorePropositionalExpression): void
-  addedVariable(variable: TCorePropositionalVariable): void
-  // ... same pattern for other entity types
-  toChangeset(): TCoreChangeset  // returns only non-empty categories
+    addedExpression(expr: TCorePropositionalExpression): void
+    modifiedExpression(expr: TCorePropositionalExpression): void
+    removedExpression(expr: TCorePropositionalExpression): void
+    addedVariable(variable: TCorePropositionalVariable): void
+    // ... same pattern for other entity types
+    toChangeset(): TCoreChangeset // returns only non-empty categories
 }
 ```
 
@@ -115,16 +116,19 @@ public removeExpression(id) {
 **Scope**: An entity's checksum is computed solely from its own fields — not its children or related entities. A parent expression's checksum does not change when children are added/removed beneath it.
 
 **Granularity** (hierarchical):
+
 - Entity-level: each expression, variable, premise metadata, role state, argument metadata
 - Premise-level: combines its entity checksums
 - Argument-level: combines all premise checksums + role state checksum + argument metadata checksum
 
 **Computation**:
+
 - Deterministic serialization with sorted JSON keys
 - Fast non-cryptographic hash (e.g., FNV-1a) — sync detection, not security
 - Browser-compatible, no Node.js-only dependencies
 
 **Lazy evaluation**:
+
 - Mutations mark affected checksums as dirty
 - Checksums are recomputed only when read
 - Aggregate checksums are also lazy — dirty if any child is dirty
@@ -166,12 +170,14 @@ engine.checksum(): string     // argument-level aggregate
 Supporting premises are **derived, not stored**: any inference premise (`implies`/`iff` root) that isn't the conclusion is supporting. Any non-inference premise is a constraint.
 
 **Methods removed from `ArgumentEngine`**:
+
 - `addSupportingPremise()`
 - `removeSupportingPremise()`
 
 **`listSupportingPremises()`** remains as a public method — it's still useful, but computed rather than stored.
 
 **Downstream impact**:
+
 - `evaluate()` and `checkValidity()` use the derived list internally
 - CLI: `roles add-support` and `roles remove-support` commands removed
 - CLI storage: `roles.json` shrinks to just conclusion
@@ -195,6 +201,7 @@ Supporting premises are **derived, not stored**: any inference premise (`implies
 ### Documentation Updates
 
 After all code changes, update:
+
 - `README.md` — new API, concepts (changesets, checksums, derived roles)
 - `CLAUDE.md` — architecture, type descriptions, method signatures
 - CLI examples documentation — reflect removed commands and new role behavior
