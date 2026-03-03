@@ -15,9 +15,7 @@ export function isDiffEmpty(diff: TCoreArgumentDiff): boolean {
         diff.premises.added.length === 0 &&
         diff.premises.removed.length === 0 &&
         diff.premises.modified.length === 0 &&
-        diff.roles.conclusion.before === diff.roles.conclusion.after &&
-        diff.roles.supportingAdded.length === 0 &&
-        diff.roles.supportingRemoved.length === 0
+        diff.roles.conclusion.before === diff.roles.conclusion.after
     )
 }
 
@@ -108,22 +106,10 @@ export function renderDiff(diff: TCoreArgumentDiff): void {
     // Roles section
     const conclusionChanged =
         diff.roles.conclusion.before !== diff.roles.conclusion.after
-    const hasRoleChanges =
-        conclusionChanged ||
-        diff.roles.supportingAdded.length > 0 ||
-        diff.roles.supportingRemoved.length > 0
-    if (hasRoleChanges) {
+    if (conclusionChanged) {
         printLine("Roles:")
-        if (conclusionChanged) {
-            printLine(
-                `  conclusion: ${formatValue(diff.roles.conclusion.before)} → ${formatValue(diff.roles.conclusion.after)}`
-            )
-        }
-        for (const id of diff.roles.supportingAdded) {
-            printLine(`  + support: ${id} (added)`)
-        }
-        for (const id of diff.roles.supportingRemoved) {
-            printLine(`  - support: ${id} (removed)`)
-        }
+        printLine(
+            `  conclusion: ${formatValue(diff.roles.conclusion.before)} → ${formatValue(diff.roles.conclusion.after)}`
+        )
     }
 }

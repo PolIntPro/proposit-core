@@ -192,16 +192,10 @@ function diffPremiseSet(
 
 function diffRoles(
     beforeConclusion: string | undefined,
-    afterConclusion: string | undefined,
-    beforeSupporting: string[],
-    afterSupporting: string[]
+    afterConclusion: string | undefined
 ): TCoreRoleDiff {
-    const beforeSet = new Set(beforeSupporting)
-    const afterSet = new Set(afterSupporting)
     return {
         conclusion: { before: beforeConclusion, after: afterConclusion },
-        supportingAdded: afterSupporting.filter((id) => !beforeSet.has(id)),
-        supportingRemoved: beforeSupporting.filter((id) => !afterSet.has(id)),
     }
 }
 
@@ -266,9 +260,7 @@ export function diffArguments(
         ),
         roles: diffRoles(
             dataA.roles.conclusionPremiseId,
-            dataB.roles.conclusionPremiseId,
-            dataA.roles.supportingPremiseIds,
-            dataB.roles.supportingPremiseIds
+            dataB.roles.conclusionPremiseId
         ),
     }
 }

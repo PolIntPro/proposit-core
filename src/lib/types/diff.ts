@@ -40,8 +40,6 @@ export interface TCorePremiseSetDiff {
 /** Role changes between two argument versions. */
 export interface TCoreRoleDiff {
     conclusion: { before: string | undefined; after: string | undefined }
-    supportingAdded: string[]
-    supportingRemoved: string[]
 }
 
 /** Top-level diff result from `diffArguments`. */

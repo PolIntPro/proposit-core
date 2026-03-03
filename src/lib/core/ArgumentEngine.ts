@@ -36,13 +36,11 @@ import { PremiseManager } from "./PremiseManager.js"
 export class ArgumentEngine {
     private argument: TCoreArgument
     private premises: Map<string, PremiseManager>
-    private supportingPremiseIds: Set<string>
     private conclusionPremiseId: string | undefined
 
     constructor(argument: TCoreArgument) {
         this.argument = { ...argument }
         this.premises = new Map()
-        this.supportingPremiseIds = new Set()
         this.conclusionPremiseId = undefined
     }
 
@@ -86,7 +84,6 @@ export class ArgumentEngine {
      */
     public removePremise(premiseId: string): void {
         this.premises.delete(premiseId)
-        this.supportingPremiseIds.delete(premiseId)
         if (this.conclusionPremiseId === premiseId) {
             this.conclusionPremiseId = undefined
         }
@@ -116,11 +113,12 @@ export class ArgumentEngine {
             .filter((pm): pm is PremiseManager => pm !== undefined)
     }
 
-    /** Returns the current role assignments (conclusion and supporting premise IDs). */
+    /** Returns the current role assignments (conclusion premise ID only; supporting is derived). */
     public getRoleState(): TCoreArgumentRoleState {
         return {
-            supportingPremiseIds: sortedUnique(this.supportingPremiseIds),
-            conclusionPremiseId: this.conclusionPremiseId,
+            ...(this.conclusionPremiseId !== undefined
+                ? { conclusionPremiseId: this.conclusionPremiseId }
+                : {}),
         }
     }
 
@@ -128,16 +126,10 @@ export class ArgumentEngine {
      * Designates a premise as the argument's conclusion.
      *
      * @throws If the premise does not exist.
-     * @throws If the premise is already a supporting premise.
      */
     public setConclusionPremise(premiseId: string): void {
         if (!this.hasPremise(premiseId)) {
             throw new Error(`Premise "${premiseId}" does not exist.`)
-        }
-        if (this.supportingPremiseIds.has(premiseId)) {
-            throw new Error(
-                `Premise "${premiseId}" is already a supporting premise and cannot also be the conclusion.`
-            )
         }
         this.conclusionPremiseId = premiseId
     }
@@ -156,33 +148,14 @@ export class ArgumentEngine {
     }
 
     /**
-     * Adds a premise to the supporting role.
-     *
-     * @throws If the premise does not exist.
-     * @throws If the premise is the conclusion.
+     * Returns all supporting premises (derived: inference premises that are
+     * not the conclusion) in lexicographic ID order.
      */
-    public addSupportingPremise(premiseId: string): void {
-        if (!this.hasPremise(premiseId)) {
-            throw new Error(`Premise "${premiseId}" does not exist.`)
-        }
-        if (this.conclusionPremiseId === premiseId) {
-            throw new Error(
-                `Premise "${premiseId}" is the conclusion and cannot also be supporting.`
-            )
-        }
-        this.supportingPremiseIds.add(premiseId)
-    }
-
-    /** Removes a premise from the supporting role. No-op if not supporting. */
-    public removeSupportingPremise(premiseId: string): void {
-        this.supportingPremiseIds.delete(premiseId)
-    }
-
-    /** Returns all supporting premises in lexicographic ID order. */
     public listSupportingPremises(): PremiseManager[] {
-        return sortedUnique(this.supportingPremiseIds)
-            .map((id) => this.premises.get(id))
-            .filter((pm): pm is PremiseManager => pm !== undefined)
+        return this.listPremises().filter(
+            (pm) =>
+                pm.isInference() && pm.getId() !== this.conclusionPremiseId
+        )
     }
 
     /** Returns a serializable snapshot of the full engine state. */
@@ -307,31 +280,6 @@ export class ArgumentEngine {
             )
         }
 
-        for (const premiseId of sortedUnique(this.supportingPremiseIds)) {
-            if (!this.premises.has(premiseId)) {
-                issues.push(
-                    makeErrorIssue({
-                        code: "ARGUMENT_SUPPORTING_PREMISE_NOT_FOUND",
-                        message: `Supporting premise "${premiseId}" does not exist.`,
-                        premiseId,
-                    })
-                )
-            }
-        }
-
-        if (
-            this.conclusionPremiseId !== undefined &&
-            this.supportingPremiseIds.has(this.conclusionPremiseId)
-        ) {
-            issues.push(
-                makeErrorIssue({
-                    code: "ARGUMENT_ROLE_OVERLAP",
-                    message: `Premise "${this.conclusionPremiseId}" cannot be both supporting and conclusion.`,
-                    premiseId: this.conclusionPremiseId,
-                })
-            )
-        }
-
         const idToSymbols = new Map<string, Set<string>>()
         const symbolToIds = new Map<string, Set<string>>()
         for (const premise of this.listPremises()) {
@@ -425,12 +373,13 @@ export class ArgumentEngine {
         }
 
         const supportingPremises = this.listSupportingPremises()
-        const roleIds = new Set<string>([
-            conclusion.getId(),
-            ...supportingPremises.map((pm) => pm.getId()),
-        ])
+        const supportingIds = new Set(
+            supportingPremises.map((pm) => pm.getId())
+        )
         const constraintPremises = this.listPremises().filter(
-            (pm) => !roleIds.has(pm.getId()) && pm.isConstraint()
+            (pm) =>
+                pm.getId() !== this.conclusionPremiseId &&
+                !supportingIds.has(pm.getId())
         )
 
         const allRelevantPremises = [
@@ -438,19 +387,21 @@ export class ArgumentEngine {
             ...supportingPremises,
             ...constraintPremises,
         ]
-        const referencedVariableIds = sortedUnique(
-            allRelevantPremises.flatMap((pm) =>
-                pm
-                    .getExpressions()
-                    .filter(
-                        (
-                            expr
-                        ): expr is TCorePropositionalExpression<"variable"> =>
-                            expr.type === "variable"
-                    )
-                    .map((expr) => expr.variableId)
-            )
-        )
+        const referencedVariableIds = [
+            ...new Set(
+                allRelevantPremises.flatMap((pm) =>
+                    pm
+                        .getExpressions()
+                        .filter(
+                            (
+                                expr
+                            ): expr is TCorePropositionalExpression<"variable"> =>
+                                expr.type === "variable"
+                        )
+                        .map((expr) => expr.variableId)
+                )
+            ),
+        ].sort()
 
         try {
             const evalOpts = {
@@ -573,17 +524,22 @@ export class ArgumentEngine {
         }
 
         const supportingPremises = this.listSupportingPremises()
-        const roleIds = new Set<string>([
-            conclusion.getId(),
-            ...supportingPremises.map((pm) => pm.getId()),
-        ])
+        const supportingIds = new Set(
+            supportingPremises.map((pm) => pm.getId())
+        )
         const constraintPremises = this.listPremises().filter(
-            (pm) => !roleIds.has(pm.getId()) && pm.isConstraint()
+            (pm) =>
+                pm.getId() !== this.conclusionPremiseId &&
+                !supportingIds.has(pm.getId())
         )
 
-        const checkedVariableIds = sortedUnique(
-            [conclusion, ...supportingPremises, ...constraintPremises].flatMap(
-                (pm) =>
+        const checkedVariableIds = [
+            ...new Set(
+                [
+                    conclusion,
+                    ...supportingPremises,
+                    ...constraintPremises,
+                ].flatMap((pm) =>
                     pm
                         .getExpressions()
                         .filter(
@@ -593,8 +549,9 @@ export class ArgumentEngine {
                                 expr.type === "variable"
                         )
                         .map((expr) => expr.variableId)
-            )
-        )
+                )
+            ),
+        ].sort()
 
         if (
             options?.maxVariables !== undefined &&

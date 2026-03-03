@@ -82,7 +82,9 @@ describe("monopoly-regulation.yaml", () => {
         expect(result.ok).toBe(true)
         expect(result.isValid).toBe(true)
         expect(result.numAssignmentsChecked).toBe(16) // 2^4
-        expect(result.numAdmissibleAssignments).toBe(16)
+        // Only assignments where MarketDominance=true AND Competition=false
+        // satisfy the constraint premises (4 of 16)
+        expect(result.numAdmissibleAssignments).toBe(4)
         expect(result.counterexamples).toHaveLength(0)
     })
 

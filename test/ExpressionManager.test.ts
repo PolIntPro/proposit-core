@@ -1735,14 +1735,16 @@ describe("ArgumentEngine — roles and evaluation", () => {
         const eng = new ArgumentEngine(ARG)
         const support = eng.createPremise({ title: "support" })
         const conclusion = eng.createPremise({ title: "conclusion" })
-        buildPremiseP(support)
-        buildPremiseQ(conclusion)
+        buildPremiseImplies(support)
+        buildPremiseImplies(conclusion)
 
-        eng.addSupportingPremise(support.getId())
         eng.setConclusionPremise(conclusion.getId())
 
+        // support is an inference premise and not the conclusion, so it is automatically supporting
+        expect(eng.listSupportingPremises().map((pm) => pm.getId())).toEqual([
+            support.getId(),
+        ])
         expect(eng.getRoleState()).toMatchObject({
-            supportingPremiseIds: [support.getId()],
             conclusionPremiseId: conclusion.getId(),
         })
 
@@ -1763,7 +1765,6 @@ describe("ArgumentEngine — roles and evaluation", () => {
         p2.addVariable(varB)
         p2.addExpression(makeVarExpr("expr-b", varB.id))
 
-        eng.addSupportingPremise(p1.getId())
         eng.setConclusionPremise(p2.getId())
 
         const validation = eng.validateEvaluability()
@@ -1783,7 +1784,6 @@ describe("ArgumentEngine — roles and evaluation", () => {
         buildPremiseQ(conclusion)
         buildPremiseP(constraint)
 
-        eng.addSupportingPremise(support.getId())
         eng.setConclusionPremise(conclusion.getId())
 
         const result = eng.evaluate({
@@ -1799,13 +1799,13 @@ describe("ArgumentEngine — roles and evaluation", () => {
 
     it("finds a counterexample for an invalid argument", () => {
         const eng = new ArgumentEngine(ARG)
-        const support = eng.createPremise({ title: "P" })
+        const support = eng.createPremise({ title: "P->Q" })
         const conclusion = eng.createPremise({ title: "Q" })
-        buildPremiseP(support)
+        buildPremiseImplies(support)
         buildPremiseQ(conclusion)
 
-        eng.addSupportingPremise(support.getId())
         eng.setConclusionPremise(conclusion.getId())
+        // support has implies root → automatically supporting
 
         const validity = eng.checkValidity({ mode: "firstCounterexample" })
         expect(validity.ok).toBe(true)
@@ -1814,7 +1814,7 @@ describe("ArgumentEngine — roles and evaluation", () => {
         expect(
             validity.counterexamples?.[0]?.assignment.variables
         ).toMatchObject({
-            [VAR_P.id]: true,
+            [VAR_P.id]: false,
             [VAR_Q.id]: false,
         })
     })
@@ -1828,9 +1828,9 @@ describe("ArgumentEngine — roles and evaluation", () => {
         buildPremiseP(support2)
         buildPremiseQ(conclusion)
 
-        eng.addSupportingPremise(support1.getId())
-        eng.addSupportingPremise(support2.getId())
         eng.setConclusionPremise(conclusion.getId())
+        // support1 (P->Q) has implies root → automatically supporting
+        // support2 (P) is a constraint (variable root, not inference)
 
         const validity = eng.checkValidity({ mode: "exhaustive" })
         expect(validity.ok).toBe(true)
@@ -1961,9 +1961,9 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         buildVarRoot(qPremise, "q-root", VAR_Q.id)
         buildVarRoot(pConclusion, "p-root", VAR_P.id)
 
-        eng.addSupportingPremise(pImpliesQ.getId())
-        eng.addSupportingPremise(qPremise.getId())
         eng.setConclusionPremise(pConclusion.getId())
+        // pImpliesQ has implies root → automatically supporting
+        // qPremise has variable root → constraint
 
         const summaries = [
             summarizeEvaluation(eng, { [VAR_P.id]: false, [VAR_Q.id]: false }),
@@ -1974,8 +1974,8 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         expect(summaries).toEqual([
             {
                 assignment: { [VAR_P.id]: false, [VAR_Q.id]: false },
-                admissible: true,
-                supportsTrue: false,
+                admissible: false,
+                supportsTrue: true,
                 conclusionTrue: false,
                 counterexample: false,
                 preservesTruth: true,
@@ -2052,10 +2052,9 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         buildVarRoot(rConclusion, "root-r", VAR_R.id)
         buildNotRoot(constraintNotR, "root-not-r", "root-not-r-child", VAR_R.id)
 
-        eng.addSupportingPremise(pImpliesQ.getId())
-        eng.addSupportingPremise(qImpliesR.getId())
-        eng.addSupportingPremise(pPremise.getId())
         eng.setConclusionPremise(rConclusion.getId())
+        // pImpliesQ and qImpliesR have implies roots → automatically supporting
+        // pPremise has variable root → constraint (along with constraintNotR)
 
         const evalInadmissible = summarizeEvaluation(eng, {
             [VAR_P.id]: true,
@@ -2067,7 +2066,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
             [VAR_Q.id]: true,
             [VAR_R.id]: false,
         })
-        const evalAdmissiblePremiseFalse = summarizeEvaluation(eng, {
+        const evalInadmissiblePremiseFalse = summarizeEvaluation(eng, {
             [VAR_P.id]: false,
             [VAR_Q.id]: false,
             [VAR_R.id]: false,
@@ -2080,16 +2079,17 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         expect(evalAdmissibleCounterexampleCandidate.supportsTrue).toBe(false)
         expect(evalAdmissibleCounterexampleCandidate.counterexample).toBe(false)
 
-        expect(evalAdmissiblePremiseFalse.admissible).toBe(true)
-        expect(evalAdmissiblePremiseFalse.supportsTrue).toBe(false)
-        expect(evalAdmissiblePremiseFalse.conclusionTrue).toBe(false)
+        // P is now a constraint, so P=false makes this inadmissible
+        expect(evalInadmissiblePremiseFalse.admissible).toBe(false)
+        expect(evalInadmissiblePremiseFalse.conclusionTrue).toBe(false)
 
         const validity = eng.checkValidity({ mode: "exhaustive" })
         expect(validity.ok).toBe(true)
         expect(validity.isValid).toBe(true)
         expect(validity.counterexamples).toEqual([])
         expect(validity.numAssignmentsChecked).toBe(8)
-        expect(validity.numAdmissibleAssignments).toBe(4)
+        // Only P=true AND R=false are admissible (2 of 8)
+        expect(validity.numAdmissibleAssignments).toBe(2)
     })
 
     it("distinguishes valid+sound from valid+unsound using a designated actual assignment", () => {
@@ -2112,9 +2112,9 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
         buildVarRoot(pPremise, "mp-p", VAR_P.id)
         buildVarRoot(qConclusion, "mp-q", VAR_Q.id)
 
-        eng.addSupportingPremise(pImpliesQ.getId())
-        eng.addSupportingPremise(pPremise.getId())
         eng.setConclusionPremise(qConclusion.getId())
+        // pImpliesQ has implies root → automatically supporting
+        // pPremise has variable root → constraint
 
         const soundCase = classifyAtActualAssignment(eng, {
             [VAR_P.id]: true,
@@ -2306,7 +2306,7 @@ describe("diffArguments", () => {
             })
         )
 
-        engine.addSupportingPremise("premise-1")
+        // premise-1 has implies root → automatically supporting
         return { engine, premiseId: "premise-1" }
     }
 
@@ -2327,8 +2327,6 @@ describe("diffArguments", () => {
                 before: undefined,
                 after: undefined,
             })
-            expect(diff.roles.supportingAdded).toEqual([])
-            expect(diff.roles.supportingRemoved).toEqual([])
         })
 
         it("detects added and removed variables", () => {
@@ -2375,7 +2373,7 @@ describe("diffArguments", () => {
                     position: 1,
                 })
             )
-            engineB.addSupportingPremise("premise-1")
+            // premise-1 has implies root → automatically supporting
 
             const diff = diffArguments(engineA, engineB)
             expect(diff.variables.modified).toEqual([
@@ -2441,7 +2439,7 @@ describe("diffArguments", () => {
                     position: 1,
                 })
             )
-            engineB.addSupportingPremise("premise-1")
+            // premise-1 has iff root → automatically supporting
 
             const diff = diffArguments(engineA, engineB)
             expect(diff.premises.modified).toHaveLength(1)
@@ -2575,25 +2573,16 @@ describe("diffArguments", () => {
             expect(diff.roles.conclusion.after).toBe("premise-conc")
         })
 
-        it("detects supporting premise added and removed", () => {
+        it("detects conclusion change between engines", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
             const { engine: engineB } = buildSimpleEngine(ARG)
 
-            // engineA has premise-1 as supporting; remove it in B and add premise-2
-            engineB.removeSupportingPremise("premise-1")
-            const pm2 = engineB.createPremiseWithId("premise-2")
-            pm2.addVariable(makeVar("var-p", "P"))
-            pm2.addExpression(
-                makeVarExpr("expr-p2", "var-p", {
-                    parentId: null,
-                    position: POSITION_INITIAL,
-                })
-            )
-            engineB.addSupportingPremise("premise-2")
+            // engineA has no conclusion, engineB sets premise-1 as conclusion
+            engineB.setConclusionPremise("premise-1")
 
             const diff = diffArguments(engineA, engineB)
-            expect(diff.roles.supportingAdded).toEqual(["premise-2"])
-            expect(diff.roles.supportingRemoved).toEqual(["premise-1"])
+            expect(diff.roles.conclusion.before).toBeUndefined()
+            expect(diff.roles.conclusion.after).toBe("premise-1")
         })
 
         it("uses custom comparator extending default", () => {
@@ -3097,7 +3086,7 @@ describe("ArgumentEngine — three-valued evaluation", () => {
         constraint.addExpression(makeVarExpr("d-var", VAR_D.id))
 
         engine.setConclusionPremise(conclusion.getId())
-        engine.addSupportingPremise(supporting.getId())
+        // supporting has implies root → automatically supporting
 
         return { engine }
     }

@@ -45,8 +45,6 @@ function emptyDiff(
         premises: { added: [], removed: [], modified: [] },
         roles: {
             conclusion: { before: undefined, after: undefined },
-            supportingAdded: [],
-            supportingRemoved: [],
         },
         ...overrides,
     }
@@ -90,8 +88,6 @@ describe("isDiffEmpty", () => {
         const diff = emptyDiff({
             roles: {
                 conclusion: { before: "p1", after: "p2" },
-                supportingAdded: [],
-                supportingRemoved: [],
             },
         })
         expect(isDiffEmpty(diff)).toBe(false)
@@ -242,15 +238,11 @@ describe("renderDiff", () => {
         const diff = emptyDiff({
             roles: {
                 conclusion: { before: "p1", after: "p2" },
-                supportingAdded: ["p3"],
-                supportingRemoved: ["p4"],
             },
         })
         renderDiff(diff)
         expect(printedLines).toContain("Roles:")
         expect(printedLines).toContain('  conclusion: "p1" → "p2"')
-        expect(printedLines).toContain("  + support: p3 (added)")
-        expect(printedLines).toContain("  - support: p4 (removed)")
     })
 
     it("omits sections with no changes", () => {

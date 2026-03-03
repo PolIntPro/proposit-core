@@ -92,9 +92,8 @@ export async function hydrateEngine(
     if (roles.conclusionPremiseId !== undefined) {
         engine.setConclusionPremise(roles.conclusionPremiseId)
     }
-    for (const id of roles.supportingPremiseIds) {
-        engine.addSupportingPremise(id)
-    }
+    // Supporting premises are now derived from expression type (inference premises
+    // that aren't the conclusion), so no explicit role assignment is needed.
 
     return engine
 }

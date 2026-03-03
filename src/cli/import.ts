@@ -280,13 +280,12 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             (expr) => pm.addExpression(expr)
         )
 
-        // Assign role
+        // Assign conclusion role; supporting is derived from expression type
         const role = premiseDef.role ?? "supporting"
         if (role === "conclusion") {
             engine.setConclusionPremise(pm.getId())
-        } else {
-            engine.addSupportingPremise(pm.getId())
         }
+        // Non-conclusion inference premises are automatically supporting
     }
 
     return engine
