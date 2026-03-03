@@ -9,6 +9,7 @@
 export { ArgumentEngine, PremiseManager } from "./lib/index.js"
 export * from "./lib/schemata/index.js"
 export * from "./lib/types/diff.js"
+export * from "./lib/types/mutation.js"
 export {
     diffArguments,
     defaultCompareArgument,
