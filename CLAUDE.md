@@ -106,6 +106,8 @@ ArgumentEngine
 
 `ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `options` parameter: `{ checksumConfig?: TCoreChecksumConfig }`. The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseManager` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
 
+When the first premise is added to an `ArgumentEngine` (via `createPremise` or `createPremiseWithId`), it is automatically designated as the conclusion premise if no conclusion is currently set. This auto-assignment is reflected in the mutation changeset. Explicit `setConclusionPremise()` overrides the auto-assignment. Removing or clearing the conclusion re-enables auto-assignment for the next premise created.
+
 ## CLI state storage layout
 
 ```

@@ -5828,7 +5828,7 @@ describe("ArgumentEngine — auto-conclusion on first premise", () => {
 
     it("first createPremiseWithId auto-sets conclusion", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
-        const { result: pm, changes } = eng.createPremiseWithId("my-premise")
+        const { changes } = eng.createPremiseWithId("my-premise")
         expect(eng.getRoleState().conclusionPremiseId).toBe("my-premise")
         expect(changes.roles?.conclusionPremiseId).toBe("my-premise")
     })
@@ -5861,7 +5861,7 @@ describe("ArgumentEngine — auto-conclusion on first premise", () => {
 
     it("setConclusionPremise overrides auto-assignment", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
-        const { result: first } = eng.createPremise()
+        eng.createPremise()
         const { result: second } = eng.createPremise()
         eng.setConclusionPremise(second.getId())
         expect(eng.getRoleState().conclusionPremiseId).toBe(second.getId())

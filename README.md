@@ -53,7 +53,7 @@ The five supported operators and their arities are:
 
 To evaluate or check an argument, premises must be assigned roles:
 
-- **Conclusion** — the single premise whose truth is being argued for. Set with `ArgumentEngine.setConclusionPremise()`.
+- **Conclusion** — the single premise whose truth is being argued for. Set with `ArgumentEngine.setConclusionPremise()`. The first premise added to an engine is automatically designated as the conclusion if none is set; explicit `setConclusionPremise()` overrides this.
 - **Supporting** — any inference premise (root is `implies` or `iff`) that is not the conclusion is automatically considered supporting. There is no explicit method to add or remove supporting premises.
 
 A premise that is neither supporting nor the conclusion and whose type is `"constraint"` is automatically used to filter admissible variable assignments during validity checking.
@@ -169,9 +169,10 @@ conclusion.addExpression({
 ### Setting roles
 
 ```typescript
+// The first premise created is automatically designated as the conclusion.
 // Supporting premises are derived automatically — any inference premise
 // (root is implies/iff) that isn't the conclusion is automatically supporting.
-// Only the conclusion needs to be set explicitly:
+// Use setConclusionPremise to override the auto-assigned conclusion:
 eng.setConclusionPremise(conclusion.getId())
 ```
 
@@ -289,7 +290,7 @@ Creates an engine scoped to `argument` (`{ id, version, title, description }`, w
 
 #### `createPremise(title?)` → `TCoreMutationResult<PremiseManager>`
 
-Creates a new `PremiseManager`, registers it with the engine, and returns it wrapped in a mutation result with the changeset.
+Creates a new `PremiseManager`, registers it with the engine, and returns it wrapped in a mutation result with the changeset. If no conclusion is currently set, the new premise is automatically designated as the conclusion (reflected in the changeset's `roles` field).
 
 ---
 
