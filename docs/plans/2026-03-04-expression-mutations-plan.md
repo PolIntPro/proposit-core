@@ -13,6 +13,7 @@
 ### Task 1: Add `updateExpression` to ExpressionManager — tests
 
 **Files:**
+
 - Test: `test/ExpressionManager.test.ts`
 
 Add a new `describe("updateExpression")` block at the bottom of the test file. These tests operate on `PremiseManager` directly (matching the existing test pattern), but this task writes only the failing tests. Use the existing helpers `makeVarExpr`, `makeOpExpr`, `makeFormulaExpr`, `makeVar`, `ARG`, `VAR_P`, `VAR_Q`.
@@ -27,8 +28,12 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         const { result, changes } = pm.updateExpression("v1", { position: 2 })
         expect(result.position).toBe(2)
@@ -47,8 +52,12 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         expect(() => pm.updateExpression("v1", { position: 1 })).toThrow(
             /Position 1 is already used/
@@ -114,8 +123,12 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         const { result } = pm.updateExpression("op-and", { operator: "or" })
         expect(result.type).toBe("operator")
@@ -130,8 +143,12 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-or", "or"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
 
         const { result } = pm.updateExpression("op-or", { operator: "and" })
         if (result.type === "operator") {
@@ -145,8 +162,12 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-impl", "implies"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-impl", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-impl", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-impl", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-impl", position: 1 })
+        )
 
         const { result } = pm.updateExpression("op-impl", { operator: "iff" })
         if (result.type === "operator") {
@@ -160,10 +181,16 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-iff", "iff"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-iff", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-iff", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-iff", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-iff", position: 1 })
+        )
 
-        const { result } = pm.updateExpression("op-iff", { operator: "implies" })
+        const { result } = pm.updateExpression("op-iff", {
+            operator: "implies",
+        })
         if (result.type === "operator") {
             expect(result.operator).toBe("implies")
         }
@@ -175,12 +202,16 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
-
-        expect(() => pm.updateExpression("op-and", { operator: "implies" })).toThrow(
-            /not a permitted operator change/
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
         )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-and", { operator: "implies" })
+        ).toThrow(/not a permitted operator change/)
     })
 
     it("rejects operator change from not", () => {
@@ -190,9 +221,9 @@ describe("updateExpression", () => {
         pm.addExpression(makeOpExpr("op-not", "not"))
         pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-not" }))
 
-        expect(() => pm.updateExpression("op-not", { operator: "and" })).toThrow(
-            /not a permitted operator change/
-        )
+        expect(() =>
+            pm.updateExpression("op-not", { operator: "and" })
+        ).toThrow(/not a permitted operator change/)
     })
 
     it("rejects operator change to not", () => {
@@ -201,12 +232,16 @@ describe("updateExpression", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
-
-        expect(() => pm.updateExpression("op-and", { operator: "not" })).toThrow(
-            /not a permitted operator change/
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
         )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-and", { operator: "not" })
+        ).toThrow(/not a permitted operator change/)
     })
 
     it("rejects operator update on non-operator expression", () => {
@@ -344,6 +379,7 @@ Expected: FAIL — `pm.updateExpression is not a function`
 ### Task 2: Implement `updateExpression` on ExpressionManager
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 
 **Step 1: Define the update type and allowed operator swaps**
@@ -502,6 +538,7 @@ Expected: PASS (but tests still fail since PremiseManager doesn't have the metho
 ### Task 3: Implement `updateExpression` on PremiseManager
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 
 **Step 1: Import `TExpressionUpdate`**
@@ -616,6 +653,7 @@ git commit -m "Add updateExpression to ExpressionManager and PremiseManager"
 ### Task 4: Extend `removeExpression` with `deleteSubtree` — tests
 
 **Files:**
+
 - Test: `test/ExpressionManager.test.ts`
 
 Add a new `describe("removeExpression — deleteSubtree parameter")` block at the bottom.
@@ -630,8 +668,12 @@ describe("removeExpression — deleteSubtree parameter", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         const { result, changes } = pm.removeExpression("v1", true)
         expect(result!.id).toBe("v1")
@@ -647,9 +689,15 @@ describe("removeExpression — deleteSubtree parameter", () => {
         const { result: pm } = engine.createPremise()
         // Tree: and(or(P, Q))
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeOpExpr("op-or", "or", { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 }))
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
 
         const { result } = pm.removeExpression("op-and", false)
         expect(result!.id).toBe("op-and")
@@ -683,8 +731,12 @@ describe("removeExpression — deleteSubtree parameter", () => {
         engine.addVariable(VAR_Q)
         const { result: pm } = engine.createPremise()
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         expect(() => pm.removeExpression("op-and", false)).toThrow(
             /multiple children/
@@ -702,8 +754,12 @@ describe("removeExpression — deleteSubtree parameter", () => {
         const { result: pm } = engine.createPremise()
         // Tree: and(P, Q)
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
 
         // Remove leaf v1 with deleteSubtree: false (it's a leaf, so same as true)
         pm.removeExpression("v1", false)
@@ -748,8 +804,12 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Let's skip this specific test and just test the happy path of promoting implies to root.
         pm.addExpression(makeFormulaExpr("f1"))
         pm.addExpression(makeOpExpr("op-impl", "implies", { parentId: "f1" }))
-        pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-impl", position: 0 }))
-        pm.addExpression(makeVarExpr("v2", VAR_Q.id, { parentId: "op-impl", position: 1 }))
+        pm.addExpression(
+            makeVarExpr("v1", VAR_P.id, { parentId: "op-impl", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", VAR_Q.id, { parentId: "op-impl", position: 1 })
+        )
 
         pm.removeExpression("f1", false)
         // implies promoted to root (parentId was already null via f1)
@@ -783,7 +843,9 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Actually collapse only runs on parents with 0 or 1 children for operators.
         // The point is: no collapse runs AT ALL after the promote.
         pm.addExpression(makeOpExpr("op-and", "and"))
-        pm.addExpression(makeOpExpr("op-not", "not", { parentId: "op-and", position: 0 }))
+        pm.addExpression(
+            makeOpExpr("op-not", "not", { parentId: "op-and", position: 0 })
+        )
         pm.addExpression(makeVarExpr("v1", VAR_P.id, { parentId: "op-not" }))
 
         pm.removeExpression("op-and", false)
@@ -823,6 +885,7 @@ Expected: FAIL — `removeExpression` expects 1 argument but got 2 (TypeScript),
 ### Task 5: Implement `removeExpression` `deleteSubtree` parameter on ExpressionManager
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 
 **Step 1: Modify `removeExpression` signature and implementation**
@@ -1000,6 +1063,7 @@ Expected: Compilation errors in PremiseManager.ts and potentially in tests, beca
 ### Task 6: Update `removeExpression` callers
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 
 The PremiseManager's `removeExpression` must also accept the `deleteSubtree` parameter and forward it. Additionally, `deleteExpressionsUsingVariable` calls `this.removeExpression(exprId)` and must pass `true`.
@@ -1030,9 +1094,7 @@ if (deleteSubtree) {
     this.expressions.removeExpression(expressionId, true)
     for (const expr of subtree) {
         if (expr.type === "variable") {
-            this.expressionsByVariableId
-                .get(expr.variableId)
-                ?.delete(expr.id)
+            this.expressionsByVariableId.get(expr.variableId)?.delete(expr.id)
         }
     }
 } else {
@@ -1061,9 +1123,7 @@ if (deleteSubtree || isLeaf) {
     this.expressions.removeExpression(expressionId, deleteSubtree)
     for (const expr of subtree) {
         if (expr.type === "variable") {
-            this.expressionsByVariableId
-                .get(expr.variableId)
-                ?.delete(expr.id)
+            this.expressionsByVariableId.get(expr.variableId)?.delete(expr.id)
         }
     }
     // Also clean up any expressions that were removed by collapse
@@ -1159,6 +1219,7 @@ Expected: May still have errors in test file — existing tests call `removeExpr
 ### Task 7: Update existing tests and run full check
 
 **Files:**
+
 - Modify: `test/ExpressionManager.test.ts`
 
 **Step 1: Update all existing `removeExpression` calls**
@@ -1166,6 +1227,7 @@ Expected: May still have errors in test file — existing tests call `removeExpr
 Search for all calls to `.removeExpression(` in the test file and add `, true` as the second argument. These are all the existing tests that use `deleteSubtree: true` behavior (the current behavior).
 
 Use find-and-replace across the test file:
+
 - Pattern: `.removeExpression("` → ensure each call has a second argument `true`
 
 Every existing `removeExpression` call in the test file should become `removeExpression("...", true)`.
@@ -1192,12 +1254,14 @@ slot instead of deleting the subtree."
 ### Task 8: Update documentation
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `README.md` (if it documents the expression API)
 
 **Step 1: Update CLAUDE.md**
 
 Update the following sections:
+
 - **Architecture** section: mention `updateExpression` method
 - **Key design decisions / Operator collapse on removal**: update to reflect `deleteSubtree` parameter — collapse only runs with `deleteSubtree: true` or when removing a leaf with `deleteSubtree: false`
 - **Types** section: add `TExpressionUpdate` type

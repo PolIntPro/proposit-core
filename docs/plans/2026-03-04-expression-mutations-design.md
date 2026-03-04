@@ -33,31 +33,31 @@ The updates parameter accepts only `position`, `variableId`, and `operator`. A T
 
 ### Field rules
 
-| Field | Allowed | Validation |
-|-------|---------|------------|
-| `position` | Yes | Must not collide with existing sibling positions under the same parent |
-| `variableId` | Yes | Expression must be type `"variable"`. New variable must exist in `VariableManager` |
-| `operator` | Yes | Expression must be type `"operator"`. Only `and <-> or` and `implies <-> iff` swaps permitted |
-| `id` | No | Throw if present |
-| `argumentId` | No | Throw if present |
-| `argumentVersion` | No | Throw if present |
-| `checksum` | No | Throw if present |
-| `parentId` | No | Throw if present (use delete + re-create for reparenting) |
-| `type` | No | Throw if present |
+| Field             | Allowed | Validation                                                                                    |
+| ----------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `position`        | Yes     | Must not collide with existing sibling positions under the same parent                        |
+| `variableId`      | Yes     | Expression must be type `"variable"`. New variable must exist in `VariableManager`            |
+| `operator`        | Yes     | Expression must be type `"operator"`. Only `and <-> or` and `implies <-> iff` swaps permitted |
+| `id`              | No      | Throw if present                                                                              |
+| `argumentId`      | No      | Throw if present                                                                              |
+| `argumentVersion` | No      | Throw if present                                                                              |
+| `checksum`        | No      | Throw if present                                                                              |
+| `parentId`        | No      | Throw if present (use delete + re-create for reparenting)                                     |
+| `type`            | No      | Throw if present                                                                              |
 
 ### ExpressionManager behavior
 
 1. Look up expression by ID, throw if not found
 2. Reject any forbidden fields present in the updates object
 3. If `operator` in updates:
-   - Validate expression is type `"operator"`
-   - Validate swap is permitted: `and <-> or`, `implies <-> iff`. All other changes throw.
+    - Validate expression is type `"operator"`
+    - Validate swap is permitted: `and <-> or`, `implies <-> iff`. All other changes throw.
 4. If `variableId` in updates:
-   - Validate expression is type `"variable"`
+    - Validate expression is type `"variable"`
 5. If `position` in updates:
-   - Remove old position from `childPositionsByParentId`
-   - Validate new position doesn't collide with siblings
-   - Add new position to `childPositionsByParentId`
+    - Remove old position from `childPositionsByParentId`
+    - Validate new position doesn't collide with siblings
+    - Add new position to `childPositionsByParentId`
 6. Apply updates to stored expression object (mutate in place)
 7. Notify collector via `modifiedExpression(updatedExpression)`
 8. Return updated expression
