@@ -25,6 +25,7 @@ export {
     analyzePremiseRelationships,
     buildPremiseProfile,
 } from "./core/relationships.js"
+export { DEFAULT_CHECKSUM_CONFIG, createChecksumConfig } from "./consts.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { FormulaAST } from "./core/parser/formula.js"
 export type { TExpressionWithoutPosition } from "./core/ExpressionManager.js"

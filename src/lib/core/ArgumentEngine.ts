@@ -19,6 +19,7 @@ import type {
     TCoreValidityCheckResult,
 } from "../types/evaluation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
+import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./ChangeCollector.js"
@@ -234,7 +235,7 @@ export class ArgumentEngine {
         parts.push(
             entityChecksum(
                 this.argument as unknown as Record<string, unknown>,
-                config?.argumentFields ?? ["id", "version"]
+                config?.argumentFields ?? DEFAULT_CHECKSUM_CONFIG.argumentFields!
             )
         )
 
@@ -242,7 +243,7 @@ export class ArgumentEngine {
         parts.push(
             entityChecksum(
                 this.getRoleState() as unknown as Record<string, unknown>,
-                config?.roleFields ?? ["conclusionPremiseId"]
+                config?.roleFields ?? DEFAULT_CHECKSUM_CONFIG.roleFields!
             )
         )
 

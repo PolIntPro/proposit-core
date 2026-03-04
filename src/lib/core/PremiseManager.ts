@@ -27,29 +27,12 @@ import {
     makeValidationResult,
 } from "./evaluation/shared.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
+import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
 import { computeHash, entityChecksum } from "./checksum.js"
 import type { TExpressionWithoutPosition } from "./ExpressionManager.js"
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
-
-const DEFAULT_EXPRESSION_FIELDS = [
-    "id",
-    "type",
-    "parentId",
-    "position",
-    "argumentId",
-    "argumentVersion",
-    "variableId",
-    "operator",
-]
-
-const DEFAULT_VARIABLE_FIELDS = [
-    "id",
-    "symbol",
-    "argumentId",
-    "argumentVersion",
-]
 
 export class PremiseManager {
     private id: string
@@ -479,7 +462,7 @@ export class PremiseManager {
 
     public getVariables(): TCorePropositionalVariable[] {
         const fields =
-            this.checksumConfig?.variableFields ?? DEFAULT_VARIABLE_FIELDS
+            this.checksumConfig?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
         return sortedCopyById(
             this.variables.toArray().map((v) => ({
                 ...v,
@@ -493,7 +476,7 @@ export class PremiseManager {
 
     public getExpressions(): TCorePropositionalExpression[] {
         const fields =
-            this.checksumConfig?.expressionFields ?? DEFAULT_EXPRESSION_FIELDS
+            this.checksumConfig?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
         return sortedCopyById(
             this.expressions.toArray().map((e) => ({
                 ...e,
@@ -935,7 +918,7 @@ export class PremiseManager {
         expr: TCorePropositionalExpression
     ): TCorePropositionalExpression {
         const fields =
-            this.checksumConfig?.expressionFields ?? DEFAULT_EXPRESSION_FIELDS
+            this.checksumConfig?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
         return {
             ...expr,
             checksum: entityChecksum(
@@ -949,7 +932,7 @@ export class PremiseManager {
         v: TCorePropositionalVariable
     ): TCorePropositionalVariable {
         const fields =
-            this.checksumConfig?.variableFields ?? DEFAULT_VARIABLE_FIELDS
+            this.checksumConfig?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
         return {
             ...v,
             checksum: entityChecksum(
@@ -1001,7 +984,7 @@ export class PremiseManager {
                     id: this.id,
                     rootExpressionId: this.rootExpressionId,
                 } as Record<string, unknown>,
-                config?.premiseFields ?? ["id", "rootExpressionId"]
+                config?.premiseFields ?? DEFAULT_CHECKSUM_CONFIG.premiseFields!
             )
         )
 
@@ -1010,12 +993,7 @@ export class PremiseManager {
             parts.push(
                 entityChecksum(
                     v as unknown as Record<string, unknown>,
-                    config?.variableFields ?? [
-                        "id",
-                        "symbol",
-                        "argumentId",
-                        "argumentVersion",
-                    ]
+                    config?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
                 )
             )
         }
@@ -1025,16 +1003,7 @@ export class PremiseManager {
             parts.push(
                 entityChecksum(
                     e as unknown as Record<string, unknown>,
-                    config?.expressionFields ?? [
-                        "id",
-                        "type",
-                        "parentId",
-                        "position",
-                        "argumentId",
-                        "argumentVersion",
-                        "variableId",
-                        "operator",
-                    ]
+                    config?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
                 )
             )
         }
