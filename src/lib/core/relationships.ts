@@ -276,7 +276,7 @@ function classifyConstraintPremise(
     focusedProfile: TCorePremiseProfile,
     connectedVarIds: Set<string>
 ): TCorePremiseRelationResult {
-    const premiseVarIds = new Set(premise.getVariables().map((v) => v.id))
+    const premiseVarIds = premise.getReferencedVariableIds()
     const focusedVarIds = new Set(
         focusedProfile.appearances.map((a) => a.variableId)
     )
@@ -372,8 +372,8 @@ export function analyzePremiseRelationships(
         const toFocused = bfsToTarget(graph, pmId, focusedPremiseId)
         const fromFocused = bfsToTarget(graph, focusedPremiseId, pmId)
         if (toFocused.reachable || fromFocused.reachable) {
-            for (const v of pm.getVariables()) {
-                connectedVarIds.add(v.id)
+            for (const varId of pm.getReferencedVariableIds()) {
+                connectedVarIds.add(varId)
             }
         }
     }
@@ -399,10 +399,8 @@ export function analyzePremiseRelationships(
         // If focused premise is a constraint, all sharing premises are
         // restricting
         if (!focusedProfile.isInference) {
-            const focusedVarIds = new Set(
-                focusedPremise.getVariables().map((v) => v.id)
-            )
-            const pmVarIds = new Set(pm.getVariables().map((v) => v.id))
+            const focusedVarIds = focusedPremise.getReferencedVariableIds()
+            const pmVarIds = pm.getReferencedVariableIds()
             const shares = [...pmVarIds].some((id) => focusedVarIds.has(id))
             results.push({
                 premiseId: pmId,

@@ -45,6 +45,12 @@ export async function hydrateEngine(
     const argument: TCoreArgument = { ...argMeta, ...versionMeta }
     const engine = new ArgumentEngine(argument)
 
+    // Register all argument-level variables once on the engine; the shared
+    // VariableManager is visible to every PremiseManager.
+    for (const variable of allVariables) {
+        engine.addVariable({ ...variable, argumentVersion: version })
+    }
+
     for (const premiseId of premiseIds) {
         const [meta, data] = await Promise.all([
             readPremiseMeta(argumentId, version, premiseId),
@@ -56,10 +62,6 @@ export async function hydrateEngine(
             premiseId,
             premiseExtras
         )
-
-        for (const variable of allVariables) {
-            pm.addVariable({ ...variable, argumentVersion: version })
-        }
 
         // Add expressions in BFS order: root (parentId===null) first, then
         // children of already-added expressions.
@@ -124,7 +126,7 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
         published: argRecord.published,
     } as TCliArgumentVersionMeta)
 
-    const variables = engine.listPremises()[0]?.getVariables() ?? []
+    const variables = engine.getVariables()
     await writeVariables(id, arg.version, variables)
 
     await writeRoles(id, arg.version, engine.getRoleState())

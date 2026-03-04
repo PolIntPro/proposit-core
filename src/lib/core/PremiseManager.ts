@@ -49,6 +49,7 @@ export class PremiseManager {
     constructor(
         id: string,
         argument: TCoreArgument,
+        variables: VariableManager,
         extras?: Record<string, unknown>,
         checksumConfig?: TCoreChecksumConfig
     ) {
@@ -57,60 +58,45 @@ export class PremiseManager {
         this.extras = extras ?? {}
         this.checksumConfig = checksumConfig
         this.rootExpressionId = undefined
-        this.variables = new VariableManager()
+        this.variables = variables
         this.expressions = new ExpressionManager()
         this.expressionsByVariableId = new DefaultMap(() => new Set())
     }
 
     /**
-     * Registers a propositional variable for use within this premise.
-     *
-     * @throws If `variable.symbol` is already in use within this premise.
-     * @throws If `variable.id` already exists within this premise.
-     * @throws If the variable does not belong to this premise's argument.
+     * Deletes all expressions that reference the given variable ID,
+     * including their subtrees. Operator collapse runs after each removal.
+     * Returns all removed expressions in the changeset.
      */
-    public addVariable(
-        variable: TCorePropositionalVariable
-    ): TCoreMutationResult<TCorePropositionalVariable> {
-        this.assertBelongsToArgument(
-            variable.argumentId,
-            variable.argumentVersion
-        )
-        this.variables.addVariable(variable)
-        const collector = new ChangeCollector()
-        collector.addedVariable({ ...variable })
-        this.markDirty()
-        return {
-            result: this.attachVariableChecksum({ ...variable }),
-            changes: this.attachChangesetChecksums(collector.toChangeset()),
-        }
-    }
-
-    /**
-     * Removes a variable from this premise's registry and returns it, or
-     * `undefined` if it was not found.
-     *
-     * @throws If any expression in this premise still references the variable.
-     */
-    public removeVariable(
+    public deleteExpressionsUsingVariable(
         variableId: string
-    ): TCoreMutationResult<TCorePropositionalVariable | undefined> {
-        if (this.expressionsByVariableId.get(variableId).size > 0) {
-            throw new Error(
-                `Variable "${variableId}" cannot be removed because it is referenced by one or more expressions.`
-            )
+    ): TCoreMutationResult<TCorePropositionalExpression[]> {
+        const expressionIds = this.expressionsByVariableId.get(variableId)
+        if (expressionIds.size === 0) {
+            return { result: [], changes: {} }
         }
-        const removed = this.variables.removeVariable(variableId)
+
         const collector = new ChangeCollector()
-        if (removed) {
-            collector.removedVariable({ ...removed })
-            this.markDirty()
+
+        // Copy the set since removeExpression mutates expressionsByVariableId
+        const removed: TCorePropositionalExpression[] = []
+        for (const exprId of [...expressionIds]) {
+            // The expression may already have been removed as part of a
+            // prior subtree deletion or operator collapse in this loop.
+            if (!this.expressions.getExpression(exprId)) continue
+
+            const { result, changes } = this.removeExpression(exprId)
+            if (result) removed.push(result)
+            if (changes.expressions) {
+                for (const e of changes.expressions.removed) {
+                    collector.removedExpression(e)
+                }
+            }
         }
+
         return {
-            result: removed
-                ? this.attachVariableChecksum({ ...removed })
-                : undefined,
-            changes: this.attachChangesetChecksums(collector.toChangeset()),
+            result: removed,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -462,7 +448,8 @@ export class PremiseManager {
 
     public getVariables(): TCorePropositionalVariable[] {
         const fields =
-            this.checksumConfig?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
+            this.checksumConfig?.variableFields ??
+            DEFAULT_CHECKSUM_CONFIG.variableFields!
         return sortedCopyById(
             this.variables.toArray().map((v) => ({
                 ...v,
@@ -476,7 +463,8 @@ export class PremiseManager {
 
     public getExpressions(): TCorePropositionalExpression[] {
         const fields =
-            this.checksumConfig?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
+            this.checksumConfig?.expressionFields ??
+            DEFAULT_CHECKSUM_CONFIG.expressionFields!
         return sortedCopyById(
             this.expressions.toArray().map((e) => ({
                 ...e,
@@ -873,6 +861,21 @@ export class PremiseManager {
     }
 
     /**
+     * Returns the set of variable IDs referenced by expressions in this premise.
+     * Only variables that appear in `type: "variable"` expression nodes are
+     * included — not all variables in the shared VariableManager.
+     */
+    public getReferencedVariableIds(): Set<string> {
+        const ids = new Set<string>()
+        for (const expr of this.expressions.toArray()) {
+            if (expr.type === "variable") {
+                ids.add(expr.variableId)
+            }
+        }
+        return ids
+    }
+
+    /**
      * Returns a serialisable snapshot of this premise conforming to
      * `TCorePremise`.  `variables` contains only the variables that are actually
      * referenced by expressions in this premise.
@@ -918,7 +921,8 @@ export class PremiseManager {
         expr: TCorePropositionalExpression
     ): TCorePropositionalExpression {
         const fields =
-            this.checksumConfig?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
+            this.checksumConfig?.expressionFields ??
+            DEFAULT_CHECKSUM_CONFIG.expressionFields!
         return {
             ...expr,
             checksum: entityChecksum(
@@ -932,7 +936,8 @@ export class PremiseManager {
         v: TCorePropositionalVariable
     ): TCorePropositionalVariable {
         const fields =
-            this.checksumConfig?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
+            this.checksumConfig?.variableFields ??
+            DEFAULT_CHECKSUM_CONFIG.variableFields!
         return {
             ...v,
             checksum: entityChecksum(
@@ -993,7 +998,8 @@ export class PremiseManager {
             parts.push(
                 entityChecksum(
                     v as unknown as Record<string, unknown>,
-                    config?.variableFields ?? DEFAULT_CHECKSUM_CONFIG.variableFields!
+                    config?.variableFields ??
+                        DEFAULT_CHECKSUM_CONFIG.variableFields!
                 )
             )
         }
@@ -1003,7 +1009,8 @@ export class PremiseManager {
             parts.push(
                 entityChecksum(
                     e as unknown as Record<string, unknown>,
-                    config?.expressionFields ?? DEFAULT_CHECKSUM_CONFIG.expressionFields!
+                    config?.expressionFields ??
+                        DEFAULT_CHECKSUM_CONFIG.expressionFields!
                 )
             )
         }
@@ -1012,6 +1019,11 @@ export class PremiseManager {
     }
 
     private markDirty(): void {
+        this.checksumDirty = true
+    }
+
+    /** Invalidate the cached checksum so the next call recomputes it. */
+    public invalidateChecksum(): void {
         this.checksumDirty = true
     }
 

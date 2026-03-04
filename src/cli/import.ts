@@ -257,17 +257,17 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
         variablesByName.set(name, variable)
     }
 
+    // Register all variables with the engine (shared across all premises)
+    for (const variable of variablesByName.values()) {
+        engine.addVariable(variable)
+    }
+
     // Create premises and build expression trees
     for (let i = 0; i < input.premises.length; i++) {
         const premiseDef = input.premises[i]
         const { result: pm } = engine.createPremise(
             premiseDef.metadata ? { ...premiseDef.metadata } : undefined
         )
-
-        // Register all variables with this premise
-        for (const variable of variablesByName.values()) {
-            pm.addVariable(variable)
-        }
 
         // Build expression tree from parsed AST
         buildExpressions(

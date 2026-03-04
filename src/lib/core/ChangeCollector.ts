@@ -48,6 +48,9 @@ export class ChangeCollector {
     addedVariable(variable: TCorePropositionalVariable): void {
         this.variables.added.push(variable)
     }
+    modifiedVariable(variable: TCorePropositionalVariable): void {
+        this.variables.modified.push(variable)
+    }
     removedVariable(variable: TCorePropositionalVariable): void {
         this.variables.removed.push(variable)
     }

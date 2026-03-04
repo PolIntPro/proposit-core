@@ -3,6 +3,7 @@ import type {
     TCoreArgument,
     TCorePremise,
     TCorePropositionalExpression,
+    TCorePropositionalVariable,
 } from "../schemata/index.js"
 import type {
     TCoreArgumentEngineData,
@@ -31,6 +32,7 @@ import {
     makeValidationResult,
 } from "./evaluation/shared.js"
 import { PremiseManager } from "./PremiseManager.js"
+import { VariableManager } from "./VariableManager.js"
 
 /**
  * Manages a propositional logic argument composed of premises, variable
@@ -42,6 +44,7 @@ import { PremiseManager } from "./PremiseManager.js"
 export class ArgumentEngine {
     private argument: TCoreArgument
     private premises: Map<string, PremiseManager>
+    private variables: VariableManager
     private conclusionPremiseId: string | undefined
     private checksumConfig?: TCoreChecksumConfig
     private checksumDirty = true
@@ -53,6 +56,7 @@ export class ArgumentEngine {
     ) {
         this.argument = { ...argument }
         this.premises = new Map()
+        this.variables = new VariableManager()
         this.conclusionPremiseId = undefined
         this.checksumConfig = options?.checksumConfig
     }
@@ -88,6 +92,7 @@ export class ArgumentEngine {
         const pm = new PremiseManager(
             id,
             this.argument,
+            this.variables,
             extras,
             this.checksumConfig
         )
@@ -141,6 +146,115 @@ export class ArgumentEngine {
         return this.listPremiseIds()
             .map((id) => this.premises.get(id))
             .filter((pm): pm is PremiseManager => pm !== undefined)
+    }
+
+    /**
+     * Registers a propositional variable for use across all premises.
+     *
+     * @throws If `variable.symbol` is already in use.
+     * @throws If `variable.id` already exists.
+     * @throws If the variable does not belong to this argument.
+     */
+    public addVariable(
+        variable: TCorePropositionalVariable
+    ): TCoreMutationResult<TCorePropositionalVariable> {
+        if (variable.argumentId !== this.argument.id) {
+            throw new Error(
+                `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
+            )
+        }
+        if (variable.argumentVersion !== this.argument.version) {
+            throw new Error(
+                `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
+            )
+        }
+        this.variables.addVariable(variable)
+        const withChecksum = this.attachVariableChecksum({ ...variable })
+        const collector = new ChangeCollector()
+        collector.addedVariable(withChecksum)
+        this.markDirty()
+        this.markAllPremisesDirty()
+        return {
+            result: withChecksum,
+            changes: collector.toChangeset(),
+        }
+    }
+
+    /**
+     * Updates fields on an existing variable. Since all premises share the
+     * same VariableManager, the update is immediately visible everywhere.
+     *
+     * @throws If the new symbol is already in use by a different variable.
+     */
+    public updateVariable(
+        variableId: string,
+        updates: { symbol?: string }
+    ): TCoreMutationResult<TCorePropositionalVariable | undefined> {
+        const updated = this.variables.updateVariable(variableId, updates)
+        const collector = new ChangeCollector()
+        if (updated) {
+            const withChecksum = this.attachVariableChecksum({ ...updated })
+            collector.modifiedVariable(withChecksum)
+            this.markDirty()
+            this.markAllPremisesDirty()
+            return {
+                result: withChecksum,
+                changes: collector.toChangeset(),
+            }
+        }
+        return {
+            result: undefined,
+            changes: collector.toChangeset(),
+        }
+    }
+
+    /**
+     * Removes a variable and cascade-deletes all expressions referencing it
+     * across every premise (including subtrees and operator collapse).
+     */
+    public removeVariable(
+        variableId: string
+    ): TCoreMutationResult<TCorePropositionalVariable | undefined> {
+        const variable = this.variables.getVariable(variableId)
+        if (!variable) {
+            return { result: undefined, changes: {} }
+        }
+
+        const collector = new ChangeCollector()
+
+        // Cascade: delete referencing expressions in every premise
+        for (const pm of this.listPremises()) {
+            const { changes } = pm.deleteExpressionsUsingVariable(variableId)
+            if (changes.expressions) {
+                for (const e of changes.expressions.removed) {
+                    collector.removedExpression(e)
+                }
+            }
+        }
+
+        const withChecksum = this.attachVariableChecksum({ ...variable })
+        this.variables.removeVariable(variableId)
+        collector.removedVariable(withChecksum)
+        this.markDirty()
+        this.markAllPremisesDirty()
+        return {
+            result: withChecksum,
+            changes: collector.toChangeset(),
+        }
+    }
+
+    /** Returns all registered variables sorted by ID. */
+    public getVariables(): TCorePropositionalVariable[] {
+        const fields =
+            this.checksumConfig?.variableFields ??
+            DEFAULT_CHECKSUM_CONFIG.variableFields!
+        return this.variables.toArray().map((v) => ({
+            ...v,
+            checksum: entityChecksum(
+                v as unknown as Record<string, unknown>,
+                fields
+            ),
+        }))
     }
 
     /** Returns the current role assignments (conclusion premise ID only; supporting is derived). */
@@ -235,7 +349,8 @@ export class ArgumentEngine {
         parts.push(
             entityChecksum(
                 this.argument as unknown as Record<string, unknown>,
-                config?.argumentFields ?? DEFAULT_CHECKSUM_CONFIG.argumentFields!
+                config?.argumentFields ??
+                    DEFAULT_CHECKSUM_CONFIG.argumentFields!
             )
         )
 
@@ -257,6 +372,28 @@ export class ArgumentEngine {
 
     private markDirty(): void {
         this.checksumDirty = true
+    }
+
+    /** Invalidate all premise checksums (e.g. after variable changes). */
+    private markAllPremisesDirty(): void {
+        for (const pm of this.listPremises()) {
+            pm.invalidateChecksum()
+        }
+    }
+
+    private attachVariableChecksum(
+        v: TCorePropositionalVariable
+    ): TCorePropositionalVariable {
+        const fields =
+            this.checksumConfig?.variableFields ??
+            DEFAULT_CHECKSUM_CONFIG.variableFields!
+        return {
+            ...v,
+            checksum: entityChecksum(
+                v as unknown as Record<string, unknown>,
+                fields
+            ),
+        }
     }
 
     /**

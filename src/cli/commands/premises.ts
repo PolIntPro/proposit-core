@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
 import { PremiseManager } from "../../lib/core/PremiseManager.js"
+import { VariableManager } from "../../lib/core/VariableManager.js"
 import type { TCoreArgument } from "../../lib/schemata/index.js"
 import {
     errorExit,
@@ -89,9 +90,18 @@ export function registerPremiseCommands(
 
                     // Hydrate a temporary PremiseManager for display string
                     const { id: _id, ...premiseExtras } = meta
-                    const pm = new PremiseManager(pid, argument, premiseExtras)
-                    for (const v of allVariables)
-                        pm.addVariable({ ...v, argumentVersion: version })
+                    const vm = new VariableManager(
+                        allVariables.map((v) => ({
+                            ...v,
+                            argumentVersion: version,
+                        }))
+                    )
+                    const pm = new PremiseManager(
+                        pid,
+                        argument,
+                        vm,
+                        premiseExtras
+                    )
 
                     // Add expressions BFS-order
                     const remaining = [...data.expressions]
@@ -262,13 +272,18 @@ export function registerPremiseCommands(
             ])
 
             const { id: _id, ...renderPremiseExtras } = meta
+            const renderVm = new VariableManager(
+                allVariables.map((v) => ({
+                    ...v,
+                    argumentVersion: version,
+                }))
+            )
             const pm = new PremiseManager(
                 premiseId,
                 argument,
+                renderVm,
                 renderPremiseExtras
             )
-            for (const v of allVariables)
-                pm.addVariable({ ...v, argumentVersion: version })
 
             const remaining = [...data.expressions]
             const added = new Set<string>()
