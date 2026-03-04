@@ -1,7 +1,6 @@
 import Type, { type Static } from "typebox"
-import { CoreArgumentSchema } from "../lib/schemata/argument.js"
-import { CorePropositionalExpressionSchema } from "../lib/schemata/propositional.js"
-import { EncodableDate, UUID } from "../lib/schemata/shared.js"
+import { CoreLogicalOperatorType } from "../lib/schemata/propositional.js"
+import { EncodableDate, Nullable, UUID } from "../lib/schemata/shared.js"
 
 // ---------------------------------------------------------------------------
 // Argument meta (stored in arguments/<id>/meta.json)
@@ -33,17 +32,18 @@ export type TCliArgumentVersionMeta = Static<
 
 // ---------------------------------------------------------------------------
 // Full CLI argument (core identity + CLI-specific flat fields)
+// Uses optional checksum for backward-compatible disk reads.
 // ---------------------------------------------------------------------------
-export const CliArgumentSchema = Type.Intersect([
-    CoreArgumentSchema,
-    Type.Object({
-        title: Type.String(),
-        description: Type.Optional(Type.String()),
-        createdAt: EncodableDate,
-        published: Type.Boolean(),
-        publishedAt: Type.Optional(EncodableDate),
-    }),
-])
+export const CliArgumentSchema = Type.Object({
+    id: UUID,
+    version: Type.Number(),
+    checksum: Type.Optional(Type.String()),
+    title: Type.String(),
+    description: Type.Optional(Type.String()),
+    createdAt: EncodableDate,
+    published: Type.Boolean(),
+    publishedAt: Type.Optional(EncodableDate),
+})
 export type TCliArgument = Static<typeof CliArgumentSchema>
 
 // ---------------------------------------------------------------------------
@@ -60,6 +60,32 @@ export const CliPremiseMetaSchema = Type.Object(
 export type TCliPremiseMeta = Static<typeof CliPremiseMetaSchema>
 
 // ---------------------------------------------------------------------------
+// CLI expression schema — optional checksum for backward-compatible disk reads
+// ---------------------------------------------------------------------------
+const CliBaseExpressionSchema = Type.Object({
+    id: UUID,
+    argumentId: UUID,
+    argumentVersion: Type.Number(),
+    parentId: Nullable(UUID),
+    position: Type.Number({ minimum: 0 }),
+    checksum: Type.Optional(Type.String()),
+})
+
+const CliExpressionSchema = Type.Union([
+    Type.Interface([CliBaseExpressionSchema], {
+        type: Type.Literal("variable"),
+        variableId: UUID,
+    }),
+    Type.Interface([CliBaseExpressionSchema], {
+        type: Type.Literal("operator"),
+        operator: CoreLogicalOperatorType,
+    }),
+    Type.Interface([CliBaseExpressionSchema], {
+        type: Type.Literal("formula"),
+    }),
+])
+
+// ---------------------------------------------------------------------------
 // Premise data (stored in premises/<id>/data.json)
 // { rootExpressionId?, variables, expressions }
 // ---------------------------------------------------------------------------
@@ -73,7 +99,7 @@ export const CliPremiseDataSchema = Type.Object({
     variables: Type.Array(UUID, {
         description: "IDs of all variables referenced in this premise.",
     }),
-    expressions: Type.Array(CorePropositionalExpressionSchema, {
+    expressions: Type.Array(CliExpressionSchema, {
         description:
             "All expressions in this premise. The root has a null parentId.",
     }),

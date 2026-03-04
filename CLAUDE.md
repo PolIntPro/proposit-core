@@ -42,7 +42,7 @@ src/
       evaluation.ts     # All evaluation types: TTrivalentValue, TVariableAssignment,
                         #   TExpressionAssignment, TArgumentEvaluationResult, TValidityCheckResult, etc.
       diff.ts           # Diff types: TCoreArgumentDiff, TCoreFieldChange, TCoreEntitySetDiff, TCoreDiffOptions, etc.
-      mutation.ts       # TCoreEntityChanges, TCoreChangeset, TCoreMutationResult
+      mutation.ts       # TCoreEntityChanges, TCoreChangeset, TCoreRawChangeset, TCoreMutationResult
       checksum.ts       # TCoreChecksumConfig
       relationships.ts  # Relationship types: TCorePremiseRelationshipAnalysis, TCorePremiseProfile,
                         #   TCoreVariableAppearance, TCorePremiseRelationResult, etc.
@@ -147,7 +147,7 @@ The type is not stored on disk — it is always derived dynamically from the cur
 
 Expressions form a rooted tree stored flat in three maps inside `ExpressionManager`:
 
-- `expressions: Map<string, TPropositionalExpression>` — the main store.
+- `expressions: Map<string, TExpressionInput>` — the main store (without checksums; checksums are attached lazily by getters).
 - `childExpressionIdsByParentId: Map<string | null, Set<string>>` — fast child lookup. The `null` key holds root expressions.
 - `childPositionsByParentId: Map<string | null, Set<number>>` — tracks which positions are occupied under each parent.
 
@@ -258,12 +258,14 @@ Variables are argument-scoped and managed by `ArgumentEngine` via `addVariable()
 
 Per-entity checksums provide a lightweight way to detect changes without deep comparison. Key points:
 
-- All entity types (`TPropositionalExpression`, `TPropositionalVariable`, `TCorePremise`, `TCoreArgument`) carry an optional `checksum?: string` field.
+- All entity types (`TPropositionalExpression`, `TPropositionalVariable`, `TCorePremise`, `TCoreArgument`) carry a required `checksum: string` field in their schemas.
+- Internally, managers store entities without checksums using input types (`TExpressionInput`, `TVariableInput`, `Omit<TCoreArgument, "checksum">`). Checksums are attached lazily by getters (`getExpression()`, `getVariables()`, `getArgument()`, `toData()`) and in changeset outputs.
+- Add/create methods accept input types without checksum (e.g. `addExpression(expr: TExpressionInput)`, `addVariable(v: Omit<TCorePropositionalVariable, "checksum">)`).
 - `PremiseManager.checksum()` and `ArgumentEngine.checksum()` compute checksums lazily — dirty flags track when recomputation is needed.
 - `TCoreChecksumConfig` controls which fields are hashed per entity type using `Set<string>` fields. `DEFAULT_CHECKSUM_CONFIG` and `createChecksumConfig()` are exported from `src/lib/consts.ts`.
 - The `ArgumentEngine` constructor accepts `options?: { checksumConfig?: TCoreChecksumConfig }`.
 - Standalone utilities: `computeHash(input)`, `canonicalSerialize(obj, fields)`, `entityChecksum(entity, fields)` in `core/checksum.ts`.
-- Checksums are populated in entity getters (e.g. `toData()`) and in changeset outputs.
+- CLI disk reads use local schemas with optional checksum for backward compatibility with older data files.
 
 ## Types
 
@@ -289,14 +291,15 @@ Key evaluation types (all in `src/lib/types/evaluation.ts`):
 Key mutation types (all in `src/lib/types/mutation.ts`):
 
 - `TCoreMutationResult<T>` — `{ result: T, changes: TCoreChangeset }` wrapper returned by all mutating methods.
-- `TCoreChangeset` — optional fields for `expressions`, `variables`, `premises` (each `TCoreEntityChanges<T>`), plus `roles` (`TCoreArgumentRoleState`) and `argument` (`TCoreArgument`).
+- `TCoreChangeset` — optional fields for `expressions`, `variables`, `premises` (each `TCoreEntityChanges<T>`), plus `roles` (`TCoreArgumentRoleState`) and `argument` (`TCoreArgument`). All entities include checksums.
+- `TCoreRawChangeset` — internal variant of `TCoreChangeset` used by `ChangeCollector`, with input types (`TExpressionInput`, `TVariableInput`) that lack checksums. Converted to `TCoreChangeset` by `attachChangesetChecksums()` before returning to callers.
 - `TCoreEntityChanges<T>` — `{ added: T[], modified: T[], removed: T[] }` tracking entity-level side effects.
 
 Key checksum types (in `src/lib/types/checksum.ts`):
 
 - `TCoreChecksumConfig` — configurable `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`).
 
-All entity types carry an optional `checksum?: string` field populated by getters and changesets.
+All entity types carry a required `checksum: string` field. Internally, managers store entities without checksums; checksums are attached lazily by getters and changeset outputs.
 
 Key diff types (all in `src/lib/types/diff.ts`):
 
@@ -317,7 +320,9 @@ Key relationship types (all in `src/lib/types/relationships.ts`):
 
 Position types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/position.ts`):
 
-- `TExpressionWithoutPosition` — `TPropositionalExpression` with `position` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `appendExpression` and `addExpressionRelative`.
+- `TExpressionInput` — `TPropositionalExpression` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
+- `TVariableInput` — `Omit<TCorePropositionalVariable, "checksum">`. Used as input for `addVariable` and as internal storage type in `VariableManager`.
+- `TExpressionWithoutPosition` — `TPropositionalExpression` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `appendExpression` and `addExpressionRelative`.
 - `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — constants for midpoint computation.
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).
 

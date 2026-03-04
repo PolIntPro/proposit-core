@@ -28,6 +28,7 @@ function makeArg(
     return {
         id: "a",
         version: 0,
+        checksum: "x",
         ...overrides,
     }
 }
@@ -75,6 +76,7 @@ describe("isDiffEmpty", () => {
                         symbol: "p",
                         argumentId: "a",
                         argumentVersion: 1,
+                        checksum: "x",
                     },
                 ],
                 removed: [],
@@ -128,6 +130,7 @@ describe("renderDiff", () => {
                         symbol: "r",
                         argumentId: "a",
                         argumentVersion: 1,
+                        checksum: "x",
                     },
                 ],
                 removed: [
@@ -136,6 +139,7 @@ describe("renderDiff", () => {
                         symbol: "p",
                         argumentId: "a",
                         argumentVersion: 0,
+                        checksum: "x",
                     },
                 ],
                 modified: [
@@ -145,12 +149,14 @@ describe("renderDiff", () => {
                             symbol: "q",
                             argumentId: "a",
                             argumentVersion: 0,
+                            checksum: "x",
                         },
                         after: {
                             id: "v2",
                             symbol: "Q",
                             argumentId: "a",
                             argumentVersion: 1,
+                            checksum: "x",
                         },
                         changes: [{ field: "symbol", before: "q", after: "Q" }],
                     },
@@ -174,6 +180,7 @@ describe("renderDiff", () => {
                         title: "New Premise",
                         variables: [],
                         expressions: [],
+                        checksum: "x",
                     } as TCorePremise,
                 ],
                 removed: [
@@ -182,6 +189,7 @@ describe("renderDiff", () => {
                         title: "Old Premise",
                         variables: [],
                         expressions: [],
+                        checksum: "x",
                     } as TCorePremise,
                 ],
                 modified: [
@@ -191,12 +199,14 @@ describe("renderDiff", () => {
                             title: "Before",
                             variables: [],
                             expressions: [],
+                            checksum: "x",
                         } as TCorePremise,
                         after: {
                             id: "p1",
                             title: "After",
                             variables: [],
                             expressions: [],
+                            checksum: "x",
                         } as TCorePremise,
                         changes: [
                             {
@@ -215,6 +225,7 @@ describe("renderDiff", () => {
                                     parentId: null,
                                     position: 0,
                                     variableId: "v1",
+                                    checksum: "x",
                                 },
                             ],
                             removed: [],

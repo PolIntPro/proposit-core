@@ -28,7 +28,10 @@ export {
 export { DEFAULT_CHECKSUM_CONFIG, createChecksumConfig } from "./consts.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { FormulaAST } from "./core/parser/formula.js"
-export type { TExpressionWithoutPosition } from "./core/ExpressionManager.js"
+export type {
+    TExpressionInput,
+    TExpressionWithoutPosition,
+} from "./core/ExpressionManager.js"
 export {
     POSITION_MIN,
     POSITION_MAX,

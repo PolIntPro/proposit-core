@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import type {
-    TCoreLogicalOperatorType,
-    TCorePropositionalExpression,
-} from "../../lib/schemata/index.js"
+import type { TCoreLogicalOperatorType } from "../../lib/schemata/index.js"
+import type { TExpressionInput } from "../../lib/core/ExpressionManager.js"
 import { POSITION_INITIAL } from "../../lib/utils/position.js"
 import { hydrateEngine } from "../engine.js"
 import { errorExit, printJson, printLine } from "../output.js"
@@ -26,7 +24,7 @@ async function assertNotPublished(
     }
 }
 
-function typeSpecificInfo(expr: TCorePropositionalExpression): string {
+function typeSpecificInfo(expr: TExpressionInput): string {
     if (expr.type === "variable") return `variableId=${expr.variableId}`
     if (expr.type === "operator") return `operator=${expr.operator}`
     return ""
@@ -98,7 +96,7 @@ export function registerExpressionCommands(
                         ? Number(opts.position)
                         : POSITION_INITIAL
 
-                let expression: TCorePropositionalExpression
+                let expression: TExpressionInput
                 if (opts.type === "variable") {
                     if (!opts.variableId)
                         errorExit("--variable-id is required for type=variable")
@@ -246,7 +244,7 @@ export function registerExpressionCommands(
                         ? Number(opts.position)
                         : POSITION_INITIAL
 
-                let expression: TCorePropositionalExpression
+                let expression: TExpressionInput
                 if (opts.type === "variable") {
                     if (!opts.variableId)
                         errorExit("--variable-id is required for type=variable")

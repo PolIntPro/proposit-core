@@ -37,7 +37,7 @@ async function assertNotPublished(
 async function buildArgument(
     argumentId: string,
     version: number
-): Promise<TCoreArgument> {
+): Promise<Omit<TCoreArgument, "checksum">> {
     const [argMeta, vMeta] = await Promise.all([
         readArgumentMeta(argumentId),
         readVersionMeta(argumentId, version),

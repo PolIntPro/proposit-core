@@ -12,6 +12,8 @@ import {
 } from "../src/lib/schemata"
 import { ChangeCollector } from "../src/lib/core/ChangeCollector"
 import { VariableManager } from "../src/lib/core/VariableManager"
+import type { TVariableInput } from "../src/lib/core/VariableManager"
+import type { TExpressionInput } from "../src/lib/core/ExpressionManager"
 import {
     DEFAULT_CHECKSUM_CONFIG,
     createChecksumConfig,
@@ -51,12 +53,12 @@ import {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const ARG: TCoreArgument = {
+const ARG: Omit<TCoreArgument, "checksum"> = {
     id: "arg-1",
     version: 1,
 }
 
-function makeVar(id: string, symbol: string): TCorePropositionalVariable {
+function makeVar(id: string, symbol: string): TVariableInput {
     return {
         id,
         argumentId: ARG.id,
@@ -69,7 +71,7 @@ function makeVarExpr(
     id: string,
     variableId: string,
     opts: { parentId?: string | null; position?: number } = {}
-): TCorePropositionalExpression {
+): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
@@ -85,7 +87,7 @@ function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
     opts: { parentId?: string | null; position?: number } = {}
-): TCorePropositionalExpression {
+): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
@@ -100,7 +102,7 @@ function makeOpExpr(
 function makeFormulaExpr(
     id: string,
     opts: { parentId?: string | null; position?: number } = {}
-): TCorePropositionalExpression {
+): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
@@ -920,7 +922,7 @@ describe("stress test", () => {
             makeVar(`var-${i}`, `X${i}`)
         )
 
-        const allExpressions: TCorePropositionalExpression[] = []
+        const allExpressions: TExpressionInput[] = []
         const premiseManagers: PremiseManager[] = []
         const termIdsByPremise = new Map<PremiseManager, string[]>()
         const referencedVarIds = new Set<string>()
@@ -933,8 +935,8 @@ describe("stress test", () => {
 
         function emit(
             pm: PremiseManager,
-            expr: TCorePropositionalExpression
-        ): TCorePropositionalExpression {
+            expr: TExpressionInput
+        ): TExpressionInput {
             pm.addExpression(expr)
             allExpressions.push(expr)
             return expr
@@ -1883,10 +1885,7 @@ describe("ArgumentEngine — roles and evaluation", () => {
 })
 
 describe("ArgumentEngine — complex argument scenarios across multiple evaluations", () => {
-    function addVars(
-        eng: ArgumentEngine,
-        ...vars: TCorePropositionalVariable[]
-    ) {
+    function addVars(eng: ArgumentEngine, ...vars: TVariableInput[]) {
         for (const v of vars) {
             try {
                 eng.addVariable(v)
@@ -2184,20 +2183,25 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
 describe("diffArguments", () => {
     describe("defaultCompareArgument", () => {
         it("returns empty array (no core diffable fields)", () => {
-            const a: TCoreArgument = { ...ARG }
-            const b: TCoreArgument = { ...ARG, version: 2 }
+            const a = { ...ARG } as TCoreArgument
+            const b = { ...ARG, version: 2 } as TCoreArgument
             expect(defaultCompareArgument(a, b)).toEqual([])
         })
     })
 
     describe("defaultCompareVariable", () => {
         it("returns empty array when symbol matches", () => {
-            expect(defaultCompareVariable(VAR_P, VAR_P)).toEqual([])
+            expect(
+                defaultCompareVariable(
+                    VAR_P as TCorePropositionalVariable,
+                    VAR_P as TCorePropositionalVariable
+                )
+            ).toEqual([])
         })
 
         it("detects symbol change", () => {
-            const before = makeVar("var-p", "P")
-            const after = makeVar("var-p", "X")
+            const before = makeVar("var-p", "P") as TCorePropositionalVariable
+            const after = makeVar("var-p", "X") as TCorePropositionalVariable
             expect(defaultCompareVariable(before, after)).toEqual([
                 { field: "symbol", before: "P", after: "X" },
             ])
@@ -2211,12 +2215,14 @@ describe("diffArguments", () => {
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
+                checksum: "x",
             }
             const after = {
                 id: "p1",
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
+                checksum: "x",
             }
             expect(defaultComparePremise(before, after)).toEqual([])
         })
@@ -2227,12 +2233,14 @@ describe("diffArguments", () => {
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
+                checksum: "x",
             }
             const after = {
                 id: "p1",
                 rootExpressionId: "r2",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
+                checksum: "x",
             }
             expect(defaultComparePremise(before, after)).toEqual([
                 { field: "rootExpressionId", before: "r1", after: "r2" },
@@ -2245,11 +2253,11 @@ describe("diffArguments", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: "p1",
                 position: 0,
-            })
+            }) as TCorePropositionalExpression
             const after = makeVarExpr("e1", "var-p", {
                 parentId: "p2",
                 position: 0,
-            })
+            }) as TCorePropositionalExpression
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "parentId", before: "p1", after: "p2" },
             ])
@@ -2259,11 +2267,11 @@ describe("diffArguments", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: "p1",
                 position: 0,
-            })
+            }) as TCorePropositionalExpression
             const after = makeVarExpr("e1", "var-p", {
                 parentId: "p1",
                 position: 1,
-            })
+            }) as TCorePropositionalExpression
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "position", before: 0, after: 1 },
             ])
@@ -2273,11 +2281,11 @@ describe("diffArguments", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             const after = makeVarExpr("e1", "var-q", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "variableId", before: "var-p", after: "var-q" },
             ])
@@ -2287,11 +2295,11 @@ describe("diffArguments", () => {
             const before = makeOpExpr("e1", "and", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             const after = makeOpExpr("e1", "or", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "operator", before: "and", after: "or" },
             ])
@@ -2301,11 +2309,11 @@ describe("diffArguments", () => {
             const before = makeVarExpr("e1", "var-p", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             const after = makeOpExpr("e1", "and", {
                 parentId: null,
                 position: POSITION_INITIAL,
-            })
+            }) as TCorePropositionalExpression
             expect(defaultCompareExpression(before, after)).toEqual([
                 { field: "type", before: "variable", after: "operator" },
             ])
@@ -2313,7 +2321,7 @@ describe("diffArguments", () => {
     })
 
     // Helper: create an engine with one premise containing P → Q
-    function buildSimpleEngine(arg: TCoreArgument): {
+    function buildSimpleEngine(arg: Omit<TCoreArgument, "checksum">): {
         engine: ArgumentEngine
         premiseId: string
     } {
@@ -2386,7 +2394,7 @@ describe("diffArguments", () => {
 
         it("detects modified variable (symbol change)", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
-            const argB: TCoreArgument = { ...ARG }
+            const argB = { ...ARG }
             const engineB = new ArgumentEngine(argB)
             // Same variable ID, different symbol
             engineB.addVariable(makeVar("var-p", "X"))
@@ -3200,10 +3208,11 @@ describe("ArgumentEngine — three-valued evaluation", () => {
 })
 
 describe("schema shapes with additionalProperties", () => {
-    it("CoreArgumentSchema accepts { id, version } with additional properties", () => {
+    it("CoreArgumentSchema accepts { id, version, checksum } with additional properties", () => {
         const valid = Value.Check(CoreArgumentSchema, {
             id: "x",
             version: 0,
+            checksum: "abc123",
             title: "Test",
             custom: 42,
         })
@@ -3215,12 +3224,13 @@ describe("schema shapes with additionalProperties", () => {
         expect(invalid).toBe(false)
     })
 
-    it("CorePropositionalVariableSchema accepts { id, argumentId, argumentVersion, symbol } with additional properties", () => {
+    it("CorePropositionalVariableSchema accepts { id, argumentId, argumentVersion, symbol, checksum } with additional properties", () => {
         const valid = Value.Check(CorePropositionalVariableSchema, {
             id: "v-1",
             argumentId: "a-1",
             argumentVersion: 0,
             symbol: "P",
+            checksum: "abc123",
             label: "Proposition P",
         })
         expect(valid).toBe(true)
@@ -3231,6 +3241,7 @@ describe("schema shapes with additionalProperties", () => {
             id: "p-1",
             variables: [],
             expressions: [],
+            checksum: "abc123",
             title: "My Premise",
             priority: 1,
         })
@@ -3247,14 +3258,18 @@ describe("field preservation — unknown fields survive round-trips", () => {
     }
 
     it("preserves unknown fields on the argument through getArgument()", () => {
-        const engine = new ArgumentEngine(ARG_WITH_EXTRAS as TCoreArgument)
+        const engine = new ArgumentEngine(
+            ARG_WITH_EXTRAS as Omit<TCoreArgument, "checksum">
+        )
         const result = engine.getArgument()
         expect((result as Record<string, unknown>).title).toBe("My Argument")
         expect((result as Record<string, unknown>).customField).toBe(42)
     })
 
     it("preserves unknown fields on the argument through toData()", () => {
-        const engine = new ArgumentEngine(ARG_WITH_EXTRAS as TCoreArgument)
+        const engine = new ArgumentEngine(
+            ARG_WITH_EXTRAS as Omit<TCoreArgument, "checksum">
+        )
         const data = engine.toData()
         expect((data.argument as Record<string, unknown>).title).toBe(
             "My Argument"
@@ -3559,8 +3574,8 @@ describe("analyzePremiseRelationships — direct relationships", () => {
     function buildImplies(
         eng: ArgumentEngine,
         premiseId: string,
-        leftVar: TCorePropositionalVariable,
-        rightVar: TCorePropositionalVariable
+        leftVar: TVariableInput,
+        rightVar: TVariableInput
     ): PremiseManager {
         try {
             eng.addVariable(leftVar)
@@ -3798,8 +3813,8 @@ describe("analyzePremiseRelationships — transitive relationships", () => {
     function buildImplies(
         eng: ArgumentEngine,
         premiseId: string,
-        leftVar: TCorePropositionalVariable,
-        rightVar: TCorePropositionalVariable
+        leftVar: TVariableInput,
+        rightVar: TVariableInput
     ): PremiseManager {
         try {
             eng.addVariable(leftVar)
@@ -4031,8 +4046,8 @@ describe("analyzePremiseRelationships — precedence and edge cases", () => {
     function buildImplies(
         eng: ArgumentEngine,
         premiseId: string,
-        leftVar: TCorePropositionalVariable,
-        rightVar: TCorePropositionalVariable
+        leftVar: TVariableInput,
+        rightVar: TVariableInput
     ): PremiseManager {
         try {
             eng.addVariable(leftVar)
@@ -4491,7 +4506,7 @@ describe("ChangeCollector", () => {
             argumentVersion: 0,
             parentId: null,
             position: 0,
-        } as TCorePropositionalExpression
+        } as TExpressionInput
         collector.addedExpression(expr)
         const cs = collector.toChangeset()
         expect(cs.expressions?.added).toEqual([expr])
@@ -4504,11 +4519,11 @@ describe("ChangeCollector", () => {
         const modified = {
             id: "e1",
             type: "variable",
-        } as TCorePropositionalExpression
+        } as TExpressionInput
         const removed = {
             id: "e2",
             type: "operator",
-        } as TCorePropositionalExpression
+        } as TExpressionInput
         collector.modifiedExpression(modified)
         collector.removedExpression(removed)
         const cs = collector.toChangeset()
@@ -4524,7 +4539,7 @@ describe("ChangeCollector", () => {
             symbol: "P",
             argumentId: "a1",
             argumentVersion: 0,
-        } as TCorePropositionalVariable
+        } as TVariableInput
         collector.addedVariable(v)
         const cs = collector.toChangeset()
         expect(cs.variables?.added).toEqual([v])
@@ -4537,6 +4552,7 @@ describe("ChangeCollector", () => {
             id: "p1",
             variables: [],
             expressions: [],
+            checksum: "x",
         } as TCorePremise
         collector.addedPremise(p)
         const cs = collector.toChangeset()
@@ -4555,7 +4571,7 @@ describe("ChangeCollector", () => {
 
     it("omits unchanged categories from changeset", () => {
         const collector = new ChangeCollector()
-        const expr = { id: "e1" } as TCorePropositionalExpression
+        const expr = { id: "e1" } as TExpressionInput
         collector.addedExpression(expr)
         const cs = collector.toChangeset()
         expect(cs.variables).toBeUndefined()
@@ -4592,7 +4608,7 @@ describe("PremiseManager — mutation changesets", () => {
 
     it("addExpression returns the added expression in result and changes", () => {
         const { pm } = setup()
-        const expr: TCorePropositionalExpression = {
+        const expr: TExpressionInput = {
             id: "e1",
             type: "variable",
             variableId: "v1",

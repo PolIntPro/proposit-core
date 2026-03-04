@@ -74,13 +74,10 @@ Each expression carries:
 
 ```typescript
 import { ArgumentEngine, POSITION_INITIAL } from "@polintpro/proposit-core"
-import type {
-    TArgument,
-    TPropositionalVariable,
-    TPropositionalExpression,
-} from "@polintpro/proposit-core"
+import type { TPropositionalExpression } from "@polintpro/proposit-core"
 
-const argument: TArgument = {
+// The constructor accepts an argument without checksum — it is computed lazily.
+const argument = {
     id: "arg-1",
     version: 1,
     title: "Modus Ponens",
@@ -97,13 +94,14 @@ const { result: conclusion } = eng.createPremise("Q")
 ### Adding variables and expressions
 
 ```typescript
-const varP: TPropositionalVariable = {
+// Variables are passed without checksum — checksums are computed lazily.
+const varP = {
     id: "var-p",
     argumentId: "arg-1",
     argumentVersion: 1,
     symbol: "P",
 }
-const varQ: TPropositionalVariable = {
+const varQ = {
     id: "var-q",
     argumentId: "arg-1",
     argumentVersion: 1,
@@ -230,7 +228,7 @@ if (validity.ok) {
 
 ```typescript
 // Extend  P → Q  into  (P ∧ R) → Q  by inserting an `and` above expr-p1.
-const varR: TPropositionalVariable = {
+const varR = {
     id: "var-r",
     argumentId: "arg-1",
     argumentVersion: 1,
@@ -285,7 +283,7 @@ console.log(premise1.toDisplayString()) // (P → Q)
 
 #### `new ArgumentEngine(argument, options?)`
 
-Creates an engine scoped to `argument` (`{ id, version, title, description }`). Accepts an optional `options` parameter with `{ checksumConfig?: TCoreChecksumConfig }` to configure which fields are included in entity checksums.
+Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `options` parameter with `{ checksumConfig?: TCoreChecksumConfig }` to configure which fields are included in entity checksums.
 
 ---
 
@@ -327,7 +325,7 @@ Returns all premise IDs sorted alphabetically.
 
 #### `addVariable(variable)` → `TCoreMutationResult<TPropositionalVariable>`
 
-Registers a variable for use across all premises. Throws if the `id` or `symbol` already exists, or if `argumentId`/`argumentVersion` don't match the engine's argument.
+Registers a variable (without `checksum` — it is computed lazily) for use across all premises. Throws if the `id` or `symbol` already exists, or if `argumentId`/`argumentVersion` don't match the engine's argument.
 
 ---
 
@@ -446,7 +444,7 @@ Returns all argument-level variables (shared across premises via the engine's `V
 
 #### `addExpression(expression)` → `TCoreMutationResult<TPropositionalExpression>`
 
-Adds an expression to the tree with an explicit numeric position. Validates argument membership, variable references, root uniqueness, and structural constraints (operator type, child limits, position uniqueness). This is the low-level escape hatch — prefer `appendExpression` or `addExpressionRelative` for most use cases.
+Adds an expression (without `checksum` — it is computed lazily) to the tree with an explicit numeric position. Validates argument membership, variable references, root uniqueness, and structural constraints (operator type, child limits, position uniqueness). This is the low-level escape hatch — prefer `appendExpression` or `addExpressionRelative` for most use cases.
 
 ---
 
@@ -654,9 +652,15 @@ Constants and a helper for midpoint-based position computation, exported from `u
 
 ### Types
 
+#### `TExpressionInput`
+
+A version of `TPropositionalExpression` with the `checksum` field omitted. Uses a distributive conditional type to preserve discriminated-union narrowing across the `variable`/`operator`/`formula` variants. Used as the input type for `addExpression` and `insertExpression`.
+
+---
+
 #### `TExpressionWithoutPosition`
 
-A version of `TPropositionalExpression` with the `position` field omitted. Uses a distributive conditional type to preserve discriminated-union narrowing across the `variable`/`operator`/`formula` variants. Used as the input type for `appendExpression` and `addExpressionRelative`.
+A version of `TPropositionalExpression` with both the `position` and `checksum` fields omitted. Uses a distributive conditional type to preserve discriminated-union narrowing across the `variable`/`operator`/`formula` variants. Used as the input type for `appendExpression` and `addExpressionRelative`.
 
 ---
 

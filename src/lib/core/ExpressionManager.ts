@@ -12,10 +12,16 @@ import {
 } from "../utils/position.js"
 
 // Distribute Omit across the union to preserve discriminated-union narrowing.
+export type TExpressionInput = TCorePropositionalExpression extends infer U
+    ? U extends TCorePropositionalExpression
+        ? Omit<U, "checksum">
+        : never
+    : never
+
 export type TExpressionWithoutPosition =
     TCorePropositionalExpression extends infer U
         ? U extends TCorePropositionalExpression
-            ? Omit<U, "position">
+            ? Omit<U, "position" | "checksum">
             : never
         : never
 
@@ -31,7 +37,7 @@ export type TExpressionWithoutPosition =
  * and is not part of the public API.
  */
 export class ExpressionManager {
-    private expressions: Map<string, TCorePropositionalExpression>
+    private expressions: Map<string, TExpressionInput>
     private childExpressionIdsByParentId: Map<string | null, Set<string>>
     private childPositionsByParentId: Map<string | null, Set<number>>
     private collector: ChangeCollector | null = null
@@ -40,7 +46,7 @@ export class ExpressionManager {
         this.collector = collector
     }
 
-    constructor(initialExpressions: TCorePropositionalExpression[] = []) {
+    constructor(initialExpressions: TExpressionInput[] = []) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
         this.childPositionsByParentId = new Map()
@@ -49,7 +55,7 @@ export class ExpressionManager {
     }
 
     /** Returns all expressions sorted by ID for deterministic output. */
-    public toArray(): TCorePropositionalExpression[] {
+    public toArray(): TExpressionInput[] {
         return Array.from(this.expressions.values()).sort((a, b) =>
             a.id.localeCompare(b.id)
         )
@@ -65,7 +71,7 @@ export class ExpressionManager {
      * @throws If the parent's child limit would be exceeded.
      * @throws If the position is already occupied under the parent.
      */
-    public addExpression(expression: TCorePropositionalExpression) {
+    public addExpression(expression: TExpressionInput) {
         if (this.expressions.has(expression.id)) {
             throw new Error(
                 `Expression with ID "${expression.id}" already exists.`
@@ -156,7 +162,7 @@ export class ExpressionManager {
             ...expression,
             parentId,
             position,
-        } as TCorePropositionalExpression)
+        } as TExpressionInput)
     }
 
     /**
@@ -200,7 +206,7 @@ export class ExpressionManager {
             ...expression,
             parentId: sibling.parentId,
             position,
-        } as TCorePropositionalExpression)
+        } as TExpressionInput)
     }
 
     /**
@@ -318,7 +324,7 @@ export class ExpressionManager {
                 ...child,
                 parentId: grandparentId,
                 position: grandparentPosition,
-            } as TCorePropositionalExpression
+            } as TExpressionInput
             this.expressions.set(child.id, promoted)
             this.collector?.modifiedExpression({ ...promoted })
 
@@ -360,22 +366,18 @@ export class ExpressionManager {
     }
 
     /** Returns the expression with the given ID, or `undefined` if not found. */
-    public getExpression(
-        expressionId: string
-    ): TCorePropositionalExpression | undefined {
+    public getExpression(expressionId: string): TExpressionInput | undefined {
         return this.expressions.get(expressionId)
     }
 
     /** Returns the children of the given parent, sorted by position. */
-    public getChildExpressions(
-        parentId: string | null
-    ): TCorePropositionalExpression[] {
+    public getChildExpressions(parentId: string | null): TExpressionInput[] {
         const childIds = this.childExpressionIdsByParentId.get(parentId)
         if (!childIds || childIds.size === 0) {
             return []
         }
 
-        const children: TCorePropositionalExpression[] = []
+        const children: TExpressionInput[] = []
         for (const childId of childIds) {
             const child = this.expressions.get(childId)
             if (child) {
@@ -386,14 +388,12 @@ export class ExpressionManager {
         return children.sort((a, b) => a.position - b.position)
     }
 
-    private loadInitialExpressions(
-        initialExpressions: TCorePropositionalExpression[]
-    ) {
+    private loadInitialExpressions(initialExpressions: TExpressionInput[]) {
         if (initialExpressions.length === 0) {
             return
         }
 
-        const pending = new Map<string, TCorePropositionalExpression>(
+        const pending = new Map<string, TExpressionInput>(
             initialExpressions.map((expression) => [expression.id, expression])
         )
 
@@ -462,7 +462,7 @@ export class ExpressionManager {
             ...expression,
             parentId: newParentId,
             position: newPosition,
-        } as TCorePropositionalExpression
+        } as TExpressionInput
         this.expressions.set(expressionId, updated)
         this.collector?.modifiedExpression({ ...updated })
 
@@ -498,7 +498,7 @@ export class ExpressionManager {
      * @throws If an `implies`/`iff` expression would be inserted at a non-root position.
      */
     public insertExpression(
-        expression: TCorePropositionalExpression,
+        expression: TExpressionInput,
         leftNodeId?: string,
         rightNodeId?: string
     ): void {
@@ -624,7 +624,7 @@ export class ExpressionManager {
             ...expression,
             parentId: anchorParentId,
             position: anchorPosition,
-        } as TCorePropositionalExpression
+        } as TExpressionInput
         this.expressions.set(expression.id, stored)
         this.collector?.addedExpression({ ...stored })
         getOrCreate(

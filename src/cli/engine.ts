@@ -42,7 +42,10 @@ export async function hydrateEngine(
             listPremiseIds(argumentId, version),
         ])
 
-    const argument: TCoreArgument = { ...argMeta, ...versionMeta }
+    const argument: Omit<TCoreArgument, "checksum"> = {
+        ...argMeta,
+        ...versionMeta,
+    }
     const engine = new ArgumentEngine(argument)
 
     // Register all argument-level variables once on the engine; the shared

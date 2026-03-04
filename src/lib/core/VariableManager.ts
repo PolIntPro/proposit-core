@@ -1,5 +1,7 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
 
+export type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
+
 /**
  * Registry for propositional variables within an argument, shared across
  * all premises.
@@ -9,10 +11,10 @@ import type { TCorePropositionalVariable } from "../schemata/index.js"
  * reference to each {@link PremiseManager}. It is not part of the public API.
  */
 export class VariableManager {
-    private variables: Map<string, TCorePropositionalVariable>
+    private variables: Map<string, TVariableInput>
     private variableSymbols: Set<string>
 
-    constructor(initialVariables: TCorePropositionalVariable[] = []) {
+    constructor(initialVariables: TVariableInput[] = []) {
         this.variables = new Map()
         this.variableSymbols = new Set()
 
@@ -22,7 +24,7 @@ export class VariableManager {
     }
 
     /** Returns all registered variables sorted by ID for deterministic output. */
-    public toArray(): TCorePropositionalVariable[] {
+    public toArray(): TVariableInput[] {
         return Array.from(this.variables.values()).sort((a, b) =>
             a.id.localeCompare(b.id)
         )
@@ -34,7 +36,7 @@ export class VariableManager {
      * @throws If the symbol is already in use.
      * @throws If the ID already exists.
      */
-    public addVariable(variable: TCorePropositionalVariable) {
+    public addVariable(variable: TVariableInput) {
         if (this.variableSymbols.has(variable.symbol)) {
             throw new Error(
                 `Variable symbol "${variable.symbol}" already exists.`
@@ -69,9 +71,7 @@ export class VariableManager {
     }
 
     /** Returns the variable with the given ID, or `undefined` if not found. */
-    public getVariable(
-        variableId: string
-    ): TCorePropositionalVariable | undefined {
+    public getVariable(variableId: string): TVariableInput | undefined {
         return this.variables.get(variableId)
     }
 
@@ -107,7 +107,7 @@ export class VariableManager {
     public updateVariable(
         variableId: string,
         updates: { symbol?: string }
-    ): TCorePropositionalVariable | undefined {
+    ): TVariableInput | undefined {
         const variable = this.variables.get(variableId)
         if (!variable) return undefined
 

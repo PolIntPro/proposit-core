@@ -3,10 +3,8 @@ import yaml from "js-yaml"
 import { Value } from "typebox/value"
 import { CoreYamlArgumentSchema } from "../lib/schemata/import.js"
 import type { TCoreYamlArgument } from "../lib/schemata/import.js"
-import type {
-    TCorePropositionalExpression,
-    TCorePropositionalVariable,
-} from "../lib/schemata/index.js"
+import type { TCorePropositionalVariable } from "../lib/schemata/index.js"
+import type { TExpressionInput } from "../lib/core/ExpressionManager.js"
 import type { FormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
 import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
@@ -83,8 +81,8 @@ function buildExpressions(
     position: number,
     argumentId: string,
     argumentVersion: number,
-    variablesByName: Map<string, TCorePropositionalVariable>,
-    addExpression: (expr: TCorePropositionalExpression) => void
+    variablesByName: Map<string, Omit<TCorePropositionalVariable, "checksum">>,
+    addExpression: (expr: TExpressionInput) => void
 ): string {
     const id = randomUUID()
 
@@ -246,9 +244,12 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const engine = new ArgumentEngine(argument)
 
     // Create variables
-    const variablesByName = new Map<string, TCorePropositionalVariable>()
+    const variablesByName = new Map<
+        string,
+        Omit<TCorePropositionalVariable, "checksum">
+    >()
     for (const name of [...allVariableNames].sort()) {
-        const variable: TCorePropositionalVariable = {
+        const variable: Omit<TCorePropositionalVariable, "checksum"> = {
             id: randomUUID(),
             argumentId,
             argumentVersion: 0,

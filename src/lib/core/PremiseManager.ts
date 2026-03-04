@@ -15,7 +15,11 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
-import type { TCoreChangeset, TCoreMutationResult } from "../types/mutation.js"
+import type {
+    TCoreChangeset,
+    TCoreRawChangeset,
+    TCoreMutationResult,
+} from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -30,7 +34,10 @@ import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
 import { computeHash, entityChecksum } from "./checksum.js"
-import type { TExpressionWithoutPosition } from "./ExpressionManager.js"
+import type {
+    TExpressionInput,
+    TExpressionWithoutPosition,
+} from "./ExpressionManager.js"
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
 
@@ -41,14 +48,14 @@ export class PremiseManager {
     private variables: VariableManager
     private expressions: ExpressionManager
     private expressionsByVariableId: DefaultMap<string, Set<string>>
-    private argument: TCoreArgument
+    private argument: Omit<TCoreArgument, "checksum">
     private checksumConfig?: TCoreChecksumConfig
     private checksumDirty = true
     private cachedChecksum: string | undefined
 
     constructor(
         id: string,
-        argument: TCoreArgument,
+        argument: Omit<TCoreArgument, "checksum">,
         variables: VariableManager,
         extras?: Record<string, unknown>,
         checksumConfig?: TCoreChecksumConfig
@@ -94,9 +101,12 @@ export class PremiseManager {
             }
         }
 
+        // Expressions in the collector already have checksums attached
+        // (from removeExpression's attachChangesetChecksums), so the raw
+        // changeset is safe to cast to TCoreChangeset.
         return {
             result: removed,
-            changes: collector.toChangeset(),
+            changes: collector.toChangeset() as unknown as TCoreChangeset,
         }
     }
 
@@ -116,7 +126,7 @@ export class PremiseManager {
      * @throws If the expression does not belong to this argument.
      */
     public addExpression(
-        expression: TCorePropositionalExpression
+        expression: TExpressionInput
     ): TCoreMutationResult<TCorePropositionalExpression> {
         this.assertBelongsToArgument(
             expression.argumentId,
@@ -317,7 +327,10 @@ export class PremiseManager {
         this.expressions.setCollector(collector)
         try {
             if (!snapshot) {
-                return { result: undefined, changes: collector.toChangeset() }
+                return {
+                    result: undefined,
+                    changes: collector.toChangeset() as TCoreChangeset,
+                }
             }
 
             // Snapshot the subtree before deletion so we can clean up
@@ -361,7 +374,7 @@ export class PremiseManager {
      * @throws If the expression is a variable reference and the variable has not been registered.
      */
     public insertExpression(
-        expression: TCorePropositionalExpression,
+        expression: TExpressionInput,
         leftNodeId?: string,
         rightNodeId?: string
     ): TCoreMutationResult<TCorePropositionalExpression> {
@@ -690,8 +703,12 @@ export class PremiseManager {
             this.expressions
                 .toArray()
                 .filter(
-                    (expr): expr is TCorePropositionalExpression<"variable"> =>
-                        expr.type === "variable"
+                    (
+                        expr
+                    ): expr is TExpressionInput & {
+                        type: "variable"
+                        variableId: string
+                    } => expr.type === "variable"
                 )
                 .map((expr) => expr.variableId)
         )
@@ -924,7 +941,7 @@ export class PremiseManager {
     // -------------------------------------------------------------------------
 
     private attachExpressionChecksum(
-        expr: TCorePropositionalExpression
+        expr: TExpressionInput
     ): TCorePropositionalExpression {
         const fields =
             this.checksumConfig?.expressionFields ??
@@ -939,7 +956,7 @@ export class PremiseManager {
     }
 
     private attachVariableChecksum(
-        v: TCorePropositionalVariable
+        v: Omit<TCorePropositionalVariable, "checksum">
     ): TCorePropositionalVariable {
         const fields =
             this.checksumConfig?.variableFields ??
@@ -953,8 +970,10 @@ export class PremiseManager {
         }
     }
 
-    private attachChangesetChecksums(changes: TCoreChangeset): TCoreChangeset {
-        const result: TCoreChangeset = { ...changes }
+    private attachChangesetChecksums(
+        changes: TCoreRawChangeset
+    ): TCoreChangeset {
+        const result: TCoreChangeset = { ...changes } as TCoreChangeset
         if (result.expressions) {
             result.expressions = {
                 added: result.expressions.added.map((e) =>
@@ -1038,8 +1057,8 @@ export class PremiseManager {
         this.rootExpressionId = roots[0]?.id
     }
 
-    private collectSubtree(rootId: string): TCorePropositionalExpression[] {
-        const result: TCorePropositionalExpression[] = []
+    private collectSubtree(rootId: string): TExpressionInput[] {
+        const result: TExpressionInput[] = []
         const stack = [rootId]
         while (stack.length > 0) {
             const id = stack.pop()!

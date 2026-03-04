@@ -1,13 +1,14 @@
-import type {
-    TCorePropositionalExpression,
-    TCorePropositionalVariable,
-    TCorePremise,
-} from "../schemata/index.js"
+import type { TCorePremise } from "../schemata/index.js"
 import type {
     TCoreArgument,
     TCoreArgumentRoleState,
 } from "../schemata/argument.js"
-import type { TCoreEntityChanges, TCoreChangeset } from "../types/mutation.js"
+import type {
+    TCoreEntityChanges,
+    TCoreRawChangeset,
+} from "../types/mutation.js"
+import type { TExpressionInput } from "./ExpressionManager.js"
+import type { TVariableInput } from "./VariableManager.js"
 
 function emptyEntityChanges<T>(): TCoreEntityChanges<T> {
     return { added: [], modified: [], removed: [] }
@@ -27,31 +28,30 @@ function isEntityChangesEmpty<T>(ec: TCoreEntityChanges<T>): boolean {
  * populated by internal helpers, and consumed via toChangeset().
  */
 export class ChangeCollector {
-    private expressions: TCoreEntityChanges<TCorePropositionalExpression> =
+    private expressions: TCoreEntityChanges<TExpressionInput> =
         emptyEntityChanges()
-    private variables: TCoreEntityChanges<TCorePropositionalVariable> =
-        emptyEntityChanges()
+    private variables: TCoreEntityChanges<TVariableInput> = emptyEntityChanges()
     private premises: TCoreEntityChanges<TCorePremise> = emptyEntityChanges()
     private roles: TCoreArgumentRoleState | undefined = undefined
     private argument: TCoreArgument | undefined = undefined
 
-    addedExpression(expr: TCorePropositionalExpression): void {
+    addedExpression(expr: TExpressionInput): void {
         this.expressions.added.push(expr)
     }
-    modifiedExpression(expr: TCorePropositionalExpression): void {
+    modifiedExpression(expr: TExpressionInput): void {
         this.expressions.modified.push(expr)
     }
-    removedExpression(expr: TCorePropositionalExpression): void {
+    removedExpression(expr: TExpressionInput): void {
         this.expressions.removed.push(expr)
     }
 
-    addedVariable(variable: TCorePropositionalVariable): void {
+    addedVariable(variable: TVariableInput): void {
         this.variables.added.push(variable)
     }
-    modifiedVariable(variable: TCorePropositionalVariable): void {
+    modifiedVariable(variable: TVariableInput): void {
         this.variables.modified.push(variable)
     }
-    removedVariable(variable: TCorePropositionalVariable): void {
+    removedVariable(variable: TVariableInput): void {
         this.variables.removed.push(variable)
     }
 
@@ -70,8 +70,8 @@ export class ChangeCollector {
         this.argument = argument
     }
 
-    toChangeset(): TCoreChangeset {
-        const cs: TCoreChangeset = {}
+    toChangeset(): TCoreRawChangeset {
+        const cs: TCoreRawChangeset = {}
         if (!isEntityChangesEmpty(this.expressions))
             cs.expressions = this.expressions
         if (!isEntityChangesEmpty(this.variables)) cs.variables = this.variables

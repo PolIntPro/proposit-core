@@ -21,7 +21,7 @@ import type {
 } from "../types/evaluation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
-import type { TCoreMutationResult } from "../types/mutation.js"
+import type { TCoreChangeset, TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./ChangeCollector.js"
 import { computeHash, entityChecksum } from "./checksum.js"
@@ -42,7 +42,7 @@ import { VariableManager } from "./VariableManager.js"
  * assignments, and exhaustive validity checking via truth-table enumeration.
  */
 export class ArgumentEngine {
-    private argument: TCoreArgument
+    private argument: Omit<TCoreArgument, "checksum">
     private premises: Map<string, PremiseManager>
     private variables: VariableManager
     private conclusionPremiseId: string | undefined
@@ -51,7 +51,7 @@ export class ArgumentEngine {
     private cachedChecksum: string | undefined
 
     constructor(
-        argument: TCoreArgument,
+        argument: Omit<TCoreArgument, "checksum">,
         options?: { checksumConfig?: TCoreChecksumConfig }
     ) {
         this.argument = { ...argument }
@@ -61,9 +61,9 @@ export class ArgumentEngine {
         this.checksumConfig = options?.checksumConfig
     }
 
-    /** Returns a shallow copy of the argument metadata. */
+    /** Returns a shallow copy of the argument metadata with checksum attached. */
     public getArgument(): TCoreArgument {
-        return { ...this.argument }
+        return { ...this.argument, checksum: this.checksum() }
     }
 
     /**
@@ -100,7 +100,10 @@ export class ArgumentEngine {
         const collector = new ChangeCollector()
         collector.addedPremise(pm.toData())
         this.markDirty()
-        return { result: pm, changes: collector.toChangeset() }
+        return {
+            result: pm,
+            changes: collector.toChangeset() as TCoreChangeset,
+        }
     }
 
     /**
@@ -121,7 +124,10 @@ export class ArgumentEngine {
             collector.setRoles(this.getRoleState())
         }
         this.markDirty()
-        return { result: data, changes: collector.toChangeset() }
+        return {
+            result: data,
+            changes: collector.toChangeset() as TCoreChangeset,
+        }
     }
 
     /** Returns the premise with the given ID, or `undefined` if not found. */
@@ -156,7 +162,7 @@ export class ArgumentEngine {
      * @throws If the variable does not belong to this argument.
      */
     public addVariable(
-        variable: TCorePropositionalVariable
+        variable: Omit<TCorePropositionalVariable, "checksum">
     ): TCoreMutationResult<TCorePropositionalVariable> {
         if (variable.argumentId !== this.argument.id) {
             throw new Error(
@@ -176,7 +182,7 @@ export class ArgumentEngine {
         this.markAllPremisesDirty()
         return {
             result: withChecksum,
-            changes: collector.toChangeset(),
+            changes: collector.toChangeset() as TCoreChangeset,
         }
     }
 
@@ -199,12 +205,12 @@ export class ArgumentEngine {
             this.markAllPremisesDirty()
             return {
                 result: withChecksum,
-                changes: collector.toChangeset(),
+                changes: collector.toChangeset() as TCoreChangeset,
             }
         }
         return {
             result: undefined,
-            changes: collector.toChangeset(),
+            changes: collector.toChangeset() as TCoreChangeset,
         }
     }
 
@@ -239,7 +245,7 @@ export class ArgumentEngine {
         this.markAllPremisesDirty()
         return {
             result: withChecksum,
-            changes: collector.toChangeset(),
+            changes: collector.toChangeset() as TCoreChangeset,
         }
     }
 
@@ -283,7 +289,10 @@ export class ArgumentEngine {
         const collector = new ChangeCollector()
         collector.setRoles(roles)
         this.markDirty()
-        return { result: roles, changes: collector.toChangeset() }
+        return {
+            result: roles,
+            changes: collector.toChangeset() as TCoreChangeset,
+        }
     }
 
     /** Clears the conclusion designation. */
@@ -293,7 +302,10 @@ export class ArgumentEngine {
         const collector = new ChangeCollector()
         collector.setRoles(roles)
         this.markDirty()
-        return { result: roles, changes: collector.toChangeset() }
+        return {
+            result: roles,
+            changes: collector.toChangeset() as TCoreChangeset,
+        }
     }
 
     /** Returns the conclusion premise, or `undefined` if none is set. */
@@ -382,7 +394,7 @@ export class ArgumentEngine {
     }
 
     private attachVariableChecksum(
-        v: TCorePropositionalVariable
+        v: Omit<TCorePropositionalVariable, "checksum">
     ): TCorePropositionalVariable {
         const fields =
             this.checksumConfig?.variableFields ??

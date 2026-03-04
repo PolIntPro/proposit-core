@@ -2,14 +2,24 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import Type from "typebox"
 import Value from "typebox/value"
-import {
-    CorePropositionalVariableSchema,
-    type TCorePropositionalVariable,
-} from "../../lib/schemata/index.js"
+import type { TCorePropositionalVariable } from "../../lib/schemata/index.js"
+import { UUID } from "../../lib/schemata/shared.js"
 import { getVersionDir } from "../config.js"
 import { errorExit } from "../output.js"
 
-const VariablesFileSchema = Type.Array(CorePropositionalVariableSchema)
+// Local schema with optional checksum for backward-compatible disk reads.
+const CliVariableSchema = Type.Object(
+    {
+        id: UUID,
+        argumentId: UUID,
+        argumentVersion: Type.Number(),
+        symbol: Type.String(),
+        checksum: Type.Optional(Type.String()),
+    },
+    { additionalProperties: true }
+)
+
+const VariablesFileSchema = Type.Array(CliVariableSchema)
 
 function variablesPath(argumentId: string, version: number): string {
     return path.join(getVersionDir(argumentId, version), "variables.json")
