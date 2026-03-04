@@ -13,6 +13,7 @@
 ### Task 1: Write failing tests for auto-conclusion behavior
 
 **Files:**
+
 - Modify: `test/ExpressionManager.test.ts` (append new describe block at bottom)
 
 **Step 1: Write the failing tests**
@@ -90,6 +91,7 @@ git commit -m "Add failing tests for auto-conclusion on first premise"
 ### Task 2: Implement auto-conclusion in createPremiseWithId
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts:85-107`
 
 **Step 1: Add auto-conclusion logic**
@@ -143,6 +145,7 @@ git commit -m "Auto-set first premise as conclusion in createPremiseWithId"
 ### Task 3: Fix existing tests affected by auto-conclusion
 
 **Files:**
+
 - Modify: `test/ExpressionManager.test.ts`
 
 The following existing tests need updates because the first `createPremise` now auto-sets the conclusion:
@@ -192,6 +195,7 @@ git commit -m "Update existing tests for auto-conclusion changeset"
 ### Task 4: Run full checks and update documentation
 
 **Files:**
+
 - Modify: `README.md` (if ArgumentEngine behavior is documented there)
 - Modify: `CLAUDE.md` (update "Key design decisions" section)
 
