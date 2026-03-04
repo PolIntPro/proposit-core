@@ -37,6 +37,7 @@ import { computeHash, entityChecksum } from "./checksum.js"
 import type {
     TExpressionInput,
     TExpressionWithoutPosition,
+    TExpressionUpdate,
 } from "./ExpressionManager.js"
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
@@ -302,6 +303,80 @@ export class PremiseManager {
             return {
                 result: this.attachExpressionChecksum({ ...stored }),
                 changes: this.attachChangesetChecksums(collector.toChangeset()),
+            }
+        } finally {
+            this.expressions.setCollector(null)
+        }
+    }
+
+    /**
+     * Updates mutable fields of an existing expression in this premise.
+     *
+     * Only `position`, `variableId`, and `operator` may be updated. Structural
+     * fields (`id`, `parentId`, `type`, `argumentId`, `argumentVersion`,
+     * `checksum`) are forbidden — enforced by the underlying
+     * `ExpressionManager`.
+     *
+     * If `variableId` changes, the internal `expressionsByVariableId` index is
+     * updated so that cascade deletion (`deleteExpressionsUsingVariable`) stays
+     * correct.
+     *
+     * @throws If the expression does not exist in this premise.
+     * @throws If `variableId` references a non-existent variable.
+     */
+    public updateExpression(
+        expressionId: string,
+        updates: TExpressionUpdate
+    ): TCoreMutationResult<TCorePropositionalExpression> {
+        const existing = this.expressions.getExpression(expressionId)
+        if (!existing) {
+            throw new Error(
+                `Expression "${expressionId}" not found in premise "${this.id}".`
+            )
+        }
+
+        if (updates.variableId !== undefined) {
+            if (!this.variables.hasVariable(updates.variableId)) {
+                throw new Error(
+                    `Variable expression "${expressionId}" references non-existent variable "${updates.variableId}".`
+                )
+            }
+        }
+
+        const collector = new ChangeCollector()
+        this.expressions.setCollector(collector)
+        try {
+            const oldVariableId =
+                existing.type === "variable" ? existing.variableId : undefined
+
+            const updated = this.expressions.updateExpression(
+                expressionId,
+                updates
+            )
+
+            if (
+                updates.variableId !== undefined &&
+                oldVariableId !== undefined &&
+                oldVariableId !== updates.variableId
+            ) {
+                this.expressionsByVariableId
+                    .get(oldVariableId)
+                    ?.delete(expressionId)
+                this.expressionsByVariableId
+                    .get(updates.variableId)
+                    .add(expressionId)
+            }
+
+            const changeset = collector.toChangeset()
+            if (changeset.expressions !== undefined) {
+                this.markDirty()
+            }
+
+            return {
+                result: this.attachExpressionChecksum({
+                    ...(updated ?? existing),
+                }),
+                changes: this.attachChangesetChecksums(changeset),
             }
         } finally {
             this.expressions.setCollector(null)

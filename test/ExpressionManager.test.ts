@@ -5867,3 +5867,382 @@ describe("ArgumentEngine — auto-conclusion on first premise", () => {
         expect(eng.getRoleState().conclusionPremiseId).toBe(second.getId())
     })
 })
+
+// ---------------------------------------------------------------------------
+// PremiseManager — updateExpression
+// ---------------------------------------------------------------------------
+
+describe("PremiseManager — updateExpression", () => {
+    function setup() {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable(VAR_P)
+        eng.addVariable(VAR_Q)
+        eng.addVariable(VAR_R)
+        const { result: pm } = eng.createPremise()
+        return { eng, pm }
+    }
+
+    it("updates position of an expression", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 3 })
+        )
+
+        const { result, changes } = pm.updateExpression("e-p", { position: 2 })
+
+        expect(result.id).toBe("e-p")
+        expect(result.position).toBe(2)
+        expect(changes.expressions?.modified).toHaveLength(1)
+        expect(changes.expressions?.modified[0].id).toBe("e-p")
+        expect(changes.expressions?.modified[0].position).toBe(2)
+    })
+
+    it("rejects position collision with sibling", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 3 })
+        )
+
+        expect(() => pm.updateExpression("e-p", { position: 3 })).toThrowError(
+            /position/
+        )
+    })
+
+    it("updates variableId on a variable expression", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        const { result, changes } = pm.updateExpression("e-p", {
+            variableId: VAR_Q.id,
+        })
+
+        expect(result.id).toBe("e-p")
+        expect(
+            (result as TCorePropositionalExpression<"variable">).variableId
+        ).toBe(VAR_Q.id)
+        expect(changes.expressions?.modified).toHaveLength(1)
+    })
+
+    it("rejects variableId update on non-variable expression", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-and", { variableId: VAR_P.id })
+        ).toThrowError(/not a variable expression/)
+    })
+
+    it("rejects variableId referencing non-existent variable", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("e-p", { variableId: "var-nonexistent" })
+        ).toThrowError(/non-existent variable/)
+    })
+
+    it("updates expressionsByVariableId index on variableId change (verify via cascade delete)", () => {
+        const { pm } = setup()
+        // Build: and(P, Q)
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 2 })
+        )
+
+        // Change e-p from P to R
+        pm.updateExpression("e-p", { variableId: VAR_R.id })
+
+        // Cascade-delete P: should remove nothing since e-p is now R
+        const { result: removedP } = pm.deleteExpressionsUsingVariable(VAR_P.id)
+        expect(removedP).toHaveLength(0)
+
+        // Cascade-delete R: should remove e-p (now referencing R)
+        const { result: removedR } = pm.deleteExpressionsUsingVariable(VAR_R.id)
+        expect(removedR.length).toBeGreaterThanOrEqual(1)
+        expect(pm.getExpression("e-p")).toBeUndefined()
+    })
+
+    it("updates operator and to or", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 2 })
+        )
+
+        const { result } = pm.updateExpression("op-and", { operator: "or" })
+
+        expect(
+            (result as TCorePropositionalExpression<"operator">).operator
+        ).toBe("or")
+    })
+
+    it("updates operator or to and", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-or", position: 2 })
+        )
+
+        const { result } = pm.updateExpression("op-or", { operator: "and" })
+
+        expect(
+            (result as TCorePropositionalExpression<"operator">).operator
+        ).toBe("and")
+    })
+
+    it("updates operator implies to iff", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-impl", "implies", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-impl", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-impl", position: 2 })
+        )
+
+        const { result } = pm.updateExpression("op-impl", { operator: "iff" })
+
+        expect(
+            (result as TCorePropositionalExpression<"operator">).operator
+        ).toBe("iff")
+    })
+
+    it("updates operator iff to implies", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-iff", "iff", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-iff", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-iff", position: 2 })
+        )
+
+        const { result } = pm.updateExpression("op-iff", {
+            operator: "implies",
+        })
+
+        expect(
+            (result as TCorePropositionalExpression<"operator">).operator
+        ).toBe("implies")
+    })
+
+    it("rejects operator change across groups: and to implies", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 2 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-and", { operator: "implies" })
+        ).toThrowError(/not a permitted operator change/)
+    })
+
+    it("rejects operator change from not", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-not", "not", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-not", position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-not", { operator: "and" })
+        ).toThrowError(/not a permitted operator change/)
+    })
+
+    it("rejects operator change to not", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-q", VAR_Q.id, { parentId: "op-and", position: 2 })
+        )
+
+        expect(() =>
+            pm.updateExpression("op-and", { operator: "not" })
+        ).toThrowError(/not a permitted operator change/)
+    })
+
+    it("rejects operator update on non-operator expression", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            pm.updateExpression("e-p", { operator: "and" })
+        ).toThrowError(/not an operator expression/)
+    })
+
+    it("rejects forbidden field: id", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { id: "new-id" } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("rejects forbidden field: parentId", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { parentId: "op-and" } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("rejects forbidden field: type", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { type: "operator" } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("rejects forbidden field: argumentId", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { argumentId: "arg-2" } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("rejects forbidden field: argumentVersion", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { argumentVersion: 99 } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("rejects forbidden field: checksum", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        expect(() =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+            pm.updateExpression("e-p", { checksum: "abcd1234" } as any)
+        ).toThrowError(/forbidden/)
+    })
+
+    it("throws for non-existent expression", () => {
+        const { pm } = setup()
+
+        expect(() =>
+            pm.updateExpression("nonexistent", { position: 5 })
+        ).toThrowError(/not found/)
+    })
+
+    it("no-ops when updates object is empty", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        const { result, changes } = pm.updateExpression("e-p", {})
+
+        expect(result.id).toBe("e-p")
+        // No expression changes when nothing is updated
+        expect(changes.expressions?.modified ?? []).toHaveLength(0)
+        expect(changes.expressions?.added ?? []).toHaveLength(0)
+        expect(changes.expressions?.removed ?? []).toHaveLength(0)
+    })
+
+    it("marks premise checksum dirty after update", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        const before = pm.checksum()
+        pm.updateExpression("e-p", { variableId: VAR_Q.id })
+        const after = pm.checksum()
+
+        expect(before).not.toBe(after)
+    })
+
+    it("result includes checksum", () => {
+        const { pm } = setup()
+        pm.addExpression(
+            makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
+        )
+
+        const { result, changes } = pm.updateExpression("e-p", {
+            variableId: VAR_Q.id,
+        })
+
+        expect(result.checksum).toMatch(/^[0-9a-f]{8}$/)
+        expect(changes.expressions?.modified[0].checksum).toMatch(
+            /^[0-9a-f]{8}$/
+        )
+    })
+})

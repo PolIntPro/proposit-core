@@ -31,6 +31,7 @@ export type { FormulaAST } from "./core/parser/formula.js"
 export type {
     TExpressionInput,
     TExpressionWithoutPosition,
+    TExpressionUpdate,
 } from "./core/ExpressionManager.js"
 export {
     POSITION_MIN,

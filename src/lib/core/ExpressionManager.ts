@@ -25,6 +25,20 @@ export type TExpressionWithoutPosition =
             : never
         : never
 
+/** Fields that may be updated on an existing expression. */
+export type TExpressionUpdate = {
+    position?: number
+    variableId?: string
+    operator?: TCoreLogicalOperatorType
+}
+
+const PERMITTED_OPERATOR_SWAPS: Record<string, string | undefined> = {
+    and: "or",
+    or: "and",
+    implies: "iff",
+    iff: "implies",
+}
+
 /**
  * Low-level manager for a flat-stored expression tree.
  *
@@ -207,6 +221,120 @@ export class ExpressionManager {
             parentId: sibling.parentId,
             position,
         } as TExpressionInput)
+    }
+
+    /**
+     * Updates mutable fields of an existing expression in-place.
+     *
+     * Only `position`, `variableId`, and `operator` may be updated. Structural
+     * fields (`id`, `parentId`, `type`, `argumentId`, `argumentVersion`,
+     * `checksum`) are forbidden.
+     *
+     * Operator changes are restricted to permitted swaps: `and`/`or` and
+     * `implies`/`iff`. Variable ID changes require the expression to be of
+     * type `"variable"`.
+     *
+     * @throws If the expression does not exist.
+     * @throws If a forbidden field is present in `updates`.
+     * @throws If an operator change is not permitted.
+     * @throws If `variableId` is set on a non-variable expression.
+     * @throws If the new position collides with a sibling.
+     */
+    public updateExpression(
+        expressionId: string,
+        updates: TExpressionUpdate
+    ): TExpressionInput | undefined {
+        const expression = this.expressions.get(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" not found.`)
+        }
+
+        // Reject forbidden fields passed via `as any`.
+        const FORBIDDEN_KEYS = [
+            "id",
+            "argumentId",
+            "argumentVersion",
+            "checksum",
+            "parentId",
+            "type",
+        ]
+        for (const key of FORBIDDEN_KEYS) {
+            if (key in updates) {
+                throw new Error(
+                    `Field "${key}" is forbidden in expression updates.`
+                )
+            }
+        }
+
+        // If no actual mutable fields are set, return the expression as-is.
+        if (
+            updates.position === undefined &&
+            updates.variableId === undefined &&
+            updates.operator === undefined
+        ) {
+            return expression
+        }
+
+        // Validate operator change.
+        if (updates.operator !== undefined) {
+            if (expression.type !== "operator") {
+                throw new Error(
+                    `Expression "${expressionId}" is not an operator expression; cannot update operator.`
+                )
+            }
+            const permitted = PERMITTED_OPERATOR_SWAPS[expression.operator]
+            if (permitted !== updates.operator) {
+                throw new Error(
+                    `Changing operator from "${expression.operator}" to "${updates.operator}" is not a permitted operator change. Permitted: and↔or, implies↔iff.`
+                )
+            }
+        }
+
+        // Validate variableId change.
+        if (updates.variableId !== undefined) {
+            if (expression.type !== "variable") {
+                throw new Error(
+                    `Expression "${expressionId}" is not a variable expression; cannot update variableId.`
+                )
+            }
+        }
+
+        // Validate position change.
+        if (updates.position !== undefined) {
+            const positionSet = this.childPositionsByParentId.get(
+                expression.parentId
+            )
+            if (positionSet) {
+                positionSet.delete(expression.position)
+                if (positionSet.has(updates.position)) {
+                    // Restore old position before throwing.
+                    positionSet.add(expression.position)
+                    throw new Error(
+                        `position ${updates.position} is already used under parent "${expression.parentId}".`
+                    )
+                }
+                positionSet.add(updates.position)
+            }
+        }
+
+        // Build an updated copy and replace in the map.
+        const updated = {
+            ...expression,
+            ...(updates.position !== undefined
+                ? { position: updates.position }
+                : {}),
+            ...(updates.variableId !== undefined
+                ? { variableId: updates.variableId }
+                : {}),
+            ...(updates.operator !== undefined
+                ? { operator: updates.operator }
+                : {}),
+        } as TExpressionInput
+        this.expressions.set(expressionId, updated)
+
+        this.collector?.modifiedExpression({ ...updated })
+
+        return updated
     }
 
     /**
