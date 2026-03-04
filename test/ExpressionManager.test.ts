@@ -11,6 +11,10 @@ import {
     type TCorePremise,
 } from "../src/lib/schemata"
 import { ChangeCollector } from "../src/lib/core/ChangeCollector"
+import {
+    DEFAULT_CHECKSUM_CONFIG,
+    createChecksumConfig,
+} from "../src/lib/consts"
 import type { TCoreExpressionAssignment } from "../src/lib/types/evaluation"
 import {
     POSITION_MIN,
@@ -5254,6 +5258,49 @@ describe("entity checksum fields", () => {
         expect(changes.expressions!.modified).toHaveLength(1)
         expect(changes.expressions!.modified[0].checksum).toMatch(
             /^[0-9a-f]{8}$/
+        )
+    })
+})
+
+describe("createChecksumConfig", () => {
+    it("returns defaults when given empty config", () => {
+        const config = createChecksumConfig({})
+        expect(config.expressionFields).toEqual(
+            DEFAULT_CHECKSUM_CONFIG.expressionFields
+        )
+        expect(config.variableFields).toEqual(
+            DEFAULT_CHECKSUM_CONFIG.variableFields
+        )
+        expect(config.premiseFields).toEqual(
+            DEFAULT_CHECKSUM_CONFIG.premiseFields
+        )
+        expect(config.argumentFields).toEqual(
+            DEFAULT_CHECKSUM_CONFIG.argumentFields
+        )
+        expect(config.roleFields).toEqual(DEFAULT_CHECKSUM_CONFIG.roleFields)
+    })
+
+    it("merges additional fields into defaults", () => {
+        const config = createChecksumConfig({
+            expressionFields: new Set(["customField"]),
+        })
+        expect(config.expressionFields!.has("id")).toBe(true)
+        expect(config.expressionFields!.has("customField")).toBe(true)
+    })
+
+    it("does not duplicate fields already in defaults", () => {
+        const config = createChecksumConfig({
+            variableFields: new Set(["id", "extra"]),
+        })
+        const arr = [...config.variableFields!]
+        expect(arr.filter((f) => f === "id")).toHaveLength(1)
+        expect(config.variableFields!.has("extra")).toBe(true)
+    })
+
+    it("returns a new Set instance (not the same reference as defaults)", () => {
+        const config = createChecksumConfig({})
+        expect(config.expressionFields).not.toBe(
+            DEFAULT_CHECKSUM_CONFIG.expressionFields
         )
     })
 })
