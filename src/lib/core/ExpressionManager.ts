@@ -48,9 +48,11 @@ export class ExpressionManager {
         this.loadInitialExpressions(initialExpressions)
     }
 
-    /** Returns all expressions as an unordered array. */
+    /** Returns all expressions sorted by ID for deterministic output. */
     public toArray(): TCorePropositionalExpression[] {
-        return Array.from(this.expressions.values())
+        return Array.from(this.expressions.values()).sort((a, b) =>
+            a.id.localeCompare(b.id)
+        )
     }
 
     /**

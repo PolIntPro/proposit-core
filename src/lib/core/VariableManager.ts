@@ -20,9 +20,11 @@ export class VariableManager {
         }
     }
 
-    /** Returns all registered variables as an array. */
+    /** Returns all registered variables sorted by ID for deterministic output. */
     public toArray(): TCorePropositionalVariable[] {
-        return Array.from(this.variables.values())
+        return Array.from(this.variables.values()).sort((a, b) =>
+            a.id.localeCompare(b.id)
+        )
     }
 
     /**

@@ -10,6 +10,12 @@ export { ArgumentEngine, PremiseManager } from "./lib/index.js"
 export * from "./lib/schemata/index.js"
 export * from "./lib/types/diff.js"
 export * from "./lib/types/mutation.js"
+export * from "./lib/types/checksum.js"
+export {
+    computeHash,
+    canonicalSerialize,
+    entityChecksum,
+} from "./lib/core/checksum.js"
 export {
     diffArguments,
     defaultCompareArgument,

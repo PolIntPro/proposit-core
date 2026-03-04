@@ -7,6 +7,12 @@ export { PremiseManager } from "./core/PremiseManager.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
+export * from "./types/checksum.js"
+export {
+    computeHash,
+    canonicalSerialize,
+    entityChecksum,
+} from "./core/checksum.js"
 export {
     diffArguments,
     defaultCompareArgument,
