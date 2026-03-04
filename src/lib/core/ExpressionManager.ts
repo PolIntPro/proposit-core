@@ -243,7 +243,7 @@ export class ExpressionManager {
     public updateExpression(
         expressionId: string,
         updates: TExpressionUpdate
-    ): TExpressionInput | undefined {
+    ): TExpressionInput {
         const expression = this.expressions.get(expressionId)
         if (!expression) {
             throw new Error(`Expression "${expressionId}" not found.`)
@@ -310,7 +310,7 @@ export class ExpressionManager {
                     // Restore old position before throwing.
                     positionSet.add(expression.position)
                     throw new Error(
-                        `position ${updates.position} is already used under parent "${expression.parentId}".`
+                        `Position ${updates.position} is already used under parent "${expression.parentId}".`
                     )
                 }
                 positionSet.add(updates.position)

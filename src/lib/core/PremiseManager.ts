@@ -374,7 +374,7 @@ export class PremiseManager {
 
             return {
                 result: this.attachExpressionChecksum({
-                    ...(updated ?? existing),
+                    ...updated,
                 }),
                 changes: this.attachChangesetChecksums(changeset),
             }

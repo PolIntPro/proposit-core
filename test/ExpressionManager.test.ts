@@ -5916,7 +5916,7 @@ describe("PremiseManager — updateExpression", () => {
         )
 
         expect(() => pm.updateExpression("e-p", { position: 3 })).toThrowError(
-            /position/
+            /Position/
         )
     })
 
