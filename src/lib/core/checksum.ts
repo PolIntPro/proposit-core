@@ -35,7 +35,7 @@ export function canonicalSerialize(value: unknown): string {
  */
 export function entityChecksum(
     entity: Record<string, unknown>,
-    fields: string[]
+    fields: Iterable<string>
 ): string {
     const picked: Record<string, unknown> = {}
     for (const field of [...fields].sort()) {

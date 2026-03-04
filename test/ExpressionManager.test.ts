@@ -4959,7 +4959,7 @@ describe("checksum utilities", () => {
         it("accepts custom checksum config", () => {
             const eng = new ArgumentEngine(
                 { id: "arg1", version: 0 },
-                { checksumConfig: { argumentFields: ["id"] } }
+                { checksumConfig: { argumentFields: new Set(["id"]) } }
             )
             const cs = eng.checksum()
             expect(cs).toMatch(/^[0-9a-f]{8}$/)
