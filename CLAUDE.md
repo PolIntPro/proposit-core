@@ -55,7 +55,7 @@ src/
     core/
       ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity, checksum
       PremiseManager.ts    # PremiseManager — variables, expressions, evaluate, toDisplayString, toData, isInference, isConstraint, checksum
-      ExpressionManager.ts # Low-level expression tree (addExpression, appendExpression, addExpressionRelative, removeExpression, insertExpression)
+      ExpressionManager.ts # Low-level expression tree (addExpression, appendExpression, addExpressionRelative, updateExpression, removeExpression, insertExpression)
       VariableManager.ts   # Low-level variable registry
       ChangeCollector.ts   # Internal change collector (not exported) — accumulates entity changes during mutations
       checksum.ts          # computeHash, canonicalSerialize, entityChecksum (standalone utilities)
@@ -192,12 +192,18 @@ Both `ExpressionManager` and `PremiseManager` expose all three methods. The inpu
 
 A `formula` node is a transparent unary wrapper — equivalent to parentheses around its single child. It may have exactly one child. Collapse rules apply to `formula` nodes the same way they do to `operator` nodes.
 
-### Operator collapse on removal
+### `updateExpression`
 
-After `removeExpression` deletes a subtree, `collapseIfNeeded(parentId)` is called:
+`updateExpression(id, updates)` modifies an expression's mutable fields in place. Allowed fields: `position` (no sibling collision), `variableId` (variable type only, must exist), `operator` (operator type only, restricted swaps: `and↔or`, `implies↔iff`). Forbidden: `id`, `argumentId`, `argumentVersion`, `checksum`, `parentId`, `type`. Returns the updated expression with changeset. `not` operators cannot be changed (delete and re-create instead).
+
+### `removeExpression` and operator collapse
+
+`removeExpression(id, deleteSubtree)` takes a required boolean. When `deleteSubtree` is `true`, the expression and all descendants are deleted, then `collapseIfNeeded(parentId)` runs:
 
 - **0 children remaining** — the operator/formula is deleted; the check recurses to the grandparent.
 - **1 child remaining** — the operator/formula is deleted and the surviving child is promoted into its former slot. No recursion (grandparent's child count is unchanged).
+
+When `deleteSubtree` is `false`, the expression is removed and its single child is promoted into its slot (inheriting `parentId` and `position`). Throws if >1 child. Validates that root-only operators (`implies`/`iff`) are not promoted into non-root positions. No collapse runs after promotion. Leaf removal with `deleteSubtree: false` runs collapse on the parent (same as `true`).
 
 ### `insertExpression` mutation order
 
@@ -331,6 +337,7 @@ Position types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/positi
 - `TExpressionInput` — `TPropositionalExpression` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
 - `TVariableInput` — `Omit<TCorePropositionalVariable, "checksum">`. Used as input for `addVariable` and as internal storage type in `VariableManager`.
 - `TExpressionWithoutPosition` — `TPropositionalExpression` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `appendExpression` and `addExpressionRelative`.
+- `TExpressionUpdate` — `{ position?: number; variableId?: string; operator?: TCoreLogicalOperatorType }`. Used as input for `updateExpression`. Only the specified fields may be updated; all other fields are forbidden.
 - `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — constants for midpoint computation.
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).
 
@@ -378,6 +385,8 @@ Current describe blocks (in order):
 - `checksum utilities` (with sub-describes for `computeHash`, `canonicalSerialize`, `entityChecksum`, `PremiseManager — checksum`, `ArgumentEngine — checksum`)
 - `ArgumentEngine — variable management`
 - `PremiseManager — deleteExpressionsUsingVariable`
+- `PremiseManager — updateExpression`
+- `removeExpression — deleteSubtree parameter`
 
 When adding a test for a new feature, add a new `describe` block at the bottom.
 
