@@ -43,12 +43,12 @@ src/
       analysis.ts       # TAnalysisFile schema + type
       propositional.ts  # TPropositionalVariable, TPropositionalExpression (variable/operator/formula),
                         #   TPremise, TLogicalOperatorType
-      shared.ts         # UUID, Nullable helpers
+      shared.ts         # UUID, Nullable helpers, TOptionalChecksum
     types/
       evaluation.ts     # All evaluation types: TTrivalentValue, TVariableAssignment,
                         #   TExpressionAssignment, TArgumentEvaluationResult, TValidityCheckResult, etc.
       diff.ts           # Diff types: TCoreArgumentDiff, TCoreFieldChange, TCoreEntitySetDiff, TCoreDiffOptions, etc.
-      mutation.ts       # TCoreEntityChanges, TCoreChangeset, TCoreRawChangeset, TCoreMutationResult
+      mutation.ts       # TCoreEntityChanges, TCoreChangeset, TCoreMutationResult (all generic with defaults)
       checksum.ts       # TCoreChecksumConfig
       relationships.ts  # Relationship types: TCorePremiseRelationshipAnalysis, TCorePremiseProfile,
                         #   TCoreVariableAppearance, TCorePremiseRelationResult, etc.
@@ -92,17 +92,19 @@ src/
                           #   validate-assignments, delete, evaluate, check-validity, validate-argument, refs, export
 
 test/
-  ExpressionManager.test.ts   # Full test suite (325 tests, Vitest)
+  ExpressionManager.test.ts   # Full test suite (459 tests, Vitest)
 ```
 
 ## Class hierarchy
 
 ```
-ArgumentEngine
-  ├─ VariableManager (shared, owned by engine)
-  └─ PremiseManager (one per premise, receives shared VariableManager)
-       └─ ExpressionManager (expression tree)
+ArgumentEngine<TArg, TPremise, TExpr, TVar>
+  ├─ VariableManager<TVar> (shared, owned by engine)
+  └─ PremiseManager<TArg, TPremise, TExpr, TVar> (one per premise)
+       └─ ExpressionManager<TExpr> (expression tree)
 ```
+
+All type parameters have `extends BaseType = BaseType` defaults, so existing code using these classes without type arguments works unchanged. Extended entity types survive all mutations via spread-based reconstruction; `as T` assertions are used at ~15 internal reconstruction points where TypeScript cannot prove that `Omit<T, K> & Pick<Base, K>` equals `T` for generic `T extends Base`.
 
 `ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `options` parameter: `{ checksumConfig?: TCoreChecksumConfig }`. The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseManager` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
 
@@ -273,8 +275,8 @@ Variables are argument-scoped and managed by `ArgumentEngine` via `addVariable()
 Per-entity checksums provide a lightweight way to detect changes without deep comparison. Key points:
 
 - All entity types (`TPropositionalExpression`, `TPropositionalVariable`, `TCorePremise`, `TCoreArgument`) carry a required `checksum: string` field in their schemas.
-- Internally, managers store entities without checksums using input types (`TExpressionInput`, `TVariableInput`, `Omit<TCoreArgument, "checksum">`). Checksums are attached lazily by getters (`getExpression()`, `getVariables()`, `getArgument()`, `toData()`) and in changeset outputs.
-- Add/create methods accept input types without checksum (e.g. `addExpression(expr: TExpressionInput)`, `addVariable(v: Omit<TCorePropositionalVariable, "checksum">)`).
+- Internally, managers store entities without checksums using `TOptionalChecksum<T>` and `TExpressionInput<TExpr>`. `VariableManager` stores `TVar` directly (checksums attached by `ArgumentEngine` before registration). Checksums are attached lazily by getters (`getExpression()`, `getVariables()`, `getArgument()`, `toData()`) and in changeset outputs.
+- Add/create methods accept input types without checksum (e.g. `addExpression(expr: TExpressionInput<TExpr>)`, `addVariable(v: TOptionalChecksum<TVar>)`).
 - `PremiseManager.checksum()` and `ArgumentEngine.checksum()` compute checksums lazily — dirty flags track when recomputation is needed.
 - `TCoreChecksumConfig` controls which fields are hashed per entity type using `Set<string>` fields. `DEFAULT_CHECKSUM_CONFIG` and `createChecksumConfig()` are exported from `src/lib/consts.ts`.
 - The `ArgumentEngine` constructor accepts `options?: { checksumConfig?: TCoreChecksumConfig }`.
@@ -304,9 +306,8 @@ Key evaluation types (all in `src/lib/types/evaluation.ts`):
 
 Key mutation types (all in `src/lib/types/mutation.ts`):
 
-- `TCoreMutationResult<T>` — `{ result: T, changes: TCoreChangeset }` wrapper returned by all mutating methods.
-- `TCoreChangeset` — optional fields for `expressions`, `variables`, `premises` (each `TCoreEntityChanges<T>`), plus `roles` (`TCoreArgumentRoleState`) and `argument` (`TCoreArgument`). All entities include checksums.
-- `TCoreRawChangeset` — internal variant of `TCoreChangeset` used by `ChangeCollector`, with input types (`TExpressionInput`, `TVariableInput`) that lack checksums. Converted to `TCoreChangeset` by `attachChangesetChecksums()` before returning to callers.
+- `TCoreMutationResult<T, TExpr, TVar, TPremise, TArg>` — `{ result: T, changes: TCoreChangeset<...> }` wrapper returned by all mutating methods. All type params default to base types.
+- `TCoreChangeset<TExpr, TVar, TPremise, TArg>` — optional fields for `expressions`, `variables`, `premises` (each `TCoreEntityChanges<T>`), plus `roles` (`TCoreArgumentRoleState`) and `argument` (`TArg`). All entities include checksums. All type params default to base types.
 - `TCoreEntityChanges<T>` — `{ added: T[], modified: T[], removed: T[] }` tracking entity-level side effects.
 
 Key checksum types (in `src/lib/types/checksum.ts`):
@@ -320,9 +321,10 @@ Key diff types (all in `src/lib/types/diff.ts`):
 - `TCoreFieldChange` — single field-level change (`{ field, before, after }`).
 - `TCoreEntityFieldDiff<T>` — field-level diff for a single matched entity.
 - `TCoreEntitySetDiff<T>` — set-level diff (added/removed/modified).
-- `TCorePremiseDiff` — premise diff with nested expression diffs.
-- `TCoreArgumentDiff` — top-level diff result from `diffArguments`.
-- `TCoreDiffOptions` — per-entity comparator overrides for `diffArguments`.
+- `TCorePremiseDiff<TPremise, TExpr>` — premise diff with nested expression diffs. Defaults to base types.
+- `TCorePremiseSetDiff<TPremise, TExpr>` — premise set diff. Defaults to base types.
+- `TCoreArgumentDiff<TArg, TVar, TPremise, TExpr>` — top-level diff result from `diffArguments`. Defaults to base types.
+- `TCoreDiffOptions<TArg, TVar, TPremise, TExpr>` — per-entity comparator overrides for `diffArguments`. Defaults to base types.
 
 Key relationship types (all in `src/lib/types/relationships.ts`):
 
@@ -332,11 +334,14 @@ Key relationship types (all in `src/lib/types/relationships.ts`):
 - `TCorePremiseRelationResult` — per-premise relationship classification with variable details and transitivity flag.
 - `TCorePremiseRelationshipAnalysis` — top-level result from `analyzePremiseRelationships`.
 
-Position types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/position.ts`):
+Utility types:
 
-- `TExpressionInput` — `TPropositionalExpression` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
-- `TVariableInput` — `Omit<TCorePropositionalVariable, "checksum">`. Used as input for `addVariable` and as internal storage type in `VariableManager`.
-- `TExpressionWithoutPosition` — `TPropositionalExpression` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Used as input for `appendExpression` and `addExpressionRelative`.
+- `TOptionalChecksum<T>` — `Omit<T, "checksum"> & Partial<Pick<T, "checksum">>`. Makes the `checksum` field optional. Defined in `src/lib/schemata/shared.ts`. Used for constructor inputs and internal storage where checksums are attached lazily.
+
+Position and input types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/position.ts`):
+
+- `TExpressionInput<TExpr>` — `TExpr` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
+- `TExpressionWithoutPosition<TExpr>` — `TExpr` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `appendExpression` and `addExpressionRelative`.
 - `TExpressionUpdate` — `{ position?: number; variableId?: string; operator?: TCoreLogicalOperatorType }`. Used as input for `updateExpression`. Only the specified fields may be updated; all other fields are forbidden.
 - `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — constants for midpoint computation.
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).
@@ -387,6 +392,12 @@ Current describe blocks (in order):
 - `PremiseManager — deleteExpressionsUsingVariable`
 - `PremiseManager — updateExpression`
 - `removeExpression — deleteSubtree parameter`
+- `VariableManager — generic type parameter`
+- `mutation types — generic changesets`
+- `ExpressionManager — generic type parameter`
+- `PremiseManager — generic type parameters`
+- `ArgumentEngine — generic type parameters`
+- `diffArguments — generic type parameters`
 
 When adding a test for a new feature, add a new `describe` block at the bottom.
 
