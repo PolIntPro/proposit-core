@@ -1,6 +1,13 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
 import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 
+export type TVariableManagerSnapshot<
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> = {
+    variables: TVar[]
+    config?: TLogicEngineOptions
+}
+
 /**
  * Registry for propositional variables within an argument, shared across
  * all premises.
@@ -118,5 +125,24 @@ export class VariableManager<
         }
 
         return this.variables.get(variableId)
+    }
+
+    /** Returns a serializable snapshot of the current state. */
+    public snapshot(): TVariableManagerSnapshot<TVar> {
+        return {
+            variables: this.toArray(),
+            config: this.config,
+        }
+    }
+
+    /** Creates a new VariableManager from a previously captured snapshot. */
+    public static fromSnapshot<
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(snapshot: TVariableManagerSnapshot<TVar>): VariableManager<TVar> {
+        const vm = new VariableManager<TVar>(snapshot.config)
+        for (const v of snapshot.variables) {
+            vm.addVariable(v)
+        }
+        return vm
     }
 }

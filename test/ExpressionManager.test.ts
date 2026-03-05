@@ -13,8 +13,12 @@ import {
 } from "../src/lib/schemata"
 import { ChangeCollector } from "../src/lib/core/ChangeCollector"
 import { VariableManager } from "../src/lib/core/VariableManager"
+import type { TVariableManagerSnapshot } from "../src/lib/core/VariableManager"
 import { ExpressionManager } from "../src/lib/core/ExpressionManager"
-import type { TExpressionInput } from "../src/lib/core/ExpressionManager"
+import type {
+    TExpressionInput,
+    TExpressionManagerSnapshot,
+} from "../src/lib/core/ExpressionManager"
 import {
     DEFAULT_CHECKSUM_CONFIG,
     createChecksumConfig,
@@ -6959,5 +6963,184 @@ describe("configurable position range", () => {
         })
         const root = pm.getExpression("root")!
         expect(root.position).toBe(POSITION_INITIAL)
+    })
+})
+
+describe("ExpressionManager — snapshot and fromSnapshot", () => {
+    it("round-trips an empty manager", () => {
+        const em = new ExpressionManager()
+        const snap = em.snapshot()
+        expect(snap.expressions).toEqual([])
+        expect(snap.config).toBeUndefined()
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        expect(restored.toArray()).toEqual([])
+    })
+
+    it("round-trips a manager with expressions", () => {
+        const em = new ExpressionManager()
+        em.addExpression({
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+        })
+        em.addExpression({
+            id: "c1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: "root",
+            position: 0,
+        })
+        em.addExpression({
+            id: "c2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v2",
+            parentId: "root",
+            position: 1,
+        })
+
+        const snap = em.snapshot()
+        expect(snap.expressions).toHaveLength(3)
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        const originalArr = em.toArray()
+        const restoredArr = restored.toArray()
+        expect(restoredArr).toHaveLength(originalArr.length)
+        for (let i = 0; i < originalArr.length; i++) {
+            expect(restoredArr[i].id).toBe(originalArr[i].id)
+            expect(restoredArr[i].parentId).toBe(originalArr[i].parentId)
+            expect(restoredArr[i].position).toBe(originalArr[i].position)
+        }
+
+        // Verify tree structure
+        const children = restored.getChildExpressions("root")
+        expect(children).toHaveLength(2)
+        expect(children[0].id).toBe("c1")
+        expect(children[1].id).toBe("c2")
+    })
+
+    it("preserves config in snapshot", () => {
+        const config = {
+            positionConfig: { min: 10, max: 90, initial: 50 },
+        }
+        const em = new ExpressionManager(config)
+        const snap = em.snapshot()
+        expect(snap.config).toEqual(config)
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        // Verify config is applied by checking position behavior
+        restored.appendExpression(null, {
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+        })
+        const root = restored.getExpression("root")!
+        expect(root.position).toBe(50) // custom initial
+    })
+
+    it("restored manager is functionally independent", () => {
+        const em = new ExpressionManager()
+        em.addExpression({
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+        })
+
+        const snap = em.snapshot()
+        const restored = ExpressionManager.fromSnapshot(snap)
+
+        // Mutate restored — should not affect original
+        restored.removeExpression("root", true)
+        expect(restored.toArray()).toHaveLength(0)
+        expect(em.toArray()).toHaveLength(1)
+    })
+})
+
+describe("VariableManager — snapshot and fromSnapshot", () => {
+    it("round-trips an empty manager", () => {
+        const vm = new VariableManager()
+        const snap = vm.snapshot()
+        expect(snap.variables).toEqual([])
+        expect(snap.config).toBeUndefined()
+
+        const restored = VariableManager.fromSnapshot(snap)
+        expect(restored.toArray()).toEqual([])
+    })
+
+    it("round-trips with variables", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            checksum: "x",
+        })
+        vm.addVariable({
+            id: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "Q",
+            checksum: "y",
+        })
+
+        const snap = vm.snapshot()
+        expect(snap.variables).toHaveLength(2)
+
+        const restored = VariableManager.fromSnapshot(snap)
+        const restoredArr = restored.toArray()
+        expect(restoredArr).toHaveLength(2)
+        expect(restoredArr[0].symbol).toBe("P")
+        expect(restoredArr[1].symbol).toBe("Q")
+        expect(restored.hasVariable("v1")).toBe(true)
+        expect(restored.hasVariable("v2")).toBe(true)
+    })
+
+    it("preserves config in snapshot", () => {
+        const config = {
+            positionConfig: { min: 10, max: 90, initial: 50 },
+        }
+        const vm = new VariableManager(config)
+        const snap = vm.snapshot()
+        expect(snap.config).toEqual(config)
+    })
+
+    it("restored manager is independent", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            checksum: "x",
+        })
+
+        const snap = vm.snapshot()
+        const restored = VariableManager.fromSnapshot(snap)
+
+        // Mutate restored — should not affect original
+        restored.removeVariable("v1")
+        expect(restored.hasVariable("v1")).toBe(false)
+        expect(vm.hasVariable("v1")).toBe(true)
     })
 })

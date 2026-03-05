@@ -30,6 +30,13 @@ export type TExpressionWithoutPosition<
         : never
     : never
 
+export type TExpressionManagerSnapshot<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = {
+    expressions: TExpr[]
+    config?: TLogicEngineOptions
+}
+
 /** Fields that may be updated on an existing expression. */
 export type TExpressionUpdate = {
     position?: number
@@ -924,5 +931,24 @@ export class ExpressionManager<
             anchorParentId,
             () => new Set()
         ).add(anchorPosition)
+    }
+
+    /** Returns a serializable snapshot of the current state. */
+    public snapshot(): TExpressionManagerSnapshot<TExpr> {
+        return {
+            expressions: this.toArray(),
+            config: this.config,
+        }
+    }
+
+    /** Creates a new ExpressionManager from a previously captured snapshot. */
+    public static fromSnapshot<
+        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    >(snapshot: TExpressionManagerSnapshot<TExpr>): ExpressionManager<TExpr> {
+        const em = new ExpressionManager<TExpr>(snapshot.config)
+        em.loadInitialExpressions(
+            snapshot.expressions as unknown as TExpressionInput<TExpr>[]
+        )
+        return em
     }
 }
