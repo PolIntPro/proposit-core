@@ -538,14 +538,22 @@ export class ArgumentEngine<
 
             // Add expressions in BFS order (roots first, then children)
             const premiseExprs = exprsByPremise.get(premise.id) ?? []
-            const pending = new Map(premiseExprs.map((e) => [e.id, e]))
+            // Cast to base type to access .id and .parentId on the distributive conditional type
+            type BaseInput = TExpressionInput<TCorePropositionalExpression>
+            const pending = new Map(
+                premiseExprs.map((e) => [
+                    (e as unknown as BaseInput).id,
+                    e,
+                ])
+            )
             let progressed = true
             while (pending.size > 0 && progressed) {
                 progressed = false
                 for (const [eid, expr] of Array.from(pending.entries())) {
+                    const base = expr as unknown as BaseInput
                     if (
-                        expr.parentId !== null &&
-                        !pe.getExpression(expr.parentId)
+                        base.parentId !== null &&
+                        !pe.getExpression(base.parentId)
                     ) {
                         continue
                     }
