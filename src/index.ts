@@ -7,6 +7,13 @@
  * utility.
  */
 export { ArgumentEngine, PremiseEngine } from "./lib/index.js"
+export type {
+    TLogicEngineOptions,
+    TArgumentEngineSnapshot,
+    TPremiseEngineSnapshot,
+    TExpressionManagerSnapshot,
+    TVariableManagerSnapshot,
+} from "./lib/index.js"
 export * from "./lib/schemata/index.js"
 export * from "./lib/types/diff.js"
 export * from "./lib/types/mutation.js"
@@ -44,4 +51,3 @@ export {
     midpoint,
 } from "./lib/utils/position.js"
 export type { TCorePositionConfig } from "./lib/utils/position.js"
-export type { TLogicEngineOptions } from "./lib/core/ArgumentEngine.js"
