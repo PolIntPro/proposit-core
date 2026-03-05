@@ -36,7 +36,7 @@ src/
     consts.ts            # DEFAULT_CHECKSUM_CONFIG, createChecksumConfig
     utils/
       collections.ts    # getOrCreate, sortedCopyById, sortedUnique
-      position.ts       # POSITION_MIN, POSITION_MAX, POSITION_INITIAL, midpoint
+      position.ts       # POSITION_MIN, POSITION_MAX, POSITION_INITIAL, DEFAULT_POSITION_CONFIG, TCorePositionConfig, midpoint
     schemata/
       index.ts          # Re-exports all schemata
       argument.ts       # TArgument, TArgumentMeta, TArgumentVersionMeta, TCoreArgumentRoleState schemas + types
@@ -106,7 +106,7 @@ ArgumentEngine<TArg, TPremise, TExpr, TVar>
 
 All type parameters have `extends BaseType = BaseType` defaults, so existing code using these classes without type arguments works unchanged. Extended entity types survive all mutations via spread-based reconstruction; `as T` assertions are used at ~15 internal reconstruction points where TypeScript cannot prove that `Omit<T, K> & Pick<Base, K>` equals `T` for generic `T extends Base`.
 
-`ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `options` parameter: `{ checksumConfig?: TCoreChecksumConfig }`. The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseManager` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
+`ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `options?: TArgumentEngineOptions` parameter containing `checksumConfig?: TCoreChecksumConfig` and `positionConfig?: TCorePositionConfig`. The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseManager` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
 
 When the first premise is added to an `ArgumentEngine` (via `createPremise` or `createPremiseWithId`), it is automatically designated as the conclusion premise if no conclusion is currently set. This auto-assignment is reflected in the mutation changeset. Explicit `setConclusionPremise()` overrides the auto-assignment. Removing or clearing the conclusion re-enables auto-assignment for the next premise created.
 
@@ -165,15 +165,17 @@ Expressions are **immutable value objects** — to "move" one, delete and re-ins
 
 ### Midpoint-based positions
 
-Every expression has a non-nullable numeric `position` (schema: `Type.Number({ minimum: 0 })`). Only relative ordering matters — literal values are opaque to callers.
+Every expression has a non-nullable numeric `position` (schema: `Type.Number()`). Only relative ordering matters — literal values are opaque to callers.
+
+The position range is configurable via `TCorePositionConfig` (`{ min, max, initial }`), passed through `TArgumentEngineOptions.positionConfig`. Defaults are signed int32: `min = -2147483647`, `max = 2147483647`, `initial = 0`. The exported constants `POSITION_MIN`, `POSITION_MAX`, `POSITION_INITIAL` match these defaults.
 
 Position computation uses midpoint bisection from `utils/position.ts`:
 
 | Scenario                       | Position                                  |
 | ------------------------------ | ----------------------------------------- |
-| First child (no siblings)      | `POSITION_INITIAL`                        |
-| Append (after last sibling)    | `midpoint(last.position, POSITION_MAX)`   |
-| Prepend (before first sibling) | `midpoint(POSITION_MIN, first.position)`  |
+| First child (no siblings)      | `config.initial` (default `0`)            |
+| Append (after last sibling)    | `midpoint(last.position, config.max)`     |
+| Prepend (before first sibling) | `midpoint(config.min, first.position)`    |
 | Between two siblings           | `midpoint(left.position, right.position)` |
 
 The midpoint function uses `a + (b - a) / 2` (overflow-safe). ~52 bisections at the same insertion point before losing floating-point precision.
@@ -279,7 +281,7 @@ Per-entity checksums provide a lightweight way to detect changes without deep co
 - Add/create methods accept input types without checksum (e.g. `addExpression(expr: TExpressionInput<TExpr>)`, `addVariable(v: TOptionalChecksum<TVar>)`).
 - `PremiseManager.checksum()` and `ArgumentEngine.checksum()` compute checksums lazily — dirty flags track when recomputation is needed.
 - `TCoreChecksumConfig` controls which fields are hashed per entity type using `Set<string>` fields. `DEFAULT_CHECKSUM_CONFIG` and `createChecksumConfig()` are exported from `src/lib/consts.ts`.
-- The `ArgumentEngine` constructor accepts `options?: { checksumConfig?: TCoreChecksumConfig }`.
+- The `ArgumentEngine` constructor accepts `options?: TArgumentEngineOptions` (containing `checksumConfig` and `positionConfig`).
 - Standalone utilities: `computeHash(input)`, `canonicalSerialize(obj, fields)`, `entityChecksum(entity, fields)` in `core/checksum.ts`.
 - CLI disk reads use local schemas with optional checksum for backward compatibility with older data files.
 
@@ -343,7 +345,10 @@ Position and input types (in `src/lib/core/ExpressionManager.ts` and `src/lib/ut
 - `TExpressionInput<TExpr>` — `TExpr` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
 - `TExpressionWithoutPosition<TExpr>` — `TExpr` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `appendExpression` and `addExpressionRelative`.
 - `TExpressionUpdate` — `{ position?: number; variableId?: string; operator?: TCoreLogicalOperatorType }`. Used as input for `updateExpression`. Only the specified fields may be updated; all other fields are forbidden.
-- `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — constants for midpoint computation.
+- `TCorePositionConfig` — `{ min: number, max: number, initial: number }`. Configures position range. Default: signed int32 (`-2147483647` to `2147483647`, initial `0`).
+- `DEFAULT_POSITION_CONFIG` — the default `TCorePositionConfig` matching the exported `POSITION_MIN`/`MAX`/`INITIAL` constants.
+- `TArgumentEngineOptions` — `{ checksumConfig?: TCoreChecksumConfig, positionConfig?: TCorePositionConfig }`. Constructor options for `ArgumentEngine`.
+- `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — default position range constants (signed int32).
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).
 
 Schemata use [Typebox](https://github.com/sinclairzx81/typebox) for runtime-validatable schemas alongside TypeScript types.

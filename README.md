@@ -284,7 +284,7 @@ console.log(premise1.toDisplayString()) // (P → Q)
 
 #### `new ArgumentEngine(argument, options?)`
 
-Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `options` parameter with `{ checksumConfig?: TCoreChecksumConfig }` to configure which fields are included in entity checksums.
+Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `options?: TArgumentEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`).
 
 ---
 
@@ -451,13 +451,13 @@ Adds an expression (without `checksum` — it is computed lazily) to the tree wi
 
 #### `appendExpression(parentId, expression)` → `TCoreMutationResult<TPropositionalExpression>`
 
-Appends an expression as the last child of `parentId` (or as a root if `parentId` is `null`). Position is computed automatically: `POSITION_INITIAL` for the first child, or the midpoint between the last child's position and `POSITION_MAX` for subsequent children. The `expression` argument omits the `position` field (`TExpressionWithoutPosition`).
+Appends an expression as the last child of `parentId` (or as a root if `parentId` is `null`). Position is computed automatically using the engine's `positionConfig`: `initial` for the first child, or the midpoint between the last child's position and `max` for subsequent children. The `expression` argument omits the `position` field (`TExpressionWithoutPosition`).
 
 ---
 
 #### `addExpressionRelative(siblingId, relativePosition, expression)` → `TCoreMutationResult<TPropositionalExpression>`
 
-Inserts an expression before or after an existing sibling. `relativePosition` is `"before"` or `"after"`. Position is computed as the midpoint between the sibling and its neighbor (or `POSITION_MIN`/`POSITION_MAX` at the boundaries). The `expression` argument omits the `position` field (`TExpressionWithoutPosition`).
+Inserts an expression before or after an existing sibling. `relativePosition` is `"before"` or `"after"`. Position is computed as the midpoint between the sibling and its neighbor (or `config.min`/`config.max` at the boundaries). The `expression` argument omits the `position` field (`TExpressionWithoutPosition`).
 
 ---
 
@@ -638,14 +638,17 @@ const config = createChecksumConfig({
 
 ### Position Utilities
 
-Constants and a helper for midpoint-based position computation, exported from `utils/position.ts`:
+Constants, types, and a helper for midpoint-based position computation, exported from `utils/position.ts`:
 
-| Export             | Value / Signature                       | Description                              |
-| ------------------ | --------------------------------------- | ---------------------------------------- |
-| `POSITION_MIN`     | `0`                                     | Lower bound for positions.               |
-| `POSITION_MAX`     | `Number.MAX_SAFE_INTEGER`               | Upper bound for positions.               |
-| `POSITION_INITIAL` | `Math.floor(Number.MAX_SAFE_INTEGER/2)` | Default position for first children.     |
-| `midpoint(a, b)`   | `a + (b - a) / 2`                       | Overflow-safe midpoint of two positions. |
+| Export                    | Value / Signature                      | Description                                       |
+| ------------------------- | -------------------------------------- | ------------------------------------------------- |
+| `POSITION_MIN`            | `-2147483647`                          | Default lower bound (signed int32).               |
+| `POSITION_MAX`            | `2147483647`                           | Default upper bound (signed int32).               |
+| `POSITION_INITIAL`        | `0`                                    | Default position for first children.              |
+| `DEFAULT_POSITION_CONFIG` | `{ min, max, initial }`                | Default `TCorePositionConfig` matching the above. |
+| `TCorePositionConfig`     | `{ min, max, initial }`                | Type for configurable position range.             |
+| `TArgumentEngineOptions`  | `{ checksumConfig?, positionConfig? }` | Options type for `ArgumentEngine` constructor.    |
+| `midpoint(a, b)`          | `a + (b - a) / 2`                      | Overflow-safe midpoint of two positions.          |
 
 ~52 bisections at the same insertion point before losing floating-point precision.
 
