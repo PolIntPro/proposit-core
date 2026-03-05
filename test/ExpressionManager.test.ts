@@ -13,6 +13,7 @@ import {
 import { ChangeCollector } from "../src/lib/core/ChangeCollector"
 import { VariableManager } from "../src/lib/core/VariableManager"
 import type { TVariableInput } from "../src/lib/core/VariableManager"
+import { ExpressionManager } from "../src/lib/core/ExpressionManager"
 import type { TExpressionInput } from "../src/lib/core/ExpressionManager"
 import {
     DEFAULT_CHECKSUM_CONFIG,
@@ -6563,5 +6564,34 @@ describe("mutation types — generic changesets", () => {
                 },
             }
         expect(changeset.variables!.added[0].color).toBe("red")
+    })
+})
+
+// ---------------------------------------------------------------------------
+// ExpressionManager — generic type parameter
+// ---------------------------------------------------------------------------
+
+describe("ExpressionManager — generic type parameter", () => {
+    it("stores and returns extended expression types", () => {
+        type ExtExpr = TCorePropositionalExpression & { tag: string }
+        const em = new ExpressionManager<ExtExpr>()
+
+        const expr: TExpressionInput<ExtExpr> = {
+            id: "e1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            parentId: null,
+            position: 1000,
+            type: "variable" as const,
+            variableId: "v1",
+            tag: "custom",
+        }
+        em.addExpression(expr)
+
+        const retrieved = em.getExpression("e1")!
+        expect((retrieved as unknown as { tag: string }).tag).toBe("custom")
+
+        const all = em.toArray()
+        expect((all[0] as unknown as { tag: string }).tag).toBe("custom")
     })
 })

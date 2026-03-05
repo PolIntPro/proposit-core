@@ -12,18 +12,21 @@ import {
 } from "../utils/position.js"
 
 // Distribute Omit across the union to preserve discriminated-union narrowing.
-export type TExpressionInput = TCorePropositionalExpression extends infer U
+export type TExpressionInput<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = TExpr extends infer U
     ? U extends TCorePropositionalExpression
         ? Omit<U, "checksum">
         : never
     : never
 
-export type TExpressionWithoutPosition =
-    TCorePropositionalExpression extends infer U
-        ? U extends TCorePropositionalExpression
-            ? Omit<U, "position" | "checksum">
-            : never
+export type TExpressionWithoutPosition<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = TExpr extends infer U
+    ? U extends TCorePropositionalExpression
+        ? Omit<U, "position" | "checksum">
         : never
+    : never
 
 /** Fields that may be updated on an existing expression. */
 export type TExpressionUpdate = {
@@ -50,8 +53,10 @@ const PERMITTED_OPERATOR_SWAPS: Record<string, string | undefined> = {
  * This class is an internal building block used by {@link PremiseManager}
  * and is not part of the public API.
  */
-export class ExpressionManager {
-    private expressions: Map<string, TExpressionInput>
+export class ExpressionManager<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> {
+    private expressions: Map<string, TExpressionInput<TExpr>>
     private childExpressionIdsByParentId: Map<string | null, Set<string>>
     private childPositionsByParentId: Map<string | null, Set<number>>
     private collector: ChangeCollector | null = null
@@ -60,7 +65,7 @@ export class ExpressionManager {
         this.collector = collector
     }
 
-    constructor(initialExpressions: TExpressionInput[] = []) {
+    constructor(initialExpressions: TExpressionInput<TExpr>[] = []) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
         this.childPositionsByParentId = new Map()
@@ -69,7 +74,7 @@ export class ExpressionManager {
     }
 
     /** Returns all expressions sorted by ID for deterministic output. */
-    public toArray(): TExpressionInput[] {
+    public toArray(): TExpressionInput<TExpr>[] {
         return Array.from(this.expressions.values()).sort((a, b) =>
             a.id.localeCompare(b.id)
         )
@@ -85,7 +90,7 @@ export class ExpressionManager {
      * @throws If the parent's child limit would be exceeded.
      * @throws If the position is already occupied under the parent.
      */
-    public addExpression(expression: TExpressionInput) {
+    public addExpression(expression: TExpressionInput<TExpr>) {
         if (this.expressions.has(expression.id)) {
             throw new Error(
                 `Expression with ID "${expression.id}" already exists.`
@@ -167,7 +172,7 @@ export class ExpressionManager {
      */
     public appendExpression(
         parentId: string | null,
-        expression: TExpressionWithoutPosition
+        expression: TExpressionWithoutPosition<TExpr>
     ): void {
         const children = this.getChildExpressions(parentId)
         const position =
@@ -178,7 +183,7 @@ export class ExpressionManager {
             ...expression,
             parentId,
             position,
-        } as TExpressionInput)
+        } as TExpressionInput<TExpr>)
     }
 
     /**
@@ -189,7 +194,7 @@ export class ExpressionManager {
     public addExpressionRelative(
         siblingId: string,
         relativePosition: "before" | "after",
-        expression: TExpressionWithoutPosition
+        expression: TExpressionWithoutPosition<TExpr>
     ): void {
         const sibling = this.expressions.get(siblingId)
         if (!sibling) {
@@ -201,28 +206,24 @@ export class ExpressionManager {
 
         let position: number
         if (relativePosition === "before") {
-            const prev =
-                siblingIndex > 0 ? children[siblingIndex - 1] : undefined
-            position = midpoint(
-                prev?.position ?? POSITION_MIN,
-                sibling.position
-            )
+            const prevPosition =
+                siblingIndex > 0
+                    ? children[siblingIndex - 1].position
+                    : POSITION_MIN
+            position = midpoint(prevPosition, sibling.position)
         } else {
-            const next =
+            const nextPosition =
                 siblingIndex < children.length - 1
-                    ? children[siblingIndex + 1]
-                    : undefined
-            position = midpoint(
-                sibling.position,
-                next?.position ?? POSITION_MAX
-            )
+                    ? children[siblingIndex + 1].position
+                    : POSITION_MAX
+            position = midpoint(sibling.position, nextPosition)
         }
 
         this.addExpression({
             ...expression,
             parentId: sibling.parentId,
             position,
-        } as TExpressionInput)
+        } as TExpressionInput<TExpr>)
     }
 
     /**
@@ -245,7 +246,7 @@ export class ExpressionManager {
     public updateExpression(
         expressionId: string,
         updates: TExpressionUpdate
-    ): TExpressionInput {
+    ): TExpressionInput<TExpr> {
         const expression = this.expressions.get(expressionId)
         if (!expression) {
             throw new Error(`Expression "${expressionId}" not found.`)
@@ -331,7 +332,7 @@ export class ExpressionManager {
             ...(updates.operator !== undefined
                 ? { operator: updates.operator }
                 : {}),
-        } as TExpressionInput
+        } as TExpressionInput<TExpr>
         this.expressions.set(expressionId, updated)
 
         this.collector?.modifiedExpression({
@@ -361,7 +362,7 @@ export class ExpressionManager {
     public removeExpression(
         expressionId: string,
         deleteSubtree: boolean
-    ): TExpressionInput | undefined {
+    ): TExpressionInput<TExpr> | undefined {
         const target = this.expressions.get(expressionId)
         if (!target) {
             return undefined
@@ -376,8 +377,8 @@ export class ExpressionManager {
 
     private removeSubtree(
         expressionId: string,
-        target: TExpressionInput
-    ): TExpressionInput {
+        target: TExpressionInput<TExpr>
+    ): TExpressionInput<TExpr> {
         const parentId = target.parentId
 
         const toRemove = new Set<string>()
@@ -427,8 +428,8 @@ export class ExpressionManager {
 
     private removeAndPromote(
         expressionId: string,
-        target: TExpressionInput
-    ): TExpressionInput {
+        target: TExpressionInput<TExpr>
+    ): TExpressionInput<TExpr> {
         const children = this.getChildExpressions(expressionId)
 
         if (children.length > 1) {
@@ -476,7 +477,7 @@ export class ExpressionManager {
             ...child,
             parentId: target.parentId,
             position: target.position,
-        } as TExpressionInput
+        } as TExpressionInput<TExpr>
         this.expressions.set(child.id, promoted)
 
         // Update parent's child-id set: remove target, add promoted child.
@@ -571,7 +572,7 @@ export class ExpressionManager {
                 ...child,
                 parentId: grandparentId,
                 position: grandparentPosition,
-            } as TExpressionInput
+            } as TExpressionInput<TExpr>
             this.expressions.set(child.id, promoted)
             this.collector?.modifiedExpression({
                 ...promoted,
@@ -617,18 +618,22 @@ export class ExpressionManager {
     }
 
     /** Returns the expression with the given ID, or `undefined` if not found. */
-    public getExpression(expressionId: string): TExpressionInput | undefined {
+    public getExpression(
+        expressionId: string
+    ): TExpressionInput<TExpr> | undefined {
         return this.expressions.get(expressionId)
     }
 
     /** Returns the children of the given parent, sorted by position. */
-    public getChildExpressions(parentId: string | null): TExpressionInput[] {
+    public getChildExpressions(
+        parentId: string | null
+    ): TExpressionInput<TExpr>[] {
         const childIds = this.childExpressionIdsByParentId.get(parentId)
         if (!childIds || childIds.size === 0) {
             return []
         }
 
-        const children: TExpressionInput[] = []
+        const children: TExpressionInput<TExpr>[] = []
         for (const childId of childIds) {
             const child = this.expressions.get(childId)
             if (child) {
@@ -639,12 +644,14 @@ export class ExpressionManager {
         return children.sort((a, b) => a.position - b.position)
     }
 
-    private loadInitialExpressions(initialExpressions: TExpressionInput[]) {
+    private loadInitialExpressions(
+        initialExpressions: TExpressionInput<TExpr>[]
+    ) {
         if (initialExpressions.length === 0) {
             return
         }
 
-        const pending = new Map<string, TExpressionInput>(
+        const pending = new Map<string, TExpressionInput<TExpr>>(
             initialExpressions.map((expression) => [expression.id, expression])
         )
 
@@ -713,7 +720,7 @@ export class ExpressionManager {
             ...expression,
             parentId: newParentId,
             position: newPosition,
-        } as TExpressionInput
+        } as TExpressionInput<TExpr>
         this.expressions.set(expressionId, updated)
         this.collector?.modifiedExpression({
             ...updated,
@@ -751,7 +758,7 @@ export class ExpressionManager {
      * @throws If an `implies`/`iff` expression would be inserted at a non-root position.
      */
     public insertExpression(
-        expression: TExpressionInput,
+        expression: TExpressionInput<TExpr>,
         leftNodeId?: string,
         rightNodeId?: string
     ): void {
@@ -786,18 +793,24 @@ export class ExpressionManager {
         }
 
         // 5. The left node must exist if provided.
-        const leftNode =
+        // Cast to base TExpressionInput for validation access — deferred conditional
+        // types (TExpressionInput<TExpr>) cannot be narrowed by TS control flow.
+        const leftNode: TExpressionInput | undefined =
             leftNodeId !== undefined
-                ? this.expressions.get(leftNodeId)
+                ? (this.expressions.get(leftNodeId) as
+                      | TExpressionInput
+                      | undefined)
                 : undefined
         if (leftNodeId !== undefined && !leftNode) {
             throw new Error(`Expression "${leftNodeId}" does not exist.`)
         }
 
         // 6. The right node must exist if provided.
-        const rightNode =
+        const rightNode: TExpressionInput | undefined =
             rightNodeId !== undefined
-                ? this.expressions.get(rightNodeId)
+                ? (this.expressions.get(rightNodeId) as
+                      | TExpressionInput
+                      | undefined)
                 : undefined
         if (rightNodeId !== undefined && !rightNode) {
             throw new Error(`Expression "${rightNodeId}" does not exist.`)
@@ -884,7 +897,7 @@ export class ExpressionManager {
             ...expression,
             parentId: anchorParentId,
             position: anchorPosition,
-        } as TExpressionInput
+        } as TExpressionInput<TExpr>
         this.expressions.set(expression.id, stored)
         this.collector?.addedExpression({
             ...stored,
