@@ -180,8 +180,8 @@ export class ArgumentEngine {
                 `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
             )
         }
-        this.variables.addVariable(variable)
         const withChecksum = this.attachVariableChecksum({ ...variable })
+        this.variables.addVariable(withChecksum)
         const collector = new ChangeCollector()
         collector.addedVariable(withChecksum)
         this.markDirty()
@@ -206,6 +206,10 @@ export class ArgumentEngine {
         const collector = new ChangeCollector()
         if (updated) {
             const withChecksum = this.attachVariableChecksum({ ...updated })
+            // Re-store with updated checksum so VariableManager always holds
+            // variables with correct checksums.
+            this.variables.removeVariable(variableId)
+            this.variables.addVariable(withChecksum)
             collector.modifiedVariable(withChecksum)
             this.markDirty()
             this.markAllPremisesDirty()
@@ -244,29 +248,19 @@ export class ArgumentEngine {
             }
         }
 
-        const withChecksum = this.attachVariableChecksum({ ...variable })
         this.variables.removeVariable(variableId)
-        collector.removedVariable(withChecksum)
+        collector.removedVariable(variable)
         this.markDirty()
         this.markAllPremisesDirty()
         return {
-            result: withChecksum,
+            result: variable,
             changes: collector.toChangeset() as TCoreChangeset,
         }
     }
 
     /** Returns all registered variables sorted by ID. */
     public getVariables(): TCorePropositionalVariable[] {
-        const fields =
-            this.checksumConfig?.variableFields ??
-            DEFAULT_CHECKSUM_CONFIG.variableFields!
-        return this.variables.toArray().map((v) => ({
-            ...v,
-            checksum: entityChecksum(
-                v as unknown as Record<string, unknown>,
-                fields
-            ),
-        }))
+        return this.variables.toArray()
     }
 
     /** Returns the current role assignments (conclusion premise ID only; supporting is derived). */

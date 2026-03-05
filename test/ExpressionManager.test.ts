@@ -6502,3 +6502,32 @@ describe("removeExpression — deleteSubtree parameter", () => {
         expect(dataAfter.rootExpressionId).toBeUndefined()
     })
 })
+
+describe("VariableManager — generic type parameter", () => {
+    it("accepts and returns an extended variable type", () => {
+        type ExtendedVar = TCorePropositionalVariable & { color: string }
+        const vm = new VariableManager<ExtendedVar>()
+        const v: ExtendedVar = {
+            id: "v1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "P",
+            checksum: "abc",
+            color: "red",
+        }
+        vm.addVariable(v)
+        const retrieved = vm.getVariable("v1")!
+        expect(retrieved.color).toBe("red")
+        expect(retrieved.symbol).toBe("P")
+
+        const all = vm.toArray()
+        expect(all[0].color).toBe("red")
+
+        const updated = vm.updateVariable("v1", { symbol: "Q" })!
+        expect(updated.color).toBe("red")
+        expect(updated.symbol).toBe("Q")
+
+        const removed = vm.removeVariable("v1")!
+        expect(removed.color).toBe("red")
+    })
+})

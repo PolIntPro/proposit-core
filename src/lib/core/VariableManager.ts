@@ -1,5 +1,6 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
 
+/** @deprecated Use `TCorePropositionalVariable` directly or a custom subtype. */
 export type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
 
 /**
@@ -10,11 +11,13 @@ export type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
  * internal building block owned by {@link ArgumentEngine} and passed by
  * reference to each {@link PremiseManager}. It is not part of the public API.
  */
-export class VariableManager {
-    private variables: Map<string, TVariableInput>
+export class VariableManager<
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> {
+    private variables: Map<string, TVar>
     private variableSymbols: Set<string>
 
-    constructor(initialVariables: TVariableInput[] = []) {
+    constructor(initialVariables: TVar[] = []) {
         this.variables = new Map()
         this.variableSymbols = new Set()
 
@@ -24,7 +27,7 @@ export class VariableManager {
     }
 
     /** Returns all registered variables sorted by ID for deterministic output. */
-    public toArray(): TVariableInput[] {
+    public toArray(): TVar[] {
         return Array.from(this.variables.values()).sort((a, b) =>
             a.id.localeCompare(b.id)
         )
@@ -36,7 +39,7 @@ export class VariableManager {
      * @throws If the symbol is already in use.
      * @throws If the ID already exists.
      */
-    public addVariable(variable: TVariableInput) {
+    public addVariable(variable: TVar) {
         if (this.variableSymbols.has(variable.symbol)) {
             throw new Error(
                 `Variable symbol "${variable.symbol}" already exists.`
@@ -54,7 +57,7 @@ export class VariableManager {
      * Removes a variable by ID.
      * @returns The removed variable, or `undefined` if not found.
      */
-    public removeVariable(variableId: string) {
+    public removeVariable(variableId: string): TVar | undefined {
         const variable = this.variables.get(variableId)
         if (!variable) {
             return undefined
@@ -71,7 +74,7 @@ export class VariableManager {
     }
 
     /** Returns the variable with the given ID, or `undefined` if not found. */
-    public getVariable(variableId: string): TVariableInput | undefined {
+    public getVariable(variableId: string): TVar | undefined {
         return this.variables.get(variableId)
     }
 
@@ -94,7 +97,10 @@ export class VariableManager {
         }
         this.variableSymbols.delete(variable.symbol)
         this.variableSymbols.add(newSymbol)
-        this.variables.set(variableId, { ...variable, symbol: newSymbol })
+        this.variables.set(variableId, {
+            ...variable,
+            symbol: newSymbol,
+        } as TVar)
     }
 
     /**
@@ -107,7 +113,7 @@ export class VariableManager {
     public updateVariable(
         variableId: string,
         updates: { symbol?: string }
-    ): TVariableInput | undefined {
+    ): TVar | undefined {
         const variable = this.variables.get(variableId)
         if (!variable) return undefined
 

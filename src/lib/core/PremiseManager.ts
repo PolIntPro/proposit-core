@@ -549,23 +549,12 @@ export class PremiseManager {
 
     /**
      * Returns all argument-level variables (from the shared VariableManager)
-     * sorted by ID, with checksums attached. Since the VariableManager is
-     * shared across all premises, this returns every registered variable —
-     * not just those referenced by expressions in this premise.
+     * sorted by ID. Since the VariableManager is shared across all premises,
+     * this returns every registered variable — not just those referenced by
+     * expressions in this premise.
      */
     public getVariables(): TCorePropositionalVariable[] {
-        const fields =
-            this.checksumConfig?.variableFields ??
-            DEFAULT_CHECKSUM_CONFIG.variableFields!
-        return sortedCopyById(
-            this.variables.toArray().map((v) => ({
-                ...v,
-                checksum: entityChecksum(
-                    v as unknown as Record<string, unknown>,
-                    fields
-                ),
-            }))
-        )
+        return sortedCopyById(this.variables.toArray())
     }
 
     public getExpressions(): TCorePropositionalExpression[] {

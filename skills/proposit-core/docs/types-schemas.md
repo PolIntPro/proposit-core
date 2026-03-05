@@ -14,22 +14,22 @@ Discriminated union on `type`. Generic parameter `T` narrows the union (defaults
 
 **Common fields (all variants):**
 
-| Field              | Type             | Notes                          |
-| ------------------ | ---------------- | ------------------------------ |
-| `id`               | `string`         | UUID                           |
-| `argumentId`       | `string`         | UUID                           |
-| `argumentVersion`  | `number`         |                                |
-| `parentId`         | `string \| null` | `null` for root expressions    |
-| `position`         | `number`         | `>= 0`, ordering among siblings |
-| `checksum`         | `string`         | Entity-level checksum          |
+| Field             | Type             | Notes                           |
+| ----------------- | ---------------- | ------------------------------- |
+| `id`              | `string`         | UUID                            |
+| `argumentId`      | `string`         | UUID                            |
+| `argumentVersion` | `number`         |                                 |
+| `parentId`        | `string \| null` | `null` for root expressions     |
+| `position`        | `number`         | `>= 0`, ordering among siblings |
+| `checksum`        | `string`         | Entity-level checksum           |
 
 **Variant-specific fields:**
 
-| Variant      | `type`       | Extra field   | Field type                |
-| ------------ | ------------ | ------------- | ------------------------- |
-| `"variable"` | `"variable"` | `variableId`  | `string` (UUID)           |
-| `"operator"` | `"operator"` | `operator`    | `TCoreLogicalOperatorType` |
-| `"formula"`  | `"formula"`  | _(none)_      |                           |
+| Variant      | `type`       | Extra field  | Field type                 |
+| ------------ | ------------ | ------------ | -------------------------- |
+| `"variable"` | `"variable"` | `variableId` | `string` (UUID)            |
+| `"operator"` | `"operator"` | `operator`   | `TCoreLogicalOperatorType` |
+| `"formula"`  | `"formula"`  | _(none)_     |                            |
 
 **Narrowing:** `TCorePropositionalExpression<"variable">` gives only the variable variant. Aliases: `TCorePropositionalVariableExpression`, `TCoreOperatorExpression`, `TCoreFormulaExpression`.
 
@@ -38,7 +38,7 @@ Discriminated union on `type`. Generic parameter `T` narrows the union (defaults
 Same as `TCorePropositionalExpression` but with `checksum` omitted. Preserves discriminated-union narrowing via distributive conditional type. Used as input for `addExpression`, `insertExpression`, and as the internal storage type.
 
 ```typescript
-type TExpressionInput = Omit<TCorePropositionalExpression<T>, "checksum">  // for each T
+type TExpressionInput = Omit<TCorePropositionalExpression<T>, "checksum"> // for each T
 ```
 
 ### `TExpressionWithoutPosition`
@@ -46,7 +46,10 @@ type TExpressionInput = Omit<TCorePropositionalExpression<T>, "checksum">  // fo
 Same as `TCorePropositionalExpression` but with both `position` and `checksum` omitted. Used as input for `appendExpression` and `addExpressionRelative`.
 
 ```typescript
-type TExpressionWithoutPosition = Omit<TCorePropositionalExpression<T>, "position" | "checksum">
+type TExpressionWithoutPosition = Omit<
+    TCorePropositionalExpression<T>,
+    "position" | "checksum"
+>
 ```
 
 ### `TExpressionUpdate`
@@ -71,10 +74,10 @@ Used by `updateExpression(id, updates)`. Only set fields are applied. Forbidden 
 
 ```typescript
 interface TCorePropositionalVariable {
-    id: string              // UUID
-    argumentId: string      // UUID
+    id: string // UUID
+    argumentId: string // UUID
     argumentVersion: number
-    symbol: string          // e.g. "P", "Q"
+    symbol: string // e.g. "P", "Q"
     checksum: string
 }
 ```
@@ -95,9 +98,9 @@ Schema has `additionalProperties: true` -- extra fields survive round-trips.
 
 ```typescript
 interface TCorePremise {
-    id: string                                 // UUID
-    rootExpressionId?: string                  // UUID, present if premise has expressions
-    variables: string[]                        // IDs of referenced variables
+    id: string // UUID
+    rootExpressionId?: string // UUID, present if premise has expressions
+    variables: string[] // IDs of referenced variables
     expressions: TCorePropositionalExpression[] // full expression tree
     checksum: string
 }
@@ -117,7 +120,7 @@ Returned by `PremiseManager.toData()` and included in `TCoreArgumentEngineData.p
 
 ```typescript
 interface TCoreArgument {
-    id: string       // UUID
+    id: string // UUID
     version: number
     checksum: string
 }
@@ -129,7 +132,7 @@ Schema has `additionalProperties: true` -- extra fields survive round-trips.
 
 ```typescript
 interface TCoreArgumentRoleState {
-    conclusionPremiseId?: string  // UUID
+    conclusionPremiseId?: string // UUID
 }
 ```
 
@@ -168,8 +171,8 @@ type TCoreLogicalOperatorType = "not" | "and" | "or" | "implies" | "iff"
 ### Core value types
 
 ```typescript
-type TCoreTrivalentValue = boolean | null           // null = unknown/unset
-type TCoreVariableAssignment = Record<string, TCoreTrivalentValue>  // variable ID -> value
+type TCoreTrivalentValue = boolean | null // null = unknown/unset
+type TCoreVariableAssignment = Record<string, TCoreTrivalentValue> // variable ID -> value
 ```
 
 ### `TCoreExpressionAssignment`
@@ -179,7 +182,7 @@ Input to `evaluate()` methods.
 ```typescript
 interface TCoreExpressionAssignment {
     variables: TCoreVariableAssignment
-    rejectedExpressionIds: string[]   // these evaluate to false, children skipped
+    rejectedExpressionIds: string[] // these evaluate to false, children skipped
 }
 ```
 
@@ -342,8 +345,8 @@ Wrapper returned by all mutating methods on `PremiseManager` and `ArgumentEngine
 
 ```typescript
 interface TCoreMutationResult<T> {
-    result: T                  // direct answer (e.g. the removed expression)
-    changes: TCoreChangeset    // all side effects
+    result: T // direct answer (e.g. the removed expression)
+    changes: TCoreChangeset // all side effects
 }
 ```
 
@@ -356,8 +359,8 @@ interface TCoreChangeset {
     expressions?: TCoreEntityChanges<TCorePropositionalExpression>
     variables?: TCoreEntityChanges<TCorePropositionalVariable>
     premises?: TCoreEntityChanges<TCorePremise>
-    roles?: TCoreArgumentRoleState     // new role state (present only when roles changed)
-    argument?: TCoreArgument           // new argument (present only when argument changed)
+    roles?: TCoreArgumentRoleState // new role state (present only when roles changed)
+    argument?: TCoreArgument // new argument (present only when argument changed)
 }
 ```
 
@@ -486,8 +489,8 @@ interface TCoreDiffOptions {
 ```typescript
 interface TCoreVariableAppearance {
     variableId: string
-    side: "antecedent" | "consequent"        // TCorePremiseSide
-    polarity: "positive" | "negative"        // TCoreVariablePolarity
+    side: "antecedent" | "consequent" // TCorePremiseSide
+    polarity: "positive" | "negative" // TCoreVariablePolarity
 }
 ```
 
@@ -591,7 +594,7 @@ Merges additional fields into defaults (union, not replace). Pass to `ArgumentEn
 interface TCoreAnalysisFile {
     argumentId: string
     argumentVersion: number
-    assignments: Record<string, boolean | null>     // variable symbol -> value
+    assignments: Record<string, boolean | null> // variable symbol -> value
     rejectedExpressionIds: string[]
 }
 ```
@@ -626,9 +629,9 @@ type FormulaAST =
 
 ```typescript
 const POSITION_MIN = 0
-const POSITION_MAX = Number.MAX_SAFE_INTEGER          // 9007199254740991
+const POSITION_MAX = Number.MAX_SAFE_INTEGER // 9007199254740991
 const POSITION_INITIAL = Math.floor(POSITION_MAX / 2) // 4503599627370495
-function midpoint(a: number, b: number): number       // a + (b - a) / 2
+function midpoint(a: number, b: number): number // a + (b - a) / 2
 ```
 
 Used internally for sibling ordering. Callers typically use `appendExpression` or `addExpressionRelative` rather than computing positions directly.

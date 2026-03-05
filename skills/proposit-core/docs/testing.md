@@ -42,8 +42,11 @@ function makeVarExpr(
     opts: { parentId?: string | null; position?: number } = {}
 ): TExpressionInput {
     return {
-        id, argumentId: ARG.id, argumentVersion: ARG.version,
-        type: "variable", variableId,
+        id,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        type: "variable",
+        variableId,
         parentId: opts.parentId ?? null,
         position: opts.position ?? POSITION_INITIAL,
     }
@@ -55,8 +58,11 @@ function makeOpExpr(
     opts: { parentId?: string | null; position?: number } = {}
 ): TExpressionInput {
     return {
-        id, argumentId: ARG.id, argumentVersion: ARG.version,
-        type: "operator", operator,
+        id,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        type: "operator",
+        operator,
         parentId: opts.parentId ?? null,
         position: opts.position ?? POSITION_INITIAL,
     }
@@ -67,7 +73,9 @@ function makeFormulaExpr(
     opts: { parentId?: string | null; position?: number } = {}
 ): TExpressionInput {
     return {
-        id, argumentId: ARG.id, argumentVersion: ARG.version,
+        id,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
         type: "formula",
         parentId: opts.parentId ?? null,
         position: opts.position ?? POSITION_INITIAL,
@@ -119,9 +127,7 @@ function makePremise(extras?: Record<string, unknown>): PremiseManager {
 describe("PremiseManager —myNewMethod", () => {
     it("does the expected thing", () => {
         const pm = premiseWithVars()
-        const { result: root } = pm.addExpression(
-            makeOpExpr("op-1", "and")
-        )
+        const { result: root } = pm.addExpression(makeOpExpr("op-1", "and"))
         const { result, changes } = pm.myNewMethod("op-1")
 
         // Assert on the direct return value
@@ -139,50 +145,50 @@ describe("PremiseManager —myNewMethod", () => {
 
 Full ordered list (42 blocks):
 
-| # | Block name |
-|---|---|
-| 1 | `addExpression` |
-| 2 | `insertExpression` |
-| 3 | `removeExpression` |
-| 4 | `removeExpression —operator collapse` |
-| 5 | `removeVariable` |
-| 6 | `addExpression ordering` |
-| 7 | `toArray behaviour (via toData().expressions)` |
-| 8 | `stress test` |
-| 9 | `formula` |
-| 10 | `ArgumentEngine premise CRUD` |
-| 11 | `ArgumentEngine —addVariable / removeVariable` |
-| 12 | `PremiseManager —single-root enforcement` |
-| 13 | `PremiseManager —addExpression / removeExpression / insertExpression` |
-| 14 | `PremiseManager —toDisplayString` |
-| 15 | `PremiseManager —toData` |
-| 16 | `PremiseManager —validation and evaluation` |
-| 17 | `ArgumentEngine —roles and evaluation` |
-| 18 | `ArgumentEngine —complex argument scenarios across multiple evaluations` |
-| 19 | `diffArguments` |
-| 20 | `Kleene three-valued logic helpers` |
-| 21 | `PremiseManager —three-valued evaluation` |
-| 22 | `ArgumentEngine —three-valued evaluation` |
-| 23 | `schema shapes with additionalProperties` |
-| 24 | `field preservation —unknown fields survive round-trips` |
-| 25 | `buildPremiseProfile` |
-| 26 | `analyzePremiseRelationships —direct relationships` |
-| 27 | `analyzePremiseRelationships —transitive relationships` |
-| 28 | `analyzePremiseRelationships —precedence and edge cases` |
-| 29 | `position utilities` |
-| 30 | `PremiseManager —appendExpression and addExpressionRelative` |
-| 31 | `ChangeCollector` |
-| 32 | `PremiseManager —mutation changesets` |
-| 33 | `ArgumentEngine —mutation changesets` |
-| 34 | `checksum utilities` |
-| 35 | `entity checksum fields` |
-| 36 | `createChecksumConfig` |
-| 37 | `ArgumentEngine —variable management` |
-| 38 | `PremiseManager —deleteExpressionsUsingVariable` |
-| 39 | `variable expressions cannot have children` |
-| 40 | `ArgumentEngine —auto-conclusion on first premise` |
-| 41 | `PremiseManager —updateExpression` |
-| 42 | `removeExpression —deleteSubtree parameter` |
+| #   | Block name                                                               |
+| --- | ------------------------------------------------------------------------ |
+| 1   | `addExpression`                                                          |
+| 2   | `insertExpression`                                                       |
+| 3   | `removeExpression`                                                       |
+| 4   | `removeExpression —operator collapse`                                    |
+| 5   | `removeVariable`                                                         |
+| 6   | `addExpression ordering`                                                 |
+| 7   | `toArray behaviour (via toData().expressions)`                           |
+| 8   | `stress test`                                                            |
+| 9   | `formula`                                                                |
+| 10  | `ArgumentEngine premise CRUD`                                            |
+| 11  | `ArgumentEngine —addVariable / removeVariable`                           |
+| 12  | `PremiseManager —single-root enforcement`                                |
+| 13  | `PremiseManager —addExpression / removeExpression / insertExpression`    |
+| 14  | `PremiseManager —toDisplayString`                                        |
+| 15  | `PremiseManager —toData`                                                 |
+| 16  | `PremiseManager —validation and evaluation`                              |
+| 17  | `ArgumentEngine —roles and evaluation`                                   |
+| 18  | `ArgumentEngine —complex argument scenarios across multiple evaluations` |
+| 19  | `diffArguments`                                                          |
+| 20  | `Kleene three-valued logic helpers`                                      |
+| 21  | `PremiseManager —three-valued evaluation`                                |
+| 22  | `ArgumentEngine —three-valued evaluation`                                |
+| 23  | `schema shapes with additionalProperties`                                |
+| 24  | `field preservation —unknown fields survive round-trips`                 |
+| 25  | `buildPremiseProfile`                                                    |
+| 26  | `analyzePremiseRelationships —direct relationships`                      |
+| 27  | `analyzePremiseRelationships —transitive relationships`                  |
+| 28  | `analyzePremiseRelationships —precedence and edge cases`                 |
+| 29  | `position utilities`                                                     |
+| 30  | `PremiseManager —appendExpression and addExpressionRelative`             |
+| 31  | `ChangeCollector`                                                        |
+| 32  | `PremiseManager —mutation changesets`                                    |
+| 33  | `ArgumentEngine —mutation changesets`                                    |
+| 34  | `checksum utilities`                                                     |
+| 35  | `entity checksum fields`                                                 |
+| 36  | `createChecksumConfig`                                                   |
+| 37  | `ArgumentEngine —variable management`                                    |
+| 38  | `PremiseManager —deleteExpressionsUsingVariable`                         |
+| 39  | `variable expressions cannot have children`                              |
+| 40  | `ArgumentEngine —auto-conclusion on first premise`                       |
+| 41  | `PremiseManager —updateExpression`                                       |
+| 42  | `removeExpression —deleteSubtree parameter`                              |
 
 ---
 
@@ -255,7 +261,9 @@ expect(evalResult.rootValue).toBe(false)
 
 ```typescript
 expect(() =>
-    pm.addExpression(makeOpExpr("nested-implies", "implies", { parentId: "op-1" }))
+    pm.addExpression(
+        makeOpExpr("nested-implies", "implies", { parentId: "op-1" })
+    )
 ).toThrow()
 ```
 
@@ -263,11 +271,11 @@ expect(() =>
 
 ## Commands Reference
 
-| Command | Purpose |
-|---|---|
-| `pnpm run test` | Run all tests (vitest run) |
-| `pnpm run check` | Typecheck + lint + test + build (full pipeline) |
-| `pnpm run typecheck` | tsc --noEmit |
-| `pnpm run lint` | prettier --check + eslint |
-| `pnpm run prettify` | prettier --write (auto-fix formatting) |
-| `pnpm eslint . --fix` | Auto-fix lint errors |
+| Command               | Purpose                                         |
+| --------------------- | ----------------------------------------------- |
+| `pnpm run test`       | Run all tests (vitest run)                      |
+| `pnpm run check`      | Typecheck + lint + test + build (full pipeline) |
+| `pnpm run typecheck`  | tsc --noEmit                                    |
+| `pnpm run lint`       | prettier --check + eslint                       |
+| `pnpm run prettify`   | prettier --write (auto-fix formatting)          |
+| `pnpm eslint . --fix` | Auto-fix lint errors                            |

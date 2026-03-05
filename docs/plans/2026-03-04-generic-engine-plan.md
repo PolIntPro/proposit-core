@@ -15,6 +15,7 @@
 The user has partial/broken changes in the working tree. Start fresh from HEAD.
 
 **Files:**
+
 - Revert: `src/lib/core/ArgumentEngine.ts`
 - Revert: `src/lib/core/ExpressionManager.ts`
 - Revert: `src/lib/core/PremiseManager.ts`
@@ -36,6 +37,7 @@ Expected: PASS (no errors)
 ### Task 2: Add TOptionalChecksum utility type
 
 **Files:**
+
 - Modify: `src/lib/schemata/shared.ts`
 - Modify: `src/lib/schemata/index.ts` (if not already re-exported)
 
@@ -44,8 +46,11 @@ Expected: PASS (no errors)
 Add at the end of `src/lib/schemata/shared.ts`:
 
 ```typescript
-export type TOptionalChecksum<T extends { checksum?: unknown }> =
-    Omit<T, "checksum"> & Partial<Pick<T, "checksum">>
+export type TOptionalChecksum<T extends { checksum?: unknown }> = Omit<
+    T,
+    "checksum"
+> &
+    Partial<Pick<T, "checksum">>
 ```
 
 **Step 2: Verify re-export**
@@ -69,6 +74,7 @@ git commit -m "Add TOptionalChecksum utility type"
 ### Task 3: Make VariableManager generic
 
 **Files:**
+
 - Modify: `src/lib/core/VariableManager.ts`
 
 **Step 1: Write a failing test**
@@ -120,9 +126,9 @@ In `src/lib/core/VariableManager.ts`:
 
 1. Remove the `TVariableInput` type export.
 2. Change the class declaration to:
-   ```typescript
-   export class VariableManager<TVar extends TCorePropositionalVariable = TCorePropositionalVariable> {
-   ```
+    ```typescript
+    export class VariableManager<TVar extends TCorePropositionalVariable = TCorePropositionalVariable> {
+    ```
 3. Change `private variables: Map<string, TVariableInput>` to `private variables: Map<string, TVar>`
 4. Change constructor parameter from `TVariableInput[]` to `TVar[]`
 5. Change `toArray()` return type to `TVar[]`
@@ -141,6 +147,7 @@ Expected: PASS
 **Step 5: Fix TVariableInput references**
 
 `TVariableInput` was exported from `VariableManager.ts` and imported in:
+
 - `src/lib/core/ChangeCollector.ts` — will be updated in Task 5
 - `src/lib/types/mutation.ts` — will be updated in Task 4
 - `test/ExpressionManager.test.ts` — change to use `Omit<TCorePropositionalVariable, "checksum">`
@@ -169,6 +176,7 @@ git commit -m "Make VariableManager generic over TVar"
 ### Task 4: Make mutation types generic
 
 **Files:**
+
 - Modify: `src/lib/types/mutation.ts`
 
 **Step 1: Write a failing test**
@@ -223,7 +231,7 @@ export interface TCoreChangeset<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     expressions?: TCoreEntityChanges<TExpr>
     variables?: TCoreEntityChanges<TVar>
@@ -241,7 +249,7 @@ export interface TCoreMutationResult<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     result: T
     changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>
@@ -256,6 +264,7 @@ Expected: PASS
 **Step 5: Fix downstream imports**
 
 Any file importing `TCoreRawChangeset` needs updating:
+
 - `src/lib/core/PremiseManager.ts` — remove `TCoreRawChangeset` import (will be fixed in Task 7)
 - `src/lib/core/ChangeCollector.ts` — will be fixed in Task 5
 
@@ -283,6 +292,7 @@ git commit -m "Make TCoreChangeset and TCoreMutationResult generic"
 ### Task 5: Make ChangeCollector generic
 
 **Files:**
+
 - Modify: `src/lib/core/ChangeCollector.ts`
 
 **Step 1: Implement generic ChangeCollector**
@@ -299,10 +309,7 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
 } from "../schemata/propositional.js"
-import type {
-    TCoreEntityChanges,
-    TCoreChangeset,
-} from "../types/mutation.js"
+import type { TCoreEntityChanges, TCoreChangeset } from "../types/mutation.js"
 
 function emptyEntityChanges<T>(): TCoreEntityChanges<T> {
     return { added: [], modified: [], removed: [] }
@@ -320,7 +327,7 @@ export class ChangeCollector<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     private expressions: TCoreEntityChanges<TExpr> = emptyEntityChanges()
     private variables: TCoreEntityChanges<TVar> = emptyEntityChanges()
@@ -393,6 +400,7 @@ git commit -m "Make ChangeCollector generic"
 ### Task 6: Make ExpressionManager generic (TExpr only)
 
 **Files:**
+
 - Modify: `src/lib/core/ExpressionManager.ts`
 
 **Step 1: Write a failing test**
@@ -403,7 +411,9 @@ Add to `test/ExpressionManager.test.ts`:
 describe("ExpressionManager — generic type parameter", () => {
     it("stores and returns extended expression types", () => {
         type ExtExpr = TCorePropositionalExpression & { tag: string }
-        const { ExpressionManager } = require("../src/lib/core/ExpressionManager")
+        const {
+            ExpressionManager,
+        } = require("../src/lib/core/ExpressionManager")
         const em = new ExpressionManager<ExtExpr>()
 
         const expr: Omit<ExtExpr, "checksum"> = {
@@ -437,21 +447,36 @@ Expected: FAIL
 In `src/lib/core/ExpressionManager.ts`:
 
 1. Make `TExpressionInput` generic:
-   ```typescript
-   export type TExpressionInput<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> =
-       TExpr extends infer U ? U extends TCorePropositionalExpression ? Omit<U, "checksum"> : never : never
-   ```
+
+    ```typescript
+    export type TExpressionInput<
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > = TExpr extends infer U
+        ? U extends TCorePropositionalExpression
+            ? Omit<U, "checksum">
+            : never
+        : never
+    ```
 
 2. Make `TExpressionWithoutPosition` generic:
-   ```typescript
-   export type TExpressionWithoutPosition<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> =
-       TExpr extends infer U ? U extends TCorePropositionalExpression ? Omit<U, "position" | "checksum"> : never : never
-   ```
+
+    ```typescript
+    export type TExpressionWithoutPosition<
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > = TExpr extends infer U
+        ? U extends TCorePropositionalExpression
+            ? Omit<U, "position" | "checksum">
+            : never
+        : never
+    ```
 
 3. Change the class declaration to only use `TExpr`:
-   ```typescript
-   export class ExpressionManager<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> {
-   ```
+
+    ```typescript
+    export class ExpressionManager<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> {
+    ```
 
 4. Remove unused imports (`TCoreArgument`, `TCorePremise`, `TCorePropositionalVariable`, `TOptionalChecksum`).
 
@@ -464,14 +489,14 @@ In `src/lib/core/ExpressionManager.ts`:
 8. Change `toArray()` return to `TExpressionInput<TExpr>[]`.
 
 9. Change all method signatures to use `TExpressionInput<TExpr>` instead of `TExpressionInput`:
-   - `addExpression(expression: TExpressionInput<TExpr>)`
-   - `getExpression(id): TExpressionInput<TExpr> | undefined`
-   - `getChildExpressions(parentId): TExpressionInput<TExpr>[]`
-   - `removeExpression(id, deleteSubtree): TExpressionInput<TExpr> | undefined`
-   - `updateExpression(id, updates): TExpressionInput<TExpr>`
-   - `insertExpression(expression: TExpressionInput<TExpr>, ...)`
-   - `appendExpression(parentId, expression: TExpressionWithoutPosition<TExpr>)`
-   - `addExpressionRelative(siblingId, direction, expression: TExpressionWithoutPosition<TExpr>)`
+    - `addExpression(expression: TExpressionInput<TExpr>)`
+    - `getExpression(id): TExpressionInput<TExpr> | undefined`
+    - `getChildExpressions(parentId): TExpressionInput<TExpr>[]`
+    - `removeExpression(id, deleteSubtree): TExpressionInput<TExpr> | undefined`
+    - `updateExpression(id, updates): TExpressionInput<TExpr>`
+    - `insertExpression(expression: TExpressionInput<TExpr>, ...)`
+    - `appendExpression(parentId, expression: TExpressionWithoutPosition<TExpr>)`
+    - `addExpressionRelative(siblingId, direction, expression: TExpressionWithoutPosition<TExpr>)`
 
 10. Private methods also change signatures:
     - `removeSubtree`, `removeAndPromote`: parameters and returns use `TExpressionInput<TExpr>`
@@ -521,6 +546,7 @@ git commit -m "Make ExpressionManager generic over TExpr"
 ### Task 7: Make PremiseManager generic
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseManager.ts`
 
 **Step 1: Write a failing test**
@@ -533,12 +559,10 @@ describe("PremiseManager — generic type parameters", () => {
         type ExtPremise = TCorePremise & { color: string }
         const arg = { id: "a1", version: 0 }
         const vm = new VariableManager()
-        const pm = new PremiseManager<typeof arg & { checksum: string }, ExtPremise>(
-            "p1",
-            arg,
-            vm,
-            { color: "blue" }
-        )
+        const pm = new PremiseManager<
+            typeof arg & { checksum: string },
+            ExtPremise
+        >("p1", arg, vm, { color: "blue" })
         const data = pm.toData()
         expect((data as ExtPremise).color).toBe("blue")
     })
@@ -555,52 +579,55 @@ Expected: FAIL
 In `src/lib/core/PremiseManager.ts`:
 
 1. Change class declaration:
-   ```typescript
-   export class PremiseManager<
-       TArg extends TCoreArgument = TCoreArgument,
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
-       TVar extends TCorePropositionalVariable = TCorePropositionalVariable
-   > {
-   ```
+
+    ```typescript
+    export class PremiseManager<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable
+    > {
+    ```
 
 2. Change internal types:
-   - `private variables: VariableManager<TVar>`
-   - `private expressions: ExpressionManager<TExpr>`
-   - `private argument: TOptionalChecksum<TArg>`
+    - `private variables: VariableManager<TVar>`
+    - `private expressions: ExpressionManager<TExpr>`
+    - `private argument: TOptionalChecksum<TArg>`
 
 3. Change constructor:
-   ```typescript
-   constructor(
-       id: string,
-       argument: TOptionalChecksum<TArg>,
-       variables: VariableManager<TVar>,
-       extras?: Record<string, unknown>,
-       checksumConfig?: TCoreChecksumConfig
-   )
-   ```
-   - In constructor body, `new ExpressionManager<TExpr>()`
+
+    ```typescript
+    constructor(
+        id: string,
+        argument: TOptionalChecksum<TArg>,
+        variables: VariableManager<TVar>,
+        extras?: Record<string, unknown>,
+        checksumConfig?: TCoreChecksumConfig
+    )
+    ```
+
+    - In constructor body, `new ExpressionManager<TExpr>()`
 
 4. Update return types on public methods to use generics:
-   - `getExpression(id): TExpr | undefined` — `attachExpressionChecksum` returns `TExpr`
-   - `getRootExpression(): TExpr | undefined`
-   - `getVariables(): TVar[]`
-   - `getExpressions(): TExpr[]`
-   - `getChildExpressions(parentId): TExpr[]`
-   - `toData(): TPremise` — the spread `{ ...this.extras, id, ... } as TPremise`
-   - All mutation methods return `TCoreMutationResult<TExpr, ...>` or `TCoreMutationResult<TPremise, ...>`
+    - `getExpression(id): TExpr | undefined` — `attachExpressionChecksum` returns `TExpr`
+    - `getRootExpression(): TExpr | undefined`
+    - `getVariables(): TVar[]`
+    - `getExpressions(): TExpr[]`
+    - `getChildExpressions(parentId): TExpr[]`
+    - `toData(): TPremise` — the spread `{ ...this.extras, id, ... } as TPremise`
+    - All mutation methods return `TCoreMutationResult<TExpr, ...>` or `TCoreMutationResult<TPremise, ...>`
 
 5. Update `addExpression` and `insertExpression` parameter types:
-   - `addExpression(expression: TExpressionInput<TExpr>): TCoreMutationResult<TExpr>`
-   - `insertExpression(expression: TExpressionInput<TExpr>, ...): TCoreMutationResult<TExpr>`
-   - `appendExpression(parentId, expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr>`
-   - `addExpressionRelative(..., expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr>`
+    - `addExpression(expression: TExpressionInput<TExpr>): TCoreMutationResult<TExpr>`
+    - `insertExpression(expression: TExpressionInput<TExpr>, ...): TCoreMutationResult<TExpr>`
+    - `appendExpression(parentId, expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr>`
+    - `addExpressionRelative(..., expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr>`
 
 6. Update private helpers:
-   - `attachExpressionChecksum(expr: TExpressionInput<TExpr>): TExpr` — `as TExpr` on the return
-   - `attachVariableChecksum(v: TOptionalChecksum<TVar>): TVar` — `as TVar` on the return (or remove if not needed, since VariableManager now stores `TVar` directly)
-   - `attachChangesetChecksums(changes: TCoreChangeset): TCoreChangeset<TExpr, TVar, TPremise, TArg>` — maps expressions and variables through the attach functions, casts the result
-   - `collectSubtree(rootId): TExpressionInput<TExpr>[]`
+    - `attachExpressionChecksum(expr: TExpressionInput<TExpr>): TExpr` — `as TExpr` on the return
+    - `attachVariableChecksum(v: TOptionalChecksum<TVar>): TVar` — `as TVar` on the return (or remove if not needed, since VariableManager now stores `TVar` directly)
+    - `attachChangesetChecksums(changes: TCoreChangeset): TCoreChangeset<TExpr, TVar, TPremise, TArg>` — maps expressions and variables through the attach functions, casts the result
+    - `collectSubtree(rootId): TExpressionInput<TExpr>[]`
 
 7. Remove `TCoreRawChangeset` import; change all `collector.toChangeset() as TCoreChangeset` to use `attachChangesetChecksums(collector.toChangeset())` or appropriate casting.
 
@@ -626,6 +653,7 @@ git commit -m "Make PremiseManager generic over TArg, TPremise, TExpr, TVar"
 ### Task 8: Make ArgumentEngine generic
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts`
 
 **Step 1: Write a failing test**
@@ -649,9 +677,12 @@ describe("ArgumentEngine — generic type parameters", () => {
 
     it("preserves extended variable type through addVariable", () => {
         type ExtVar = TCorePropositionalVariable & { color: string }
-        const engine = new ArgumentEngine<TCoreArgument, TCorePremise, TCorePropositionalExpression, ExtVar>(
-            { id: "a1", version: 0 }
-        )
+        const engine = new ArgumentEngine<
+            TCoreArgument,
+            TCorePremise,
+            TCorePropositionalExpression,
+            ExtVar
+        >({ id: "a1", version: 0 })
         const { result } = engine.addVariable({
             id: "v1",
             argumentId: "a1",
@@ -675,47 +706,50 @@ Expected: FAIL
 In `src/lib/core/ArgumentEngine.ts`:
 
 1. Change class declaration:
-   ```typescript
-   export class ArgumentEngine<
-       TArg extends TCoreArgument = TCoreArgument,
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
-       TVar extends TCorePropositionalVariable = TCorePropositionalVariable
-   > {
-   ```
+
+    ```typescript
+    export class ArgumentEngine<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable
+    > {
+    ```
 
 2. Change internal types:
-   - `private argument: TOptionalChecksum<TArg>`
-   - `private premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>`
-   - `private variables: VariableManager<TVar>`
+    - `private argument: TOptionalChecksum<TArg>`
+    - `private premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>`
+    - `private variables: VariableManager<TVar>`
 
 3. Constructor:
-   ```typescript
-   constructor(
-       argument: TOptionalChecksum<TArg>,
-       options?: { checksumConfig?: TCoreChecksumConfig }
-   )
-   ```
-   - Body: `this.variables = new VariableManager<TVar>()`
+
+    ```typescript
+    constructor(
+        argument: TOptionalChecksum<TArg>,
+        options?: { checksumConfig?: TCoreChecksumConfig }
+    )
+    ```
+
+    - Body: `this.variables = new VariableManager<TVar>()`
 
 4. Update method signatures:
-   - `getArgument(): TArg` — `{ ...this.argument, checksum: this.checksum() } as TArg`
-   - `createPremise(extras?): TCoreMutationResult<PremiseManager<TArg, TPremise, TExpr, TVar>>`
-   - `createPremiseWithId(id, extras?): TCoreMutationResult<PremiseManager<TArg, TPremise, TExpr, TVar>>`
-     - Body: `new PremiseManager<TArg, TPremise, TExpr, TVar>(id, this.argument, this.variables, extras, this.checksumConfig)`
-   - `removePremise(id): TCoreMutationResult<TPremise | undefined>`
-   - `getPremise(id): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined`
-   - `listPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[]`
-   - `addVariable(variable: TOptionalChecksum<TVar>): TCoreMutationResult<TVar>`
-     - Attach checksum first, then pass to `this.variables.addVariable(withChecksum)`
-   - `updateVariable(id, updates): TCoreMutationResult<TVar | undefined>`
-   - `removeVariable(id): TCoreMutationResult<TVar | undefined>`
-   - `getVariables(): TVar[]`
-   - `getConclusionPremise(): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined`
-   - `listSupportingPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[]`
+    - `getArgument(): TArg` — `{ ...this.argument, checksum: this.checksum() } as TArg`
+    - `createPremise(extras?): TCoreMutationResult<PremiseManager<TArg, TPremise, TExpr, TVar>>`
+    - `createPremiseWithId(id, extras?): TCoreMutationResult<PremiseManager<TArg, TPremise, TExpr, TVar>>`
+        - Body: `new PremiseManager<TArg, TPremise, TExpr, TVar>(id, this.argument, this.variables, extras, this.checksumConfig)`
+    - `removePremise(id): TCoreMutationResult<TPremise | undefined>`
+    - `getPremise(id): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined`
+    - `listPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[]`
+    - `addVariable(variable: TOptionalChecksum<TVar>): TCoreMutationResult<TVar>`
+        - Attach checksum first, then pass to `this.variables.addVariable(withChecksum)`
+    - `updateVariable(id, updates): TCoreMutationResult<TVar | undefined>`
+    - `removeVariable(id): TCoreMutationResult<TVar | undefined>`
+    - `getVariables(): TVar[]`
+    - `getConclusionPremise(): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined`
+    - `listSupportingPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[]`
 
 5. Private helpers:
-   - `attachVariableChecksum(v: TOptionalChecksum<TVar>): TVar` — `as TVar`
+    - `attachVariableChecksum(v: TOptionalChecksum<TVar>): TVar` — `as TVar`
 
 6. For `addVariable`: attach checksum, then call `this.variables.addVariable(withChecksum)` (VariableManager now stores `TVar` directly).
 
@@ -743,6 +777,7 @@ git commit -m "Make ArgumentEngine generic over TArg, TPremise, TExpr, TVar"
 ### Task 9: Make diff types and diffArguments generic
 
 **Files:**
+
 - Modify: `src/lib/types/diff.ts`
 - Modify: `src/lib/core/diff.ts`
 
@@ -754,8 +789,16 @@ Add to `test/ExpressionManager.test.ts`:
 describe("diffArguments — generic type parameters", () => {
     it("accepts and returns extended types", () => {
         type ExtArg = TCoreArgument & { projectId: string }
-        const argA: Omit<ExtArg, "checksum"> = { id: "a1", version: 0, projectId: "proj-1" }
-        const argB: Omit<ExtArg, "checksum"> = { id: "a1", version: 1, projectId: "proj-1" }
+        const argA: Omit<ExtArg, "checksum"> = {
+            id: "a1",
+            version: 0,
+            projectId: "proj-1",
+        }
+        const argB: Omit<ExtArg, "checksum"> = {
+            id: "a1",
+            version: 1,
+            projectId: "proj-1",
+        }
         const engineA = new ArgumentEngine<ExtArg>(argA)
         const engineB = new ArgumentEngine<ExtArg>(argB)
 
@@ -776,56 +819,63 @@ Expected: FAIL
 In `src/lib/types/diff.ts`:
 
 1. Make `TCorePremiseDiff` generic:
-   ```typescript
-   export interface TCorePremiseDiff<
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
-   > extends TCoreEntityFieldDiff<TPremise> {
-       expressions: TCoreEntitySetDiff<TExpr>
-   }
-   ```
+
+    ```typescript
+    export interface TCorePremiseDiff<
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > extends TCoreEntityFieldDiff<TPremise> {
+        expressions: TCoreEntitySetDiff<TExpr>
+    }
+    ```
 
 2. Make `TCorePremiseSetDiff` generic:
-   ```typescript
-   export interface TCorePremiseSetDiff<
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
-   > {
-       added: TPremise[]
-       removed: TPremise[]
-       modified: TCorePremiseDiff<TPremise, TExpr>[]
-   }
-   ```
+
+    ```typescript
+    export interface TCorePremiseSetDiff<
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > {
+        added: TPremise[]
+        removed: TPremise[]
+        modified: TCorePremiseDiff<TPremise, TExpr>[]
+    }
+    ```
 
 3. Make `TCoreArgumentDiff` generic:
-   ```typescript
-   export interface TCoreArgumentDiff<
-       TArg extends TCoreArgument = TCoreArgument,
-       TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
-   > {
-       argument: TCoreEntityFieldDiff<TArg>
-       variables: TCoreEntitySetDiff<TVar>
-       premises: TCorePremiseSetDiff<TPremise, TExpr>
-       roles: TCoreRoleDiff
-   }
-   ```
+
+    ```typescript
+    export interface TCoreArgumentDiff<
+        TArg extends TCoreArgument = TCoreArgument,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > {
+        argument: TCoreEntityFieldDiff<TArg>
+        variables: TCoreEntitySetDiff<TVar>
+        premises: TCorePremiseSetDiff<TPremise, TExpr>
+        roles: TCoreRoleDiff
+    }
+    ```
 
 4. Make `TCoreDiffOptions` generic:
-   ```typescript
-   export interface TCoreDiffOptions<
-       TArg extends TCoreArgument = TCoreArgument,
-       TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
-   > {
-       compareArgument?: TCoreFieldComparator<TArg>
-       compareVariable?: TCoreFieldComparator<TVar>
-       comparePremise?: TCoreFieldComparator<TPremise>
-       compareExpression?: TCoreFieldComparator<TExpr>
-   }
-   ```
+    ```typescript
+    export interface TCoreDiffOptions<
+        TArg extends TCoreArgument = TCoreArgument,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    > {
+        compareArgument?: TCoreFieldComparator<TArg>
+        compareVariable?: TCoreFieldComparator<TVar>
+        comparePremise?: TCoreFieldComparator<TPremise>
+        compareExpression?: TCoreFieldComparator<TExpr>
+    }
+    ```
 
 **Step 4: Make diffArguments generic**
 
@@ -872,6 +922,7 @@ git commit -m "Make diff types and diffArguments generic"
 ### Task 10: Remove deprecated aliases and clean up
 
 **Files:**
+
 - Modify: `src/lib/core/VariableManager.ts` — remove `TVariableInput` re-export
 - Modify: `src/lib/types/mutation.ts` — remove `TCoreRawChangeset` alias
 - Modify: `test/ExpressionManager.test.ts` — update `TVariableInput` imports
@@ -882,6 +933,7 @@ git commit -m "Make diff types and diffArguments generic"
 In `src/lib/core/VariableManager.ts`, remove the `TVariableInput` type alias.
 
 In `test/ExpressionManager.test.ts`, replace `import type { TVariableInput } from "../src/lib/core/VariableManager"` with a local type alias:
+
 ```typescript
 type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
 ```
@@ -913,6 +965,7 @@ git commit -m "Remove deprecated TVariableInput and TCoreRawChangeset aliases"
 ### Task 11: Update documentation
 
 **Files:**
+
 - Modify: `CLAUDE.md` — update type parameter documentation
 - Modify: `README.md` — update API reference if it covers class constructors
 
@@ -928,6 +981,7 @@ ArgumentEngine<TArg, TPremise, TExpr, TVar>
 ```
 
 Update the "Types" section to document:
+
 - `TOptionalChecksum<T>` utility type
 - Generic parameters on `TCoreChangeset`, `TCoreMutationResult`, diff types
 - Removal of `TVariableInput` and `TCoreRawChangeset`

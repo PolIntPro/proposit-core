@@ -13,13 +13,13 @@ ArgumentEngine
        └─ ExpressionManager (expression tree)
 ```
 
-| Class | File | Exported? |
-|---|---|---|
-| `ArgumentEngine` | `src/lib/core/ArgumentEngine.ts` | Yes (public API) |
-| `PremiseManager` | `src/lib/core/PremiseManager.ts` | Yes (public API) |
-| `ExpressionManager` | `src/lib/core/ExpressionManager.ts` | No (internal) |
-| `VariableManager` | `src/lib/core/VariableManager.ts` | No (internal) |
-| `ChangeCollector` | `src/lib/core/ChangeCollector.ts` | No (internal) |
+| Class               | File                                | Exported?        |
+| ------------------- | ----------------------------------- | ---------------- |
+| `ArgumentEngine`    | `src/lib/core/ArgumentEngine.ts`    | Yes (public API) |
+| `PremiseManager`    | `src/lib/core/PremiseManager.ts`    | Yes (public API) |
+| `ExpressionManager` | `src/lib/core/ExpressionManager.ts` | No (internal)    |
+| `VariableManager`   | `src/lib/core/VariableManager.ts`   | No (internal)    |
+| `ChangeCollector`   | `src/lib/core/ChangeCollector.ts`   | No (internal)    |
 
 - `ArgumentEngine` owns a single `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. All premises share the same variable registry.
 - Each `PremiseManager` owns one `ExpressionManager` for its expression tree.
@@ -48,11 +48,11 @@ Expressions are **immutable value objects**. To move one, delete and re-insert o
 
 `TPropositionalExpression` narrows on `type`:
 
-| `type` | Extra fields | Notes |
-|---|---|---|
-| `"variable"` | `variableId: string` | Leaf node referencing a variable |
-| `"operator"` | `operator: TCoreLogicalOperatorType` | `and`, `or`, `not`, `implies`, `iff` |
-| `"formula"` | (none) | Transparent unary wrapper (parentheses) |
+| `type`       | Extra fields                         | Notes                                   |
+| ------------ | ------------------------------------ | --------------------------------------- |
+| `"variable"` | `variableId: string`                 | Leaf node referencing a variable        |
+| `"operator"` | `operator: TCoreLogicalOperatorType` | `and`, `or`, `not`, `implies`, `iff`    |
+| `"formula"`  | (none)                               | Transparent unary wrapper (parentheses) |
 
 ### Input Types (Distributive Omit)
 
@@ -70,18 +70,18 @@ File: `src/lib/utils/position.ts`
 
 ```typescript
 POSITION_MIN = 0
-POSITION_MAX = Number.MAX_SAFE_INTEGER   // 2^53 - 1
+POSITION_MAX = Number.MAX_SAFE_INTEGER // 2^53 - 1
 POSITION_INITIAL = Math.floor(POSITION_MAX / 2)
 
-midpoint(a, b) = a + (b - a) / 2   // overflow-safe
+midpoint(a, b) = a + (b - a) / 2 // overflow-safe
 ```
 
-| Scenario | Position |
-|---|---|
-| First child (no siblings) | `POSITION_INITIAL` |
-| Append (after last sibling) | `midpoint(last.position, POSITION_MAX)` |
-| Prepend (before first sibling) | `midpoint(POSITION_MIN, first.position)` |
-| Between two siblings | `midpoint(left.position, right.position)` |
+| Scenario                       | Position                                  |
+| ------------------------------ | ----------------------------------------- |
+| First child (no siblings)      | `POSITION_INITIAL`                        |
+| Append (after last sibling)    | `midpoint(last.position, POSITION_MAX)`   |
+| Prepend (before first sibling) | `midpoint(POSITION_MIN, first.position)`  |
+| Between two siblings           | `midpoint(left.position, right.position)` |
 
 Approximately 52 bisections at the same insertion point before losing IEEE 754 double precision.
 
@@ -115,11 +115,11 @@ The `formula` expression type is a **transparent unary wrapper** -- equivalent t
 
 Triggered by `removeExpression(id, deleteSubtree)`. After removal, `collapseIfNeeded(parentId)` runs on the parent:
 
-| Children remaining | Action |
-|---|---|
-| 0 | Delete the operator/formula. Recurse to grandparent. |
-| 1 | Delete the operator/formula. Promote surviving child (inherits `parentId` + `position`). No recursion (grandparent child count unchanged). |
-| 2+ | No action. |
+| Children remaining | Action                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0                  | Delete the operator/formula. Recurse to grandparent.                                                                                       |
+| 1                  | Delete the operator/formula. Promote surviving child (inherits `parentId` + `position`). No recursion (grandparent child count unchanged). |
+| 2+                 | No action.                                                                                                                                 |
 
 ### removeExpression Behavior
 
@@ -142,9 +142,9 @@ This handles the case where the right node is a descendant of the left node's su
 
 Derived dynamically from the root expression -- not stored on disk.
 
-| Method | Returns `true` when | Used for |
-|---|---|---|
-| `isInference()` | Root is `implies` or `iff` | Supporting/conclusion chain |
+| Method           | Returns `true` when                                                        | Used for                           |
+| ---------------- | -------------------------------------------------------------------------- | ---------------------------------- |
+| `isInference()`  | Root is `implies` or `iff`                                                 | Supporting/conclusion chain        |
 | `isConstraint()` | Root is anything else (`variable`, `not`, `and`, `or`) or premise is empty | Restricting admissible assignments |
 
 ---
@@ -175,7 +175,7 @@ Every mutating method on `PremiseManager` and `ArgumentEngine` returns `TCoreMut
 
 ```typescript
 interface TCoreMutationResult<T> {
-    result: T              // direct answer (e.g. removed expression, new role state)
+    result: T // direct answer (e.g. removed expression, new role state)
     changes: TCoreChangeset // all side effects
 }
 ```
@@ -187,8 +187,8 @@ interface TCoreChangeset {
     expressions?: TCoreEntityChanges<TPropositionalExpression>
     variables?: TCoreEntityChanges<TPropositionalVariable>
     premises?: TCoreEntityChanges<TCorePremise>
-    roles?: TCoreArgumentRoleState    // present only when roles changed
-    argument?: TCoreArgument          // present only when argument metadata changed
+    roles?: TCoreArgumentRoleState // present only when roles changed
+    argument?: TCoreArgument // present only when argument metadata changed
 }
 
 interface TCoreEntityChanges<T> {
@@ -221,11 +221,11 @@ Per-entity checksums provide lightweight change detection without deep compariso
 
 File: `src/lib/core/checksum.ts`
 
-| Function | Description |
-|---|---|
-| `computeHash(input: string): string` | FNV-1a 32-bit hash. Returns 8-char hex string. |
-| `canonicalSerialize(value: unknown): string` | Deterministic JSON with sorted keys at all levels. |
-| `entityChecksum(entity, fields): string` | Picks specified fields (sorted), serializes, hashes. |
+| Function                                     | Description                                          |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `computeHash(input: string): string`         | FNV-1a 32-bit hash. Returns 8-char hex string.       |
+| `canonicalSerialize(value: unknown): string` | Deterministic JSON with sorted keys at all levels.   |
+| `entityChecksum(entity, fields): string`     | Picks specified fields (sorted), serializes, hashes. |
 
 ### Configuration
 
@@ -236,6 +236,7 @@ File: `src/lib/consts.ts`
 - `ArgumentEngine` constructor accepts `options?: { checksumConfig?: TCoreChecksumConfig }`.
 
 `TCoreChecksumConfig` fields (all `Set<string>`, all optional):
+
 - `expressionFields` -- default: `id`, `type`, `parentId`, `position`, `argumentId`, `argumentVersion`, `variableId`, `operator`
 - `variableFields` -- default: `id`, `symbol`, `argumentId`, `argumentVersion`
 - `premiseFields` -- default: `id`, `rootExpressionId`
@@ -249,7 +250,7 @@ File: `src/lib/consts.ts`
 The project uses `moduleResolution: "bundler"` in `tsconfig.json` but `src/cli.ts` is compiled and run directly by Node.js ESM.
 
 **Rules:**
+
 - All relative imports in `src/cli/` and `src/lib/` must end in `.js`.
 - Directory imports must use the explicit index path: `schemata/index.js` not `schemata/`.
 - Critical: `src/lib/utils/` (directory) and `src/lib/utils.ts` (file) both compile to `dist/lib/`, and Node.js ESM resolves the directory first if no extension is given.
-

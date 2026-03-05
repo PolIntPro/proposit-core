@@ -10,31 +10,31 @@ Make `ArgumentEngine`, `PremiseManager`, `ExpressionManager`, and `VariableManag
 
 Each class carries only the type parameters it uses:
 
-| Class | Type Parameters |
-|-------|----------------|
-| `ArgumentEngine` | `<TArg, TPremise, TExpr, TVar>` |
-| `PremiseManager` | `<TArg, TPremise, TExpr, TVar>` |
-| `ExpressionManager` | `<TExpr>` |
-| `VariableManager` | `<TVar>` |
+| Class               | Type Parameters                 |
+| ------------------- | ------------------------------- |
+| `ArgumentEngine`    | `<TArg, TPremise, TExpr, TVar>` |
+| `PremiseManager`    | `<TArg, TPremise, TExpr, TVar>` |
+| `ExpressionManager` | `<TExpr>`                       |
+| `VariableManager`   | `<TVar>`                        |
 
 All parameters have `extends BaseType = BaseType` defaults.
 
 ### Internal storage types
 
-| Class | Storage |
-|-------|---------|
-| `ArgumentEngine` | `argument: TOptionalChecksum<TArg>`, `premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>`, `variables: VariableManager<TVar>` |
-| `PremiseManager` | `argument: TOptionalChecksum<TArg>`, `expressions: ExpressionManager<TExpr>`, `variables: VariableManager<TVar>` |
-| `ExpressionManager` | `expressions: Map<string, TOptionalChecksum<TExpr>>` |
-| `VariableManager` | `variables: Map<string, TVar>` (checksum already attached before registration) |
+| Class               | Storage                                                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ArgumentEngine`    | `argument: TOptionalChecksum<TArg>`, `premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>`, `variables: VariableManager<TVar>` |
+| `PremiseManager`    | `argument: TOptionalChecksum<TArg>`, `expressions: ExpressionManager<TExpr>`, `variables: VariableManager<TVar>`                              |
+| `ExpressionManager` | `expressions: Map<string, TOptionalChecksum<TExpr>>`                                                                                          |
+| `VariableManager`   | `variables: Map<string, TVar>` (checksum already attached before registration)                                                                |
 
 ### TOptionalChecksum utility type
 
 Already defined in `shared.ts`:
 
 ```typescript
-type TOptionalChecksum<T extends { checksum?: unknown }> =
-    Omit<T, "checksum"> & Partial<Pick<T, "checksum">>
+type TOptionalChecksum<T extends { checksum?: unknown }> = Omit<T, "checksum"> &
+    Partial<Pick<T, "checksum">>
 ```
 
 ## Mutation types
@@ -46,7 +46,7 @@ interface TCoreChangeset<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     expressions?: TCoreEntityChanges<TExpr>
     variables?: TCoreEntityChanges<TVar>
@@ -65,7 +65,7 @@ class ChangeCollector<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     // All methods accept/return full entity types
     // toChangeset() returns TCoreChangeset<TExpr, TVar, TPremise, TArg>
@@ -80,7 +80,7 @@ interface TCoreMutationResult<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TArg extends TCoreArgument = TCoreArgument
+    TArg extends TCoreArgument = TCoreArgument,
 > {
     result: T
     changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>
@@ -93,8 +93,13 @@ interface TCoreMutationResult<
 
 ```typescript
 // In ExpressionManager.ts — still a distributive Omit for union preservation
-type TExpressionInput<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> =
-    TExpr extends infer U ? U extends TExpr ? Omit<U, "checksum"> : never : never
+type TExpressionInput<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = TExpr extends infer U
+    ? U extends TExpr
+        ? Omit<U, "checksum">
+        : never
+    : never
 ```
 
 `TVariableInput` is removed entirely — `VariableManager` stores `TVar` directly (checksum attached by `ArgumentEngine` before registration).
@@ -102,8 +107,13 @@ type TExpressionInput<TExpr extends TCorePropositionalExpression = TCoreProposit
 `TExpressionWithoutPosition` follows the same pattern:
 
 ```typescript
-type TExpressionWithoutPosition<TExpr extends TCorePropositionalExpression = TCorePropositionalExpression> =
-    TExpr extends infer U ? U extends TExpr ? Omit<U, "position" | "checksum"> : never : never
+type TExpressionWithoutPosition<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = TExpr extends infer U
+    ? U extends TExpr
+        ? Omit<U, "position" | "checksum">
+        : never
+    : never
 ```
 
 ## Diff types
@@ -113,14 +123,14 @@ type TExpressionWithoutPosition<TExpr extends TCorePropositionalExpression = TCo
 ```typescript
 interface TCorePremiseDiff<
     TPremise extends TCorePremise = TCorePremise,
-    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > extends TCoreEntityFieldDiff<TPremise> {
     expressions: TCoreEntitySetDiff<TExpr>
 }
 
 interface TCorePremiseSetDiff<
     TPremise extends TCorePremise = TCorePremise,
-    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > {
     added: TPremise[]
     removed: TPremise[]
@@ -131,7 +141,7 @@ interface TCoreArgumentDiff<
     TArg extends TCoreArgument = TCoreArgument,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > {
     argument: TCoreEntityFieldDiff<TArg>
     variables: TCoreEntitySetDiff<TVar>
@@ -143,7 +153,7 @@ interface TCoreDiffOptions<
     TArg extends TCoreArgument = TCoreArgument,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TPremise extends TCorePremise = TCorePremise,
-    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > {
     compareArgument?: TCoreFieldComparator<TArg>
     compareVariable?: TCoreFieldComparator<TVar>
@@ -159,7 +169,7 @@ function diffArguments<
     TArg extends TCoreArgument = TCoreArgument,
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
-    TVar extends TCorePropositionalVariable = TCorePropositionalVariable
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 >(
     engineA: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
     engineB: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
@@ -176,11 +186,13 @@ TypeScript cannot prove that `Omit<T, K> & Pick<Base, K>` equals `T` for generic
 ### Assertion locations
 
 **ArgumentEngine:**
+
 - `getArgument()`: `{ ...this.argument, checksum } as TArg`
 - `attachVariableChecksum()`: `{ ...v, checksum } as TVar`
 - `addVariable()` / `updateVariable()`: after reconstructing variable with new symbol
 
 **ExpressionManager:**
+
 - `addExpression()`: store `expr as TOptionalChecksum<TExpr>`
 - `reparent()`: `{ ...expr, parentId, position } as TOptionalChecksum<TExpr>`
 - `promoteChild()`: same pattern
@@ -188,6 +200,7 @@ TypeScript cannot prove that `Omit<T, K> & Pick<Base, K>` equals `T` for generic
 - `collapseIfNeeded()`: surviving child promotion
 
 **PremiseManager:**
+
 - `attachExpressionChecksum()`: `{ ...expr, checksum } as TExpr`
 - `toData()`: premise construction `{ ...extras, id, ... } as TPremise`
 
