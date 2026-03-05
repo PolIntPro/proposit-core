@@ -148,7 +148,9 @@ export class ExpressionManager {
         occupiedPositions.add(expression.position)
 
         this.expressions.set(expression.id, expression)
-        this.collector?.addedExpression({ ...expression })
+        this.collector?.addedExpression({
+            ...expression,
+        } as unknown as TCorePropositionalExpression)
         getOrCreate(
             this.childExpressionIdsByParentId,
             expression.parentId,
@@ -332,7 +334,9 @@ export class ExpressionManager {
         } as TExpressionInput
         this.expressions.set(expressionId, updated)
 
-        this.collector?.modifiedExpression({ ...updated })
+        this.collector?.modifiedExpression({
+            ...updated,
+        } as unknown as TCorePropositionalExpression)
 
         return updated
     }
@@ -400,7 +404,9 @@ export class ExpressionManager {
                 continue
             }
 
-            this.collector?.removedExpression({ ...expression })
+            this.collector?.removedExpression({
+                ...expression,
+            } as unknown as TCorePropositionalExpression)
             this.expressions.delete(id)
             this.childExpressionIdsByParentId
                 .get(expression.parentId)
@@ -435,7 +441,9 @@ export class ExpressionManager {
             // Leaf removal — same as removing a single node, then collapse parent.
             const parentId = target.parentId
 
-            this.collector?.removedExpression({ ...target })
+            this.collector?.removedExpression({
+                ...target,
+            } as unknown as TCorePropositionalExpression)
             this.expressions.delete(expressionId)
             this.childExpressionIdsByParentId
                 .get(parentId)
@@ -489,8 +497,12 @@ export class ExpressionManager {
         this.childPositionsByParentId.delete(expressionId)
 
         // Notify collector.
-        this.collector?.removedExpression({ ...target })
-        this.collector?.modifiedExpression({ ...promoted })
+        this.collector?.removedExpression({
+            ...target,
+        } as unknown as TCorePropositionalExpression)
+        this.collector?.modifiedExpression({
+            ...promoted,
+        } as unknown as TCorePropositionalExpression)
 
         // Remove target from expressions map.
         this.expressions.delete(expressionId)
@@ -510,7 +522,9 @@ export class ExpressionManager {
             const children = this.getChildExpressions(operatorId)
             if (children.length === 0) {
                 const grandparentId = operator.parentId
-                this.collector?.removedExpression({ ...operator })
+                this.collector?.removedExpression({
+                    ...operator,
+                } as unknown as TCorePropositionalExpression)
                 this.expressions.delete(operatorId)
                 this.childExpressionIdsByParentId
                     .get(grandparentId)
@@ -533,7 +547,9 @@ export class ExpressionManager {
             const grandparentId = operator.parentId
             const grandparentPosition = operator.position
 
-            this.collector?.removedExpression({ ...operator })
+            this.collector?.removedExpression({
+                ...operator,
+            } as unknown as TCorePropositionalExpression)
             this.expressions.delete(operatorId)
             this.childExpressionIdsByParentId
                 .get(grandparentId)
@@ -557,7 +573,9 @@ export class ExpressionManager {
                 position: grandparentPosition,
             } as TExpressionInput
             this.expressions.set(child.id, promoted)
-            this.collector?.modifiedExpression({ ...promoted })
+            this.collector?.modifiedExpression({
+                ...promoted,
+            } as unknown as TCorePropositionalExpression)
 
             // Replace the operator with the promoted child in the grandparent's child-id set.
             this.childExpressionIdsByParentId
@@ -576,7 +594,9 @@ export class ExpressionManager {
             // Remove the operator's own tracking entries.
             this.childExpressionIdsByParentId.delete(operatorId)
             this.childPositionsByParentId.delete(operatorId)
-            this.collector?.removedExpression({ ...operator })
+            this.collector?.removedExpression({
+                ...operator,
+            } as unknown as TCorePropositionalExpression)
             this.expressions.delete(operatorId)
 
             // The grandparent's child count is unchanged; no further recursion needed.
@@ -695,7 +715,9 @@ export class ExpressionManager {
             position: newPosition,
         } as TExpressionInput
         this.expressions.set(expressionId, updated)
-        this.collector?.modifiedExpression({ ...updated })
+        this.collector?.modifiedExpression({
+            ...updated,
+        } as unknown as TCorePropositionalExpression)
 
         // Attach to new parent.
         getOrCreate(
@@ -864,7 +886,9 @@ export class ExpressionManager {
             position: anchorPosition,
         } as TExpressionInput
         this.expressions.set(expression.id, stored)
-        this.collector?.addedExpression({ ...stored })
+        this.collector?.addedExpression({
+            ...stored,
+        } as unknown as TCorePropositionalExpression)
         getOrCreate(
             this.childExpressionIdsByParentId,
             anchorParentId,

@@ -21,7 +21,7 @@ import type {
 } from "../types/evaluation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
-import type { TCoreChangeset, TCoreMutationResult } from "../types/mutation.js"
+import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./ChangeCollector.js"
 import { computeHash, entityChecksum } from "./checksum.js"
@@ -108,7 +108,7 @@ export class ArgumentEngine {
 
         return {
             result: pm,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -132,7 +132,7 @@ export class ArgumentEngine {
         this.markDirty()
         return {
             result: data,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -188,7 +188,7 @@ export class ArgumentEngine {
         this.markAllPremisesDirty()
         return {
             result: withChecksum,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -215,12 +215,12 @@ export class ArgumentEngine {
             this.markAllPremisesDirty()
             return {
                 result: withChecksum,
-                changes: collector.toChangeset() as TCoreChangeset,
+                changes: collector.toChangeset(),
             }
         }
         return {
             result: undefined,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -254,7 +254,7 @@ export class ArgumentEngine {
         this.markAllPremisesDirty()
         return {
             result: variable,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -291,7 +291,7 @@ export class ArgumentEngine {
         this.markDirty()
         return {
             result: roles,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -304,7 +304,7 @@ export class ArgumentEngine {
         this.markDirty()
         return {
             result: roles,
-            changes: collector.toChangeset() as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 

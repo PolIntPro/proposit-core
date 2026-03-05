@@ -4,11 +4,10 @@ import type {
     TCoreArgumentRoleState,
 } from "../schemata/argument.js"
 import type {
-    TCoreEntityChanges,
-    TCoreRawChangeset,
-} from "../types/mutation.js"
-import type { TExpressionInput } from "./ExpressionManager.js"
-import type { TVariableInput } from "./VariableManager.js"
+    TCorePropositionalExpression,
+    TCorePropositionalVariable,
+} from "../schemata/propositional.js"
+import type { TCoreEntityChanges, TCoreChangeset } from "../types/mutation.js"
 
 function emptyEntityChanges<T>(): TCoreEntityChanges<T> {
     return { added: [], modified: [], removed: [] }
@@ -27,38 +26,42 @@ function isEntityChangesEmpty<T>(ec: TCoreEntityChanges<T>): boolean {
  * side-effect changes. Created at the start of a public mutating method,
  * populated by internal helpers, and consumed via toChangeset().
  */
-export class ChangeCollector {
-    private expressions: TCoreEntityChanges<TExpressionInput> =
-        emptyEntityChanges()
-    private variables: TCoreEntityChanges<TVariableInput> = emptyEntityChanges()
-    private premises: TCoreEntityChanges<TCorePremise> = emptyEntityChanges()
+export class ChangeCollector<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TPremise extends TCorePremise = TCorePremise,
+    TArg extends TCoreArgument = TCoreArgument,
+> {
+    private expressions: TCoreEntityChanges<TExpr> = emptyEntityChanges()
+    private variables: TCoreEntityChanges<TVar> = emptyEntityChanges()
+    private premises: TCoreEntityChanges<TPremise> = emptyEntityChanges()
     private roles: TCoreArgumentRoleState | undefined = undefined
-    private argument: TCoreArgument | undefined = undefined
+    private argument: TArg | undefined = undefined
 
-    addedExpression(expr: TExpressionInput): void {
+    addedExpression(expr: TExpr): void {
         this.expressions.added.push(expr)
     }
-    modifiedExpression(expr: TExpressionInput): void {
+    modifiedExpression(expr: TExpr): void {
         this.expressions.modified.push(expr)
     }
-    removedExpression(expr: TExpressionInput): void {
+    removedExpression(expr: TExpr): void {
         this.expressions.removed.push(expr)
     }
 
-    addedVariable(variable: TVariableInput): void {
+    addedVariable(variable: TVar): void {
         this.variables.added.push(variable)
     }
-    modifiedVariable(variable: TVariableInput): void {
+    modifiedVariable(variable: TVar): void {
         this.variables.modified.push(variable)
     }
-    removedVariable(variable: TVariableInput): void {
+    removedVariable(variable: TVar): void {
         this.variables.removed.push(variable)
     }
 
-    addedPremise(premise: TCorePremise): void {
+    addedPremise(premise: TPremise): void {
         this.premises.added.push(premise)
     }
-    removedPremise(premise: TCorePremise): void {
+    removedPremise(premise: TPremise): void {
         this.premises.removed.push(premise)
     }
 
@@ -66,12 +69,12 @@ export class ChangeCollector {
         this.roles = roles
     }
 
-    setArgument(argument: TCoreArgument): void {
+    setArgument(argument: TArg): void {
         this.argument = argument
     }
 
-    toChangeset(): TCoreRawChangeset {
-        const cs: TCoreRawChangeset = {}
+    toChangeset(): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
+        const cs: TCoreChangeset<TExpr, TVar, TPremise, TArg> = {}
         if (!isEntityChangesEmpty(this.expressions))
             cs.expressions = this.expressions
         if (!isEntityChangesEmpty(this.variables)) cs.variables = this.variables

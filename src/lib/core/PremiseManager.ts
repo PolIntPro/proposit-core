@@ -15,11 +15,7 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
-import type {
-    TCoreChangeset,
-    TCoreRawChangeset,
-    TCoreMutationResult,
-} from "../types/mutation.js"
+import type { TCoreChangeset, TCoreMutationResult } from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -103,11 +99,10 @@ export class PremiseManager {
         }
 
         // Expressions in the collector already have checksums attached
-        // (from removeExpression's attachChangesetChecksums), so the raw
-        // changeset is safe to cast to TCoreChangeset.
+        // (from removeExpression's attachChangesetChecksums).
         return {
             result: removed,
-            changes: collector.toChangeset() as unknown as TCoreChangeset,
+            changes: collector.toChangeset(),
         }
     }
 
@@ -405,7 +400,7 @@ export class PremiseManager {
             if (!snapshot) {
                 return {
                     result: undefined,
-                    changes: collector.toChangeset() as TCoreChangeset,
+                    changes: collector.toChangeset(),
                 }
             }
 
@@ -1047,10 +1042,8 @@ export class PremiseManager {
         }
     }
 
-    private attachChangesetChecksums(
-        changes: TCoreRawChangeset
-    ): TCoreChangeset {
-        const result: TCoreChangeset = { ...changes } as TCoreChangeset
+    private attachChangesetChecksums(changes: TCoreChangeset): TCoreChangeset {
+        const result: TCoreChangeset = { ...changes }
         if (result.expressions) {
             result.expressions = {
                 added: result.expressions.added.map((e) =>

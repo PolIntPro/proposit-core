@@ -4544,7 +4544,8 @@ describe("ChangeCollector", () => {
             argumentVersion: 0,
             parentId: null,
             position: 0,
-        } as TExpressionInput
+            checksum: "x",
+        } as TCorePropositionalExpression
         collector.addedExpression(expr)
         const cs = collector.toChangeset()
         expect(cs.expressions?.added).toEqual([expr])
@@ -4557,11 +4558,13 @@ describe("ChangeCollector", () => {
         const modified = {
             id: "e1",
             type: "variable",
-        } as TExpressionInput
+            checksum: "x",
+        } as TCorePropositionalExpression
         const removed = {
             id: "e2",
             type: "operator",
-        } as TExpressionInput
+            checksum: "x",
+        } as TCorePropositionalExpression
         collector.modifiedExpression(modified)
         collector.removedExpression(removed)
         const cs = collector.toChangeset()
@@ -4577,7 +4580,8 @@ describe("ChangeCollector", () => {
             symbol: "P",
             argumentId: "a1",
             argumentVersion: 0,
-        } as TVariableInput
+            checksum: "x",
+        } as TCorePropositionalVariable
         collector.addedVariable(v)
         const cs = collector.toChangeset()
         expect(cs.variables?.added).toEqual([v])
@@ -4609,7 +4613,7 @@ describe("ChangeCollector", () => {
 
     it("omits unchanged categories from changeset", () => {
         const collector = new ChangeCollector()
-        const expr = { id: "e1" } as TExpressionInput
+        const expr = { id: "e1", checksum: "x" } as TCorePropositionalExpression
         collector.addedExpression(expr)
         const cs = collector.toChangeset()
         expect(cs.variables).toBeUndefined()
