@@ -4,6 +4,7 @@ import type {
     TCorePremise,
     TCorePropositionalExpression,
     TCorePropositionalVariable,
+    TOptionalChecksum,
 } from "../schemata/index.js"
 import { DefaultMap } from "../utils.js"
 import { sortedCopyById, sortedUnique } from "../utils/collections.js"
@@ -15,7 +16,11 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
-import type { TCoreChangeset, TCoreMutationResult } from "../types/mutation.js"
+import type {
+    TCoreChangeset,
+    TCoreEntityChanges,
+    TCoreMutationResult,
+} from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -38,22 +43,27 @@ import type {
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
 
-export class PremiseManager {
+export class PremiseManager<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> {
     private id: string
     private extras: Record<string, unknown>
     private rootExpressionId: string | undefined
-    private variables: VariableManager
-    private expressions: ExpressionManager
+    private variables: VariableManager<TVar>
+    private expressions: ExpressionManager<TExpr>
     private expressionsByVariableId: DefaultMap<string, Set<string>>
-    private argument: Omit<TCoreArgument, "checksum">
+    private argument: TOptionalChecksum<TArg>
     private checksumConfig?: TCoreChecksumConfig
     private checksumDirty = true
     private cachedChecksum: string | undefined
 
     constructor(
         id: string,
-        argument: Omit<TCoreArgument, "checksum">,
-        variables: VariableManager,
+        argument: TOptionalChecksum<TArg>,
+        variables: VariableManager<TVar>,
         extras?: Record<string, unknown>,
         checksumConfig?: TCoreChecksumConfig
     ) {
@@ -63,7 +73,7 @@ export class PremiseManager {
         this.checksumConfig = checksumConfig
         this.rootExpressionId = undefined
         this.variables = variables
-        this.expressions = new ExpressionManager()
+        this.expressions = new ExpressionManager<TExpr>()
         this.expressionsByVariableId = new DefaultMap(() => new Set())
     }
 
@@ -74,16 +84,16 @@ export class PremiseManager {
      */
     public deleteExpressionsUsingVariable(
         variableId: string
-    ): TCoreMutationResult<TCorePropositionalExpression[]> {
+    ): TCoreMutationResult<TExpr[], TExpr, TVar, TPremise, TArg> {
         const expressionIds = this.expressionsByVariableId.get(variableId)
         if (expressionIds.size === 0) {
             return { result: [], changes: {} }
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
 
         // Copy the set since removeExpression mutates expressionsByVariableId
-        const removed: TCorePropositionalExpression[] = []
+        const removed: TExpr[] = []
         for (const exprId of [...expressionIds]) {
             // The expression may already have been removed as part of a
             // prior subtree deletion or operator collapse in this loop.
@@ -122,8 +132,8 @@ export class PremiseManager {
      * @throws If the expression does not belong to this argument.
      */
     public addExpression(
-        expression: TExpressionInput
-    ): TCoreMutationResult<TCorePropositionalExpression> {
+        expression: TExpressionInput<TExpr>
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -152,7 +162,7 @@ export class PremiseManager {
             }
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             // Delegate structural validation (operator type checks, position
@@ -190,8 +200,8 @@ export class PremiseManager {
      */
     public appendExpression(
         parentId: string | null,
-        expression: TExpressionWithoutPosition
-    ): TCoreMutationResult<TCorePropositionalExpression> {
+        expression: TExpressionWithoutPosition<TExpr>
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -220,7 +230,7 @@ export class PremiseManager {
             }
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             this.expressions.appendExpression(parentId, expression)
@@ -256,8 +266,8 @@ export class PremiseManager {
     public addExpressionRelative(
         siblingId: string,
         relativePosition: "before" | "after",
-        expression: TExpressionWithoutPosition
-    ): TCoreMutationResult<TCorePropositionalExpression> {
+        expression: TExpressionWithoutPosition<TExpr>
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -278,7 +288,7 @@ export class PremiseManager {
             )
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             this.expressions.addExpressionRelative(
@@ -322,7 +332,7 @@ export class PremiseManager {
     public updateExpression(
         expressionId: string,
         updates: TExpressionUpdate
-    ): TCoreMutationResult<TCorePropositionalExpression> {
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
         const existing = this.expressions.getExpression(expressionId)
         if (!existing) {
             throw new Error(
@@ -338,7 +348,7 @@ export class PremiseManager {
             }
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             const oldVariableId =
@@ -390,11 +400,11 @@ export class PremiseManager {
     public removeExpression(
         expressionId: string,
         deleteSubtree: boolean
-    ): TCoreMutationResult<TCorePropositionalExpression | undefined> {
+    ): TCoreMutationResult<TExpr | undefined, TExpr, TVar, TPremise, TArg> {
         // Snapshot the expression before removal (for result).
         const snapshot = this.expressions.getExpression(expressionId)
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             if (!snapshot) {
@@ -457,10 +467,10 @@ export class PremiseManager {
      * @throws If the expression is a variable reference and the variable has not been registered.
      */
     public insertExpression(
-        expression: TExpressionInput,
+        expression: TExpressionInput<TExpr>,
         leftNodeId?: string,
         rightNodeId?: string
-    ): TCoreMutationResult<TCorePropositionalExpression> {
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
         this.assertBelongsToArgument(
             expression.argumentId,
             expression.argumentVersion
@@ -475,7 +485,7 @@ export class PremiseManager {
             )
         }
 
-        const collector = new ChangeCollector()
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         this.expressions.setCollector(collector)
         try {
             this.expressions.insertExpression(
@@ -507,7 +517,7 @@ export class PremiseManager {
      * Returns an expression by ID, or `undefined` if not found in this
      * premise.
      */
-    public getExpression(id: string): TCorePropositionalExpression | undefined {
+    public getExpression(id: string): TExpr | undefined {
         const expr = this.expressions.getExpression(id)
         if (!expr) return undefined
         return this.attachExpressionChecksum(expr)
@@ -523,7 +533,13 @@ export class PremiseManager {
 
     public setExtras(
         extras: Record<string, unknown>
-    ): TCoreMutationResult<Record<string, unknown>> {
+    ): TCoreMutationResult<
+        Record<string, unknown>,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg
+    > {
         this.extras = { ...extras }
         this.markDirty()
         return { result: { ...this.extras }, changes: {} }
@@ -533,7 +549,7 @@ export class PremiseManager {
         return this.rootExpressionId
     }
 
-    public getRootExpression(): TCorePropositionalExpression | undefined {
+    public getRootExpression(): TExpr | undefined {
         if (this.rootExpressionId === undefined) {
             return undefined
         }
@@ -548,28 +564,29 @@ export class PremiseManager {
      * this returns every registered variable — not just those referenced by
      * expressions in this premise.
      */
-    public getVariables(): TCorePropositionalVariable[] {
+    public getVariables(): TVar[] {
         return sortedCopyById(this.variables.toArray())
     }
 
-    public getExpressions(): TCorePropositionalExpression[] {
+    public getExpressions(): TExpr[] {
         const fields =
             this.checksumConfig?.expressionFields ??
             DEFAULT_CHECKSUM_CONFIG.expressionFields!
         return sortedCopyById(
-            this.expressions.toArray().map((e) => ({
-                ...e,
-                checksum: entityChecksum(
-                    e as unknown as Record<string, unknown>,
-                    fields
-                ),
-            }))
+            this.expressions.toArray().map(
+                (e) =>
+                    ({
+                        ...e,
+                        checksum: entityChecksum(
+                            e as unknown as Record<string, unknown>,
+                            fields
+                        ),
+                    }) as TExpr
+            )
         )
     }
 
-    public getChildExpressions(
-        parentId: string | null
-    ): TCorePropositionalExpression[] {
+    public getChildExpressions(parentId: string | null): TExpr[] {
         return this.expressions
             .getChildExpressions(parentId)
             .map((expr) => this.attachExpressionChecksum(expr))
@@ -777,7 +794,7 @@ export class PremiseManager {
                 .filter(
                     (
                         expr
-                    ): expr is TExpressionInput & {
+                    ): expr is TExpressionInput<TExpr> & {
                         type: "variable"
                         variableId: string
                     } => expr.type === "variable"
@@ -975,7 +992,7 @@ export class PremiseManager {
      * `TCorePremise`.  `variables` contains only the variables that are actually
      * referenced by expressions in this premise.
      */
-    public toData(): TCorePremise {
+    public toData(): TPremise {
         const expressions = this.getExpressions()
 
         const referencedVariableIds = new Set<string>()
@@ -993,7 +1010,7 @@ export class PremiseManager {
             variables,
             expressions,
             checksum: this.checksum(),
-        } as TCorePremise
+        } as TPremise
     }
 
     /**
@@ -1012,9 +1029,7 @@ export class PremiseManager {
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private attachExpressionChecksum(
-        expr: TExpressionInput
-    ): TCorePropositionalExpression {
+    private attachExpressionChecksum(expr: TExpressionInput<TExpr>): TExpr {
         const fields =
             this.checksumConfig?.expressionFields ??
             DEFAULT_CHECKSUM_CONFIG.expressionFields!
@@ -1024,12 +1039,10 @@ export class PremiseManager {
                 expr as unknown as Record<string, unknown>,
                 fields
             ),
-        }
+        } as TExpr
     }
 
-    private attachVariableChecksum(
-        v: Omit<TCorePropositionalVariable, "checksum">
-    ): TCorePropositionalVariable {
+    private attachVariableChecksum(v: Omit<TVar, "checksum"> | TVar): TVar {
         const fields =
             this.checksumConfig?.variableFields ??
             DEFAULT_CHECKSUM_CONFIG.variableFields!
@@ -1039,36 +1052,39 @@ export class PremiseManager {
                 v as unknown as Record<string, unknown>,
                 fields
             ),
-        }
+        } as TVar
     }
 
-    private attachChangesetChecksums(changes: TCoreChangeset): TCoreChangeset {
-        const result: TCoreChangeset = { ...changes }
-        if (result.expressions) {
+    private attachChangesetChecksums(
+        changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>
+    ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
+        const result = {
+            ...changes,
+        } as TCoreChangeset<TExpr, TVar, TPremise, TArg>
+        if (changes.expressions) {
             result.expressions = {
-                added: result.expressions.added.map((e) =>
-                    this.attachExpressionChecksum(e)
+                added: changes.expressions.added.map((e) =>
+                    this.attachExpressionChecksum(
+                        e as unknown as TExpressionInput<TExpr>
+                    )
                 ),
-                modified: result.expressions.modified.map((e) =>
-                    this.attachExpressionChecksum(e)
+                modified: changes.expressions.modified.map((e) =>
+                    this.attachExpressionChecksum(
+                        e as unknown as TExpressionInput<TExpr>
+                    )
                 ),
-                removed: result.expressions.removed.map((e) =>
-                    this.attachExpressionChecksum(e)
+                removed: changes.expressions.removed.map((e) =>
+                    this.attachExpressionChecksum(
+                        e as unknown as TExpressionInput<TExpr>
+                    )
                 ),
             }
         }
-        if (result.variables) {
-            result.variables = {
-                added: result.variables.added.map((v) =>
-                    this.attachVariableChecksum(v)
-                ),
-                modified: result.variables.modified.map((v) =>
-                    this.attachVariableChecksum(v)
-                ),
-                removed: result.variables.removed.map((v) =>
-                    this.attachVariableChecksum(v)
-                ),
-            }
+        // Variables in the changeset should already have checksums
+        // (from ArgumentEngine.addVariable), but cast for type safety
+        if (changes.variables) {
+            result.variables =
+                changes.variables as unknown as TCoreEntityChanges<TVar>
         }
         return result
     }
@@ -1127,8 +1143,8 @@ export class PremiseManager {
         this.rootExpressionId = roots[0]?.id
     }
 
-    private collectSubtree(rootId: string): TExpressionInput[] {
-        const result: TExpressionInput[] = []
+    private collectSubtree(rootId: string): TExpressionInput<TExpr>[] {
+        const result: TExpressionInput<TExpr>[] = []
         const stack = [rootId]
         while (stack.length > 0) {
             const id = stack.pop()!

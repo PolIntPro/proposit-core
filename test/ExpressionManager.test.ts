@@ -6595,3 +6595,19 @@ describe("ExpressionManager — generic type parameter", () => {
         expect((all[0] as unknown as { tag: string }).tag).toBe("custom")
     })
 })
+
+describe("PremiseManager — generic type parameters", () => {
+    it("preserves extended premise type in toData()", () => {
+        type ExtPremise = TCorePremise & { color: string }
+        const arg: TCoreArgument = { id: "a1", version: 0, checksum: "x" }
+        const vm = new VariableManager()
+        const pm = new PremiseManager<TCoreArgument, ExtPremise>(
+            "p1",
+            arg,
+            vm,
+            { color: "blue" }
+        )
+        const data = pm.toData()
+        expect(data.color).toBe("blue")
+    })
+})
