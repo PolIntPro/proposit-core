@@ -291,9 +291,9 @@ import {
 const analysis = analyzePremiseRelationships(engine, "p-conclusion")
 // analysis: TCorePremiseRelationshipAnalysis
 // analysis.focusedPremiseId
-// analysis.relationships -- TCorePremiseRelationResult[] per other premise
-//   each: { premiseId, type, variables, transitive }
-//   type: "supporting" | "contradicting" | "restricting" | "downstream" | "unrelated"
+// analysis.premises -- TCorePremiseRelationResult[] per other premise
+//   each: { premiseId, relationship, variableDetails, transitive }
+//   relationship: "supporting" | "contradicting" | "restricting" | "downstream" | "unrelated"
 
 // Build a variable profile for a single premise
 const profile = buildPremiseProfile(pm)
@@ -403,8 +403,8 @@ import {
 // Low-level hash
 const hash = computeHash("input string")
 
-// Serialize object to canonical form using specific fields
-const serialized = canonicalSerialize({ a: 1, b: 2 }, new Set(["a", "b"]))
+// Serialize object to canonical deterministic JSON (sorted keys)
+const serialized = canonicalSerialize({ a: 1, b: 2 })
 
 // Entity checksum
 const checksum = entityChecksum(entity, new Set(["id", "symbol"]))
