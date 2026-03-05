@@ -1,8 +1,5 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
 
-/** @deprecated Use `TCorePropositionalVariable` directly or a custom subtype. */
-export type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
-
 /**
  * Registry for propositional variables within an argument, shared across
  * all premises.

@@ -12,7 +12,6 @@ import {
 } from "../src/lib/schemata"
 import { ChangeCollector } from "../src/lib/core/ChangeCollector"
 import { VariableManager } from "../src/lib/core/VariableManager"
-import type { TVariableInput } from "../src/lib/core/VariableManager"
 import { ExpressionManager } from "../src/lib/core/ExpressionManager"
 import type { TExpressionInput } from "../src/lib/core/ExpressionManager"
 import {
@@ -50,6 +49,8 @@ import {
     canonicalSerialize,
     entityChecksum,
 } from "../src/lib/core/checksum"
+
+type TVariableInput = Omit<TCorePropositionalVariable, "checksum">
 
 // ---------------------------------------------------------------------------
 // Fixtures
