@@ -16,11 +16,11 @@ npm install @polintpro/proposit-core
 
 ### Argument
 
-An `ArgumentEngine` is scoped to a single **argument** — a record with an `id`, `version`, `title`, and `description`. Every variable and expression carries a matching `argumentId` and `argumentVersion`; the engine rejects entities that belong to a different argument.
+An `ArgumentEngine` is scoped to a single **argument** — a record with an `id`, `version`, `title`, and `description`. Every variable and expression carries a matching `argumentId` and `argumentVersion`; the engine rejects entities that belong to a different argument. Expressions also carry a `premiseId` identifying which premise they belong to, and premises carry `argumentId` and `argumentVersion` for self-describing references.
 
 ### Premises
 
-An argument is composed of one or more **premises**, each managed by a `PremiseManager`. Premises come in two types derived from their root expression:
+An argument is composed of one or more **premises**, each managed by a `PremiseEngine`. Premises come in two types derived from their root expression:
 
 - **Inference premise** (`"inference"`) — root is `implies` or `iff`. Used as a supporting premise or the conclusion of the argument.
 - **Constraint premise** (`"constraint"`) — root is anything else. Restricts which variable assignments are considered admissible without contributing to the inference chain.
@@ -31,7 +31,7 @@ A **propositional variable** (e.g. `P`, `Q`, `Rain`) is a named atomic propositi
 
 ### Expressions
 
-An **expression** is a node in the rooted expression tree managed by a `PremiseManager`. There are three kinds:
+An **expression** is a node in the rooted expression tree managed by a `PremiseEngine`. There are three kinds:
 
 - **Variable expression** (`"variable"`) — a leaf node that references a registered variable.
 - **Operator expression** (`"operator"`) — an interior node that applies a logical operator to its children.
@@ -65,6 +65,7 @@ Each expression carries:
 | `id`              | `string`         | Unique identifier.                                         |
 | `argumentId`      | `string`         | Must match the engine's argument.                          |
 | `argumentVersion` | `number`         | Must match the engine's argument version.                  |
+| `premiseId`       | `string`         | ID of the premise this expression belongs to.              |
 | `parentId`        | `string \| null` | ID of the parent operator, or `null` for root nodes.       |
 | `position`        | `number`         | Numeric position among siblings (midpoint-based ordering). |
 
@@ -86,7 +87,7 @@ const argument = {
 
 const eng = new ArgumentEngine(argument)
 
-const { result: premise1 } = eng.createPremise("P implies Q")
+const { result: premise1 } = eng.createPremise("P implies Q") // PremiseEngine
 const { result: premise2 } = eng.createPremise("P")
 const { result: conclusion } = eng.createPremise("Q")
 ```
@@ -178,11 +179,11 @@ eng.setConclusionPremise(conclusion.getId())
 
 ### Mutation results
 
-All mutating methods on `PremiseManager` and `ArgumentEngine` return `TCoreMutationResult<T>`, which wraps the direct result with an entity-typed changeset:
+All mutating methods on `PremiseEngine` and `ArgumentEngine` return `TCoreMutationResult<T>`, which wraps the direct result with an entity-typed changeset:
 
 ```typescript
 const { result: pm, changes } = eng.createPremise("My premise")
-// pm is a PremiseManager
+// pm is a PremiseEngine
 // changes.premises?.added contains the new premise data
 
 const { result: expr, changes: exprChanges } = pm.addExpression({
@@ -284,13 +285,13 @@ console.log(premise1.toDisplayString()) // (P → Q)
 
 #### `new ArgumentEngine(argument, options?)`
 
-Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `options?: TArgumentEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`).
+Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `config?: TLogicEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`). `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes.
 
 ---
 
-#### `createPremise(title?)` → `TCoreMutationResult<PremiseManager>`
+#### `createPremise(title?)` → `TCoreMutationResult<PremiseEngine>`
 
-Creates a new `PremiseManager`, registers it with the engine, and returns it wrapped in a mutation result with the changeset. If no conclusion is currently set, the new premise is automatically designated as the conclusion (reflected in the changeset's `roles` field).
+Creates a new `PremiseEngine`, registers it with the engine, and returns it wrapped in a mutation result with the changeset. If no conclusion is currently set, the new premise is automatically designated as the conclusion (reflected in the changeset's `roles` field).
 
 ---
 
@@ -302,7 +303,7 @@ Removes a premise and clears its role assignments. Returns the removed premise d
 
 #### `getPremise(premiseId)` → `PremiseManager | undefined`
 
-Returns the `PremiseManager` for the given ID, or `undefined`.
+Returns the `PremiseEngine` for the given ID, or `undefined`.
 
 ---
 
@@ -362,7 +363,7 @@ Removes the conclusion role assignment.
 
 #### `getConclusionPremise()` → `PremiseManager | undefined`
 
-Returns the conclusion `PremiseManager`, if one has been set.
+Returns the conclusion `PremiseEngine`, if one has been set.
 
 ---
 
@@ -417,13 +418,37 @@ Options:
 
 ---
 
-#### `toData()` / `exportState()` → `TArgumentEngineData`
+#### `snapshot()` → `TArgumentEngineSnapshot`
 
-Returns a serialisable snapshot of the engine state (`{ argument, premises, roles }`).
+Returns a serialisable snapshot of the full engine state (`{ argument, variables, premises, conclusionPremiseId, config }`). Each premise snapshot includes its metadata and expression snapshot. Can be used to reconstruct the engine via `ArgumentEngine.fromSnapshot()` or to restore state in place via `rollback()`.
 
 ---
 
-### `PremiseManager`
+#### `static fromSnapshot(snapshot)` → `ArgumentEngine`
+
+Reconstructs an `ArgumentEngine` from a previously captured snapshot. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
+
+---
+
+#### `rollback(snapshot)` → `void`
+
+Restores the engine's internal state in place from a previously captured snapshot. Equivalent to reconstructing via `fromSnapshot` but mutates the existing instance (preserving references held by callers).
+
+---
+
+#### `static fromData(argument, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
+
+Bulk-loads an engine from flat arrays (as returned by DB queries). Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
+
+---
+
+#### `toDisplayString()` → `string`
+
+Renders the full argument as a multi-line string. Each premise is prefixed with its role label (`[Conclusion]`, `[Supporting]`, or `[Constraint]`) followed by the premise's `toDisplayString()` output.
+
+---
+
+### `PremiseEngine` (renamed from `PremiseManager`)
 
 #### `deleteExpressionsUsingVariable(variableId)` → `TCoreMutationResult<TPropositionalExpression[]>`
 
@@ -539,9 +564,21 @@ Returns the expression tree rendered with standard logical notation (¬ ∧ ∨ 
 
 ---
 
-#### `toData()` → `TPremise`
+#### `toPremiseData()` → `TPremise`
 
-Returns a serialisable snapshot of this premise (`{ id, title, type, rootExpressionId, variables, expressions }`).
+Returns a serialisable premise object (`{ id, argumentId, argumentVersion, title, rootExpressionId, variables, expressions }`) with checksums.
+
+---
+
+#### `snapshot()` → `TPremiseEngineSnapshot`
+
+Returns a snapshot of the premise's owned state (premise metadata, expression snapshot, config). Excludes dependencies (argument, variables) owned by the parent `ArgumentEngine`.
+
+---
+
+#### `static fromSnapshot(snapshot, argument, variables)` → `PremiseEngine`
+
+Reconstructs a `PremiseEngine` from a snapshot, with the argument and `VariableManager` passed as dependencies.
 
 ---
 
@@ -614,7 +651,7 @@ const ast: FormulaAST = parseFormula("(P and Q) implies R")
 
 #### `DEFAULT_CHECKSUM_CONFIG`
 
-Readonly default checksum configuration with `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`). Used by `ArgumentEngine` and `PremiseManager` when no custom config is provided.
+Readonly default checksum configuration with `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`). Used by `ArgumentEngine` and `PremiseEngine` when no custom config is provided.
 
 ---
 
@@ -640,15 +677,15 @@ const config = createChecksumConfig({
 
 Constants, types, and a helper for midpoint-based position computation, exported from `utils/position.ts`:
 
-| Export                    | Value / Signature                      | Description                                       |
-| ------------------------- | -------------------------------------- | ------------------------------------------------- |
-| `POSITION_MIN`            | `-2147483647`                          | Default lower bound (signed int32).               |
-| `POSITION_MAX`            | `2147483647`                           | Default upper bound (signed int32).               |
-| `POSITION_INITIAL`        | `0`                                    | Default position for first children.              |
-| `DEFAULT_POSITION_CONFIG` | `{ min, max, initial }`                | Default `TCorePositionConfig` matching the above. |
-| `TCorePositionConfig`     | `{ min, max, initial }`                | Type for configurable position range.             |
-| `TArgumentEngineOptions`  | `{ checksumConfig?, positionConfig? }` | Options type for `ArgumentEngine` constructor.    |
-| `midpoint(a, b)`          | `a + (b - a) / 2`                      | Overflow-safe midpoint of two positions.          |
+| Export                    | Value / Signature                      | Description                                           |
+| ------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `POSITION_MIN`            | `-2147483647`                          | Default lower bound (signed int32).                   |
+| `POSITION_MAX`            | `2147483647`                           | Default upper bound (signed int32).                   |
+| `POSITION_INITIAL`        | `0`                                    | Default position for first children.                  |
+| `DEFAULT_POSITION_CONFIG` | `{ min, max, initial }`                | Default `TCorePositionConfig` matching the above.     |
+| `TCorePositionConfig`     | `{ min, max, initial }`                | Type for configurable position range.                 |
+| `TLogicEngineOptions`     | `{ checksumConfig?, positionConfig? }` | Universal config type for all engine/manager classes. |
+| `midpoint(a, b)`          | `a + (b - a) / 2`                      | Overflow-safe midpoint of two positions.              |
 
 ~52 bisections at the same insertion point before losing floating-point precision.
 
@@ -665,6 +702,21 @@ A version of `TPropositionalExpression` with the `checksum` field omitted. Uses 
 #### `TExpressionWithoutPosition`
 
 A version of `TPropositionalExpression` with both the `position` and `checksum` fields omitted. Uses a distributive conditional type to preserve discriminated-union narrowing across the `variable`/`operator`/`formula` variants. Used as the input type for `appendExpression` and `addExpressionRelative`.
+
+---
+
+#### Snapshot Types
+
+Hierarchical snapshot types for capturing and restoring engine state:
+
+| Type                         | Contains                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                |
+| `TVariableManagerSnapshot`   | `variables`, `config`                                                                   |
+| `TPremiseEngineSnapshot`     | `premise` metadata, `expressions` snapshot, `config`                                    |
+| `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `conclusionPremiseId`, `config` |
+
+Each snapshot captures only what the class **owns**. Dependencies (e.g., variables for a premise) are excluded and must be passed separately during restoration via `fromSnapshot()`.
 
 ---
 
@@ -853,7 +905,7 @@ proposit-core <id> <ver> analysis export [--json]
 - **`check-validity`** — runs the full truth-table search (`--mode first-counterexample|exhaustive`).
 - **`validate-argument`** — checks structural readiness (conclusion set, inference premises, etc.).
 - **`refs`** — lists every variable referenced across all premises.
-- **`export`** — dumps the full `ArgumentEngine` state snapshot as JSON.
+- **`export`** — dumps the full `ArgumentEngine` state as JSON (uses `snapshot()` internally).
 
 ## Development
 

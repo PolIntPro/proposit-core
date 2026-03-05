@@ -28,7 +28,7 @@ Run `pnpm eslint . --fix` to auto-fix lint errors before checking manually.
 
 ```
 src/
-  index.ts              # Public library entry point — re-exports ArgumentEngine, PremiseManager, and all schemata
+  index.ts              # Public library entry point — re-exports ArgumentEngine, PremiseEngine, and all schemata
   cli.ts                # CLI entry point — routes to named commands or version-scoped subcommands
   lib/
     index.ts            # Re-exports core classes and evaluation types
@@ -53,8 +53,8 @@ src/
       relationships.ts  # Relationship types: TCorePremiseRelationshipAnalysis, TCorePremiseProfile,
                         #   TCoreVariableAppearance, TCorePremiseRelationResult, etc.
     core/
-      ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity, checksum
-      PremiseManager.ts    # PremiseManager — variables, expressions, evaluate, toDisplayString, toData, isInference, isConstraint, checksum
+      ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity, checksum, snapshot, fromSnapshot, rollback, fromData, toDisplayString
+      PremiseEngine.ts     # PremiseEngine — variables, expressions, evaluate, toDisplayString, toPremiseData, snapshot, isInference, isConstraint, checksum
       ExpressionManager.ts # Low-level expression tree (addExpression, appendExpression, addExpressionRelative, updateExpression, removeExpression, insertExpression)
       VariableManager.ts   # Low-level variable registry
       ChangeCollector.ts   # Internal change collector (not exported) — accumulates entity changes during mutations
@@ -100,13 +100,15 @@ test/
 ```
 ArgumentEngine<TArg, TPremise, TExpr, TVar>
   ├─ VariableManager<TVar> (shared, owned by engine)
-  └─ PremiseManager<TArg, TPremise, TExpr, TVar> (one per premise)
+  └─ PremiseEngine<TArg, TPremise, TExpr, TVar> (one per premise)
        └─ ExpressionManager<TExpr> (expression tree)
 ```
 
+All classes accept `TLogicEngineOptions` as their config parameter. `PremiseEngine` constructor takes `(premise, deps: { argument, variables }, config?)` — the premise entity as first arg, dependencies second, config third.
+
 All type parameters have `extends BaseType = BaseType` defaults, so existing code using these classes without type arguments works unchanged. Extended entity types survive all mutations via spread-based reconstruction; `as T` assertions are used at ~15 internal reconstruction points where TypeScript cannot prove that `Omit<T, K> & Pick<Base, K>` equals `T` for generic `T extends Base`.
 
-`ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `options?: TArgumentEngineOptions` parameter containing `checksumConfig?: TCoreChecksumConfig` and `positionConfig?: TCorePositionConfig`. The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseManager` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseManager` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
+`ArgumentEngine` manages a collection of premises and their logical roles (supporting vs. conclusion). The constructor accepts an optional `config?: TLogicEngineOptions` parameter containing `checksumConfig?: TCoreChecksumConfig` and `positionConfig?: TCorePositionConfig`. `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes (renamed from `TArgumentEngineOptions`). The engine owns a single shared `VariableManager` instance and passes it by reference to every `PremiseEngine` it creates. `ArgumentEngine` provides `addVariable()`, `updateVariable()`, and `removeVariable()` (with cascade deletion of referencing expressions across all premises). Each `PremiseEngine` owns the expression tree for one premise and can evaluate or serialize itself independently. `ExpressionManager` and `VariableManager` are internal building blocks not exposed in the public API.
 
 When the first premise is added to an `ArgumentEngine` (via `createPremise` or `createPremiseWithId`), it is automatically designated as the conclusion premise if no conclusion is currently set. This auto-assignment is reflected in the mutation changeset. Explicit `setConclusionPremise()` overrides the auto-assignment. Removing or clearing the conclusion re-enables auto-assignment for the next premise created.
 
@@ -146,7 +148,7 @@ Version selectors: `"latest"` → max version number; `"last-published"` → hig
 
 ### Premise types
 
-Each premise has a type determined by its root expression, queried via `PremiseManager`:
+Each premise has a type determined by its root expression, queried via `PremiseEngine`:
 
 - `isInference()` returns `true` when the root is an `implies` or `iff` operator. Inference premises are used as supporting or conclusion premises.
 - `isConstraint()` returns `true` when the root is anything else (e.g. a plain variable, `not`, `and`, `or`), or when the premise is empty. Constraint premises restrict admissible variable assignments but are not part of the supporting/conclusion chain.
@@ -157,7 +159,7 @@ The type is not stored on disk — it is always derived dynamically from the cur
 
 Expressions form a rooted tree stored flat in three maps inside `ExpressionManager`:
 
-- `expressions: Map<string, TExpressionInput>` — the main store (without checksums; checksums are attached lazily by getters).
+- `expressions: Map<string, TExpr>` — the main store (expressions stored with checksums, computed at add/update time).
 - `childExpressionIdsByParentId: Map<string | null, Set<string>>` — fast child lookup. The `null` key holds root expressions.
 - `childPositionsByParentId: Map<string | null, Set<number>>` — tracks which positions are occupied under each parent.
 
@@ -167,7 +169,7 @@ Expressions are **immutable value objects** — to "move" one, delete and re-ins
 
 Every expression has a non-nullable numeric `position` (schema: `Type.Number()`). Only relative ordering matters — literal values are opaque to callers.
 
-The position range is configurable via `TCorePositionConfig` (`{ min, max, initial }`), passed through `TArgumentEngineOptions.positionConfig`. Defaults are signed int32: `min = -2147483647`, `max = 2147483647`, `initial = 0`. The exported constants `POSITION_MIN`, `POSITION_MAX`, `POSITION_INITIAL` match these defaults.
+The position range is configurable via `TCorePositionConfig` (`{ min, max, initial }`), passed through `TLogicEngineOptions.positionConfig`. Defaults are signed int32: `min = -2147483647`, `max = 2147483647`, `initial = 0`. The exported constants `POSITION_MIN`, `POSITION_MAX`, `POSITION_INITIAL` match these defaults.
 
 Position computation uses midpoint bisection from `utils/position.ts`:
 
@@ -186,7 +188,7 @@ The midpoint function uses `a + (b - a) / 2` (overflow-safe). ~52 bisections at 
 - `addExpressionRelative(siblingId, "before" | "after", expression)` — inserts relative to an existing sibling.
 - `addExpression(expression)` — low-level escape hatch with explicit position.
 
-Both `ExpressionManager` and `PremiseManager` expose all three methods. The input type for `appendExpression` and `addExpressionRelative` is `TExpressionWithoutPosition` — a distributive Omit that preserves discriminated-union narrowing.
+Both `ExpressionManager` and `PremiseEngine` expose all three methods. The input type for `appendExpression` and `addExpressionRelative` is `TExpressionWithoutPosition` — a distributive Omit that preserves discriminated-union narrowing.
 
 ### Root-only operators
 
@@ -198,7 +200,7 @@ A `formula` node is a transparent unary wrapper — equivalent to parentheses ar
 
 ### `updateExpression`
 
-`updateExpression(id, updates)` modifies an expression's mutable fields in place. Allowed fields: `position` (no sibling collision), `variableId` (variable type only, must exist), `operator` (operator type only, restricted swaps: `and↔or`, `implies↔iff`). Forbidden: `id`, `argumentId`, `argumentVersion`, `checksum`, `parentId`, `type`. Returns the updated expression with changeset. `not` operators cannot be changed (delete and re-create instead).
+`updateExpression(id, updates)` modifies an expression's mutable fields in place. Allowed fields: `position` (no sibling collision), `variableId` (variable type only, must exist), `operator` (operator type only, restricted swaps: `and↔or`, `implies↔iff`). Forbidden: `id`, `argumentId`, `argumentVersion`, `premiseId`, `checksum`, `parentId`, `type`. Returns the updated expression with changeset. `not` operators cannot be changed (delete and re-create instead).
 
 ### `removeExpression` and operator collapse
 
@@ -222,7 +224,7 @@ The evaluation system uses **Kleene three-valued logic** (`true`, `false`, `null
 
 **Kleene propagation rules:** `false` dominates AND, `true` dominates OR, `null` propagates otherwise. Helper functions `kleeneNot`, `kleeneAnd`, `kleeneOr`, `kleeneImplies`, `kleeneIff` in `evaluation/shared.ts` implement these rules.
 
-`PremiseManager.evaluate(assignment)` walks the expression tree recursively. Rejected expressions return `false` immediately. Missing variables default to `null`. `formula` nodes are transparent (propagate their child's value). For `implies`/`iff` roots an `inferenceDiagnostic` is computed with three-valued fields (unless the root is rejected).
+`PremiseEngine.evaluate(assignment)` walks the expression tree recursively. Rejected expressions return `false` immediately. Missing variables default to `null`. `formula` nodes are transparent (propagate their child's value). For `implies`/`iff` roots an `inferenceDiagnostic` is computed with three-valued fields (unless the root is rejected).
 
 `ArgumentEngine.evaluate(assignment)` orchestrates premise evaluation. All summary flags are three-valued:
 
@@ -249,7 +251,7 @@ The evaluation system uses **Kleene three-valued logic** (`true`, `false`, `null
 
 ### Mutation changesets
 
-Every mutating method on `PremiseManager` and `ArgumentEngine` returns `TCoreMutationResult<T>` instead of its bare return type. The wrapper contains:
+Every mutating method on `PremiseEngine` and `ArgumentEngine` returns `TCoreMutationResult<T>` instead of its bare return type. The wrapper contains:
 
 - `result: T` — the direct answer (e.g. the removed expression, the new role state).
 - `changes: TCoreChangeset` — an entity-typed changeset listing all side effects of the mutation.
@@ -266,24 +268,48 @@ Supporting premises are **no longer explicitly managed**. The methods `addSuppor
 
 ### Variable management
 
-Variables are argument-scoped and managed by `ArgumentEngine` via `addVariable()`, `updateVariable()`, and `removeVariable()`. The engine owns a single `VariableManager` instance, passed by reference to every `PremiseManager` it creates. All premises share the same variable registry.
+Variables are argument-scoped and managed by `ArgumentEngine` via `addVariable()`, `updateVariable()`, and `removeVariable()`. The engine owns a single `VariableManager` instance, passed by reference to every `PremiseEngine` it creates. All premises share the same variable registry.
 
 `removeVariable()` cascades across all premises: for each premise, `deleteExpressionsUsingVariable()` removes every expression referencing the variable (including subtrees), with operator collapse running after each removal. The combined changeset includes all removed expressions and the removed variable.
 
-`PremiseManager` no longer exposes `addVariable()` or `removeVariable()`. It retains read-only access via `getVariables()` (which returns all argument-level variables) and `getReferencedVariableIds()` (which returns only the variable IDs used in its expression tree).
+`PremiseEngine` no longer exposes `addVariable()` or `removeVariable()`. It retains read-only access via `getVariables()` (which returns all argument-level variables) and `getReferencedVariableIds()` (which returns only the variable IDs used in its expression tree).
 
 ### Checksum system
 
 Per-entity checksums provide a lightweight way to detect changes without deep comparison. Key points:
 
 - All entity types (`TPropositionalExpression`, `TPropositionalVariable`, `TCorePremise`, `TCoreArgument`) carry a required `checksum: string` field in their schemas.
-- Internally, managers store entities without checksums using `TOptionalChecksum<T>` and `TExpressionInput<TExpr>`. `VariableManager` stores `TVar` directly (checksums attached by `ArgumentEngine` before registration). Checksums are attached lazily by getters (`getExpression()`, `getVariables()`, `getArgument()`, `toData()`) and in changeset outputs.
+- `ExpressionManager` stores expressions with checksums attached at add/update time. `VariableManager` stores `TVar` directly (checksums attached by `ArgumentEngine` before registration). Checksums for other entities are attached lazily by getters and changeset outputs.
 - Add/create methods accept input types without checksum (e.g. `addExpression(expr: TExpressionInput<TExpr>)`, `addVariable(v: TOptionalChecksum<TVar>)`).
-- `PremiseManager.checksum()` and `ArgumentEngine.checksum()` compute checksums lazily — dirty flags track when recomputation is needed.
+- `PremiseEngine.checksum()` and `ArgumentEngine.checksum()` compute cumulative checksums lazily using `Record<string, string>` mapping entity IDs to entity checksums — dirty flags track when recomputation is needed.
 - `TCoreChecksumConfig` controls which fields are hashed per entity type using `Set<string>` fields. `DEFAULT_CHECKSUM_CONFIG` and `createChecksumConfig()` are exported from `src/lib/consts.ts`.
-- The `ArgumentEngine` constructor accepts `options?: TArgumentEngineOptions` (containing `checksumConfig` and `positionConfig`).
+- The `ArgumentEngine` constructor accepts `config?: TLogicEngineOptions` (containing `checksumConfig` and `positionConfig`).
 - Standalone utilities: `computeHash(input)`, `canonicalSerialize(obj, fields)`, `entityChecksum(entity, fields)` in `core/checksum.ts`.
 - CLI disk reads use local schemas with optional checksum for backward compatibility with older data files.
+
+### Snapshot/rollback
+
+All classes support hierarchical snapshot/restore. Each class snapshots only what it **owns**; dependencies are excluded and passed separately during restoration.
+
+- `ExpressionManager.snapshot()` → `TExpressionManagerSnapshot` (expressions with checksums, config)
+- `VariableManager.snapshot()` → `TVariableManagerSnapshot` (variables, config)
+- `PremiseEngine.snapshot()` → `TPremiseEngineSnapshot` (premise metadata, expression snapshot, config — excludes argument/variables)
+- `ArgumentEngine.snapshot()` → `TArgumentEngineSnapshot` (argument, variable snapshot, premise snapshots, conclusionPremiseId, config)
+
+Each class has a `static fromSnapshot()` that reconstructs an instance. `PremiseEngine.fromSnapshot()` accepts argument and `VariableManager` as dependencies. `ArgumentEngine.fromSnapshot()` reconstructs all children from the nested snapshots.
+
+`ArgumentEngine.rollback(snapshot)` restores state in place (preserving the instance reference).
+
+`ArgumentEngine.fromData(argument, variables, premises, expressions, roles, config?)` bulk-loads from flat arrays (DB queries), grouping expressions by `premiseId` and loading in BFS order. Supports generic type inference from parameters.
+
+`ArgumentEngine.toDisplayString()` renders the full argument with role labels (`[Conclusion]`, `[Supporting]`, `[Constraint]`).
+
+`PremiseEngine.toPremiseData()` replaces the former `toData()` — returns a `TPremise` object from snapshot data.
+
+### Schema additions
+
+- `BasePropositionalExpressionSchema` now includes `premiseId: UUID` — expressions are self-describing.
+- `CorePremiseSchema` now includes `argumentId: UUID` and `argumentVersion: Type.Number()` — premises are self-describing.
 
 ## Types
 
@@ -316,7 +342,7 @@ Key checksum types (in `src/lib/types/checksum.ts`):
 
 - `TCoreChecksumConfig` — configurable `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`).
 
-All entity types carry a required `checksum: string` field. Internally, managers store entities without checksums; checksums are attached lazily by getters and changeset outputs.
+All entity types carry a required `checksum: string` field. `ExpressionManager` stores expressions with checksums; other managers attach checksums lazily by getters and changeset outputs.
 
 Key diff types (all in `src/lib/types/diff.ts`):
 
@@ -342,12 +368,16 @@ Utility types:
 
 Position and input types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/position.ts`):
 
-- `TExpressionInput<TExpr>` — `TExpr` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `addExpression` and `insertExpression`, and as internal storage type in `ExpressionManager`.
+- `TExpressionInput<TExpr>` — `TExpr` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `addExpression` and `insertExpression`.
 - `TExpressionWithoutPosition<TExpr>` — `TExpr` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `appendExpression` and `addExpressionRelative`.
 - `TExpressionUpdate` — `{ position?: number; variableId?: string; operator?: TCoreLogicalOperatorType }`. Used as input for `updateExpression`. Only the specified fields may be updated; all other fields are forbidden.
 - `TCorePositionConfig` — `{ min: number, max: number, initial: number }`. Configures position range. Default: signed int32 (`-2147483647` to `2147483647`, initial `0`).
 - `DEFAULT_POSITION_CONFIG` — the default `TCorePositionConfig` matching the exported `POSITION_MIN`/`MAX`/`INITIAL` constants.
-- `TArgumentEngineOptions` — `{ checksumConfig?: TCoreChecksumConfig, positionConfig?: TCorePositionConfig }`. Constructor options for `ArgumentEngine`.
+- `TLogicEngineOptions` — `{ checksumConfig?: TCoreChecksumConfig, positionConfig?: TCorePositionConfig }`. Universal config type for all engine/manager classes.
+- `TExpressionManagerSnapshot<TExpr>` — `{ expressions: TExpr[], config? }`. Snapshot of `ExpressionManager`.
+- `TVariableManagerSnapshot<TVar>` — `{ variables: TVar[], config? }`. Snapshot of `VariableManager`.
+- `TPremiseEngineSnapshot<TPremise, TExpr>` — `{ premise, expressions, config? }`. Snapshot of `PremiseEngine` (excludes dependencies).
+- `TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>` — `{ argument, variables, premises, conclusionPremiseId?, config? }`. Full engine snapshot.
 - `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — default position range constants (signed int32).
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).
 
@@ -355,7 +385,7 @@ Schemata use [Typebox](https://github.com/sinclairzx81/typebox) for runtime-vali
 
 ## Testing
 
-Tests live in `test/ExpressionManager.test.ts` and operate directly on `ArgumentEngine` and `PremiseManager`. Each `describe` block corresponds to a method or logical grouping. All tests build their own fixtures inline — there is no shared `beforeEach` state.
+Tests live in `test/ExpressionManager.test.ts` and operate directly on `ArgumentEngine` and `PremiseEngine`. Each `describe` block corresponds to a method or logical grouping. All tests build their own fixtures inline — there is no shared `beforeEach` state.
 
 Current describe blocks (in order):
 
@@ -369,17 +399,17 @@ Current describe blocks (in order):
 - `stress test`
 - `formula`
 - `ArgumentEngine premise CRUD`
-- `PremiseManager — addVariable / removeVariable`
-- `PremiseManager — single-root enforcement`
-- `PremiseManager — addExpression / removeExpression / insertExpression`
-- `PremiseManager — toDisplayString`
-- `PremiseManager — toData`
-- `PremiseManager — validation and evaluation`
+- `PremiseEngine — addVariable / removeVariable`
+- `PremiseEngine — single-root enforcement`
+- `PremiseEngine — addExpression / removeExpression / insertExpression`
+- `PremiseEngine — toDisplayString`
+- `PremiseEngine — toData`
+- `PremiseEngine — validation and evaluation`
 - `ArgumentEngine — roles and evaluation`
 - `ArgumentEngine — complex argument scenarios across multiple evaluations`
 - `diffArguments` (with sub-describes for each default comparator and the main function)
 - `Kleene three-valued logic helpers` (with sub-describes for each helper)
-- `PremiseManager — three-valued evaluation`
+- `PremiseEngine — three-valued evaluation`
 - `ArgumentEngine — three-valued evaluation`
 - `schema shapes with additionalProperties`
 - `field preservation — unknown fields survive round-trips`
@@ -388,21 +418,27 @@ Current describe blocks (in order):
 - `analyzePremiseRelationships — transitive relationships`
 - `analyzePremiseRelationships — precedence and edge cases`
 - `position utilities`
-- `PremiseManager — appendExpression and addExpressionRelative`
+- `PremiseEngine — appendExpression and addExpressionRelative`
 - `ChangeCollector`
-- `PremiseManager — mutation changesets`
+- `PremiseEngine — mutation changesets`
 - `ArgumentEngine — mutation changesets`
-- `checksum utilities` (with sub-describes for `computeHash`, `canonicalSerialize`, `entityChecksum`, `PremiseManager — checksum`, `ArgumentEngine — checksum`)
+- `checksum utilities` (with sub-describes for `computeHash`, `canonicalSerialize`, `entityChecksum`, `PremiseEngine — checksum`, `ArgumentEngine — checksum`)
 - `ArgumentEngine — variable management`
-- `PremiseManager — deleteExpressionsUsingVariable`
-- `PremiseManager — updateExpression`
+- `PremiseEngine — deleteExpressionsUsingVariable`
+- `PremiseEngine — updateExpression`
 - `removeExpression — deleteSubtree parameter`
 - `VariableManager — generic type parameter`
 - `mutation types — generic changesets`
 - `ExpressionManager — generic type parameter`
-- `PremiseManager — generic type parameters`
+- `PremiseEngine — generic type parameters`
 - `ArgumentEngine — generic type parameters`
 - `diffArguments — generic type parameters`
+- `ExpressionManager — snapshot`
+- `VariableManager — snapshot`
+- `PremiseEngine — snapshot`
+- `ArgumentEngine — snapshot/fromSnapshot/rollback`
+- `ArgumentEngine — fromData`
+- `ArgumentEngine — toDisplayString`
 
 When adding a test for a new feature, add a new `describe` block at the bottom.
 
