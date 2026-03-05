@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import { PremiseManager } from "../../lib/core/PremiseManager.js"
+import { PremiseEngine } from "../../lib/core/PremiseEngine.js"
 import { VariableManager } from "../../lib/core/VariableManager.js"
 import type { TCoreArgument } from "../../lib/schemata/index.js"
 import {
@@ -88,7 +88,7 @@ export function registerPremiseCommands(
                         readPremiseData(argumentId, version, pid),
                     ])
 
-                    // Hydrate a temporary PremiseManager for display string
+                    // Hydrate a temporary PremiseEngine for display string
                     const { id: _id, ...premiseExtras } = meta
                     const vm = new VariableManager(
                         allVariables.map((v) => ({
@@ -96,7 +96,7 @@ export function registerPremiseCommands(
                             argumentVersion: version,
                         }))
                     )
-                    const pm = new PremiseManager(
+                    const pm = new PremiseEngine(
                         pid,
                         argument,
                         vm,
@@ -278,7 +278,7 @@ export function registerPremiseCommands(
                     argumentVersion: version,
                 }))
             )
-            const pm = new PremiseManager(
+            const pm = new PremiseEngine(
                 premiseId,
                 argument,
                 renderVm,

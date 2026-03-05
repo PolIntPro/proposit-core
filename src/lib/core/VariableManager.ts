@@ -6,7 +6,7 @@ import type { TCorePropositionalVariable } from "../schemata/index.js"
  *
  * Enforces uniqueness of both variable IDs and symbols. This class is an
  * internal building block owned by {@link ArgumentEngine} and passed by
- * reference to each {@link PremiseManager}. It is not part of the public API.
+ * reference to each {@link PremiseEngine}. It is not part of the public API.
  */
 export class VariableManager<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,

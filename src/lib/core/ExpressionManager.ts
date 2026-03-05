@@ -49,7 +49,7 @@ const PERMITTED_OPERATOR_SWAPS: Record<string, string | undefined> = {
  * index. Structural invariants (child limits, root-only operators, position
  * uniqueness) are enforced on every mutation.
  *
- * This class is an internal building block used by {@link PremiseManager}
+ * This class is an internal building block used by {@link PremiseEngine}
  * and is not part of the public API.
  */
 export class ExpressionManager<

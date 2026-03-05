@@ -33,7 +33,7 @@ import {
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/shared.js"
-import { PremiseManager } from "./PremiseManager.js"
+import { PremiseEngine } from "./PremiseEngine.js"
 import { VariableManager } from "./VariableManager.js"
 
 export type TArgumentEngineOptions = {
@@ -55,7 +55,7 @@ export class ArgumentEngine<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
     private argument: TOptionalChecksum<TArg>
-    private premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>
+    private premises: Map<string, PremiseEngine<TArg, TPremise, TExpr, TVar>>
     private variables: VariableManager<TVar>
     private conclusionPremiseId: string | undefined
     private checksumConfig?: TCoreChecksumConfig
@@ -87,7 +87,7 @@ export class ArgumentEngine<
     public createPremise(
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseManager<TArg, TPremise, TExpr, TVar>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
@@ -106,7 +106,7 @@ export class ArgumentEngine<
         id: string,
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseManager<TArg, TPremise, TExpr, TVar>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
@@ -115,7 +115,7 @@ export class ArgumentEngine<
         if (this.premises.has(id)) {
             throw new Error(`Premise "${id}" already exists.`)
         }
-        const pm = new PremiseManager<TArg, TPremise, TExpr, TVar>(
+        const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             id,
             this.argument,
             this.variables,
@@ -166,7 +166,7 @@ export class ArgumentEngine<
     /** Returns the premise with the given ID, or `undefined` if not found. */
     public getPremise(
         premiseId: string
-    ): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined {
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
         return this.premises.get(premiseId)
     }
 
@@ -183,11 +183,11 @@ export class ArgumentEngine<
     }
 
     /** Returns all premises in lexicographic ID order. */
-    public listPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[] {
+    public listPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar>[] {
         return this.listPremiseIds()
             .map((id) => this.premises.get(id))
             .filter(
-                (pm): pm is PremiseManager<TArg, TPremise, TExpr, TVar> =>
+                (pm): pm is PremiseEngine<TArg, TPremise, TExpr, TVar> =>
                     pm !== undefined
             )
     }
@@ -354,7 +354,7 @@ export class ArgumentEngine<
 
     /** Returns the conclusion premise, or `undefined` if none is set. */
     public getConclusionPremise():
-        | PremiseManager<TArg, TPremise, TExpr, TVar>
+        | PremiseEngine<TArg, TPremise, TExpr, TVar>
         | undefined {
         if (this.conclusionPremiseId === undefined) {
             return undefined
@@ -366,7 +366,7 @@ export class ArgumentEngine<
      * Returns all supporting premises (derived: inference premises that are
      * not the conclusion) in lexicographic ID order.
      */
-    public listSupportingPremises(): PremiseManager<
+    public listSupportingPremises(): PremiseEngine<
         TArg,
         TPremise,
         TExpr,

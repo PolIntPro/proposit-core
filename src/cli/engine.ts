@@ -23,7 +23,7 @@ import { readVariables, writeVariables } from "./storage/variables.js"
  * Builds a fully-hydrated ArgumentEngine from the on-disk state for the
  * given argument ID and version number.
  *
- * All argument-level variables are registered with every PremiseManager so
+ * All argument-level variables are registered with every PremiseEngine so
  * that expression validation and evaluation work correctly.
  *
  * Expressions are added in BFS order (root first, then children) to satisfy
@@ -49,7 +49,7 @@ export async function hydrateEngine(
     const engine = new ArgumentEngine(argument)
 
     // Register all argument-level variables once on the engine; the shared
-    // VariableManager is visible to every PremiseManager.
+    // VariableManager is visible to every PremiseEngine.
     for (const variable of allVariables) {
         engine.addVariable({ ...variable, argumentVersion: version })
     }

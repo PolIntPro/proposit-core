@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ArgumentEngine, PremiseManager } from "../src/lib/index"
+import { ArgumentEngine, PremiseEngine } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
     CoreArgumentSchema,
@@ -128,7 +128,7 @@ const VAR_R = makeVar("var-r", "R")
 // ---------------------------------------------------------------------------
 
 /** Create a premise (via ArgumentEngine) with P, Q, R pre-loaded. */
-function premiseWithVars(): PremiseManager {
+function premiseWithVars(): PremiseEngine {
     const eng = new ArgumentEngine(ARG)
     eng.addVariable(VAR_P)
     eng.addVariable(VAR_Q)
@@ -137,10 +137,10 @@ function premiseWithVars(): PremiseManager {
     return pm
 }
 
-/** Create a PremiseManager directly with a deterministic ID (for toData tests). */
-function makePremise(extras?: Record<string, unknown>): PremiseManager {
+/** Create a PremiseEngine directly with a deterministic ID (for toData tests). */
+function makePremise(extras?: Record<string, unknown>): PremiseEngine {
     const vm = new VariableManager()
-    return new PremiseManager("premise-1", ARG, vm, extras)
+    return new PremiseEngine("premise-1", ARG, vm, extras)
 }
 
 // ---------------------------------------------------------------------------
@@ -941,8 +941,8 @@ describe("stress test", () => {
         )
 
         const allExpressions: TExpressionInput[] = []
-        const premiseManagers: PremiseManager[] = []
-        const termIdsByPremise = new Map<PremiseManager, string[]>()
+        const premiseManagers: PremiseEngine[] = []
+        const termIdsByPremise = new Map<PremiseEngine, string[]>()
         const referencedVarIds = new Set<string>()
 
         function pickVar() {
@@ -952,7 +952,7 @@ describe("stress test", () => {
         }
 
         function emit(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             expr: TExpressionInput
         ): TExpressionInput {
             pm.addExpression(expr)
@@ -961,7 +961,7 @@ describe("stress test", () => {
         }
 
         function emitLeaf(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             parentId: string,
             position: number,
             key: string,
@@ -983,7 +983,7 @@ describe("stress test", () => {
         }
 
         function emitSide(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             parentId: string,
             position: number,
             key: string,
@@ -1363,7 +1363,7 @@ describe("formula", () => {
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine premise CRUD", () => {
-    it("createPremise returns a PremiseManager with a generated ID", () => {
+    it("createPremise returns a PremiseEngine with a generated ID", () => {
         const eng = new ArgumentEngine(ARG)
         const { result: pm } = eng.createPremise({ title: "test" })
         expect(pm.toData().id).toMatch(
@@ -1407,7 +1407,7 @@ describe("ArgumentEngine premise CRUD", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager
+// PremiseEngine
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine — addVariable / removeVariable", () => {
@@ -1469,7 +1469,7 @@ describe("ArgumentEngine — addVariable / removeVariable", () => {
     })
 })
 
-describe("PremiseManager — single-root enforcement", () => {
+describe("PremiseEngine — single-root enforcement", () => {
     it("accepts the first root expression", () => {
         const pm = premiseWithVars()
         expect(() =>
@@ -1504,7 +1504,7 @@ describe("PremiseManager — single-root enforcement", () => {
     })
 })
 
-describe("PremiseManager — addExpression / removeExpression / insertExpression", () => {
+describe("PremiseEngine — addExpression / removeExpression / insertExpression", () => {
     it("builds a tree and getExpression finds each node", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeOpExpr("op-and", "and"))
@@ -1570,7 +1570,7 @@ describe("PremiseManager — addExpression / removeExpression / insertExpression
     })
 })
 
-describe("PremiseManager — toDisplayString", () => {
+describe("PremiseEngine — toDisplayString", () => {
     it("returns empty string when the premise is empty", () => {
         expect(makePremise().toDisplayString()).toBe("")
     })
@@ -1613,9 +1613,9 @@ describe("PremiseManager — toDisplayString", () => {
     })
 })
 
-describe("PremiseManager — toData", () => {
+describe("PremiseEngine — toData", () => {
     it("returns correct id and extras", () => {
-        const pm = new PremiseManager("my-id", ARG, new VariableManager(), {
+        const pm = new PremiseEngine("my-id", ARG, new VariableManager(), {
             title: "My Premise",
         })
         const data = pm.toData()
@@ -1709,7 +1709,7 @@ describe("PremiseManager — toData", () => {
 // Evaluation support plan
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — validation and evaluation", () => {
+describe("PremiseEngine — validation and evaluation", () => {
     it("validateEvaluability reports empty premise", () => {
         const pm = makePremise()
         const result = pm.validateEvaluability()
@@ -1773,15 +1773,15 @@ describe("PremiseManager — validation and evaluation", () => {
 })
 
 describe("ArgumentEngine — roles and evaluation", () => {
-    function buildPremiseP(pm: PremiseManager) {
+    function buildPremiseP(pm: PremiseEngine) {
         pm.addExpression(makeVarExpr(`${pm.getId()}-p`, VAR_P.id))
     }
 
-    function buildPremiseQ(pm: PremiseManager) {
+    function buildPremiseQ(pm: PremiseEngine) {
         pm.addExpression(makeVarExpr(`${pm.getId()}-q`, VAR_Q.id))
     }
 
-    function buildPremiseImplies(pm: PremiseManager) {
+    function buildPremiseImplies(pm: PremiseEngine) {
         const rootId = `${pm.getId()}-impl`
         pm.addExpression(makeOpExpr(rootId, "implies"))
         pm.addExpression(
@@ -1918,7 +1918,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildVarRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         exprId: string,
         variableId: string
     ) {
@@ -1926,7 +1926,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildNotRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         rootId: string,
         childExprId: string,
         variableId: string
@@ -1941,7 +1941,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildBinaryRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         rootId: string,
         operator: "and" | "or" | "implies" | "iff",
         left: { exprId: string; variableId: string },
@@ -2903,10 +2903,10 @@ describe("Kleene three-valued logic helpers", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — three-valued evaluation
+// PremiseEngine — three-valued evaluation
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — three-valued evaluation", () => {
+describe("PremiseEngine — three-valued evaluation", () => {
     it("evaluates unset variables as null", () => {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -3619,7 +3619,7 @@ describe("analyzePremiseRelationships — direct relationships", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -3858,7 +3858,7 @@ describe("analyzePremiseRelationships — transitive relationships", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -4091,7 +4091,7 @@ describe("analyzePremiseRelationships — precedence and edge cases", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -4371,7 +4371,7 @@ describe("position utilities", () => {
     })
 })
 
-describe("PremiseManager — appendExpression and addExpressionRelative", () => {
+describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
     it("appendExpression assigns POSITION_INITIAL to first child", () => {
         const pm = premiseWithVars()
         pm.appendExpression(null, {
@@ -4629,10 +4629,10 @@ describe("ChangeCollector", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — mutation changesets
+// PremiseEngine — mutation changesets
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — mutation changesets", () => {
+describe("PremiseEngine — mutation changesets", () => {
     function setup() {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const v1 = {
@@ -4905,15 +4905,15 @@ describe("PremiseManager — mutation changesets", () => {
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine — mutation changesets", () => {
-    it("createPremise returns PremiseManager and records added premise", () => {
+    it("createPremise returns PremiseEngine and records added premise", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const { result: pm, changes } = eng.createPremise()
-        expect(pm).toBeInstanceOf(PremiseManager)
+        expect(pm).toBeInstanceOf(PremiseEngine)
         expect(changes.premises?.added).toHaveLength(1)
         expect(changes.premises?.added[0].id).toBe(pm.getId())
     })
 
-    it("createPremiseWithId returns PremiseManager with specified ID", () => {
+    it("createPremiseWithId returns PremiseEngine with specified ID", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const { result: pm, changes } = eng.createPremiseWithId("my-premise")
         expect(pm.getId()).toBe("my-premise")
@@ -5054,7 +5054,7 @@ describe("checksum utilities", () => {
         })
     })
 
-    describe("PremiseManager — checksum", () => {
+    describe("PremiseEngine — checksum", () => {
         it("returns consistent checksum for same state", () => {
             const eng = new ArgumentEngine({ id: "arg1", version: 0 })
             const { result: pm } = eng.createPremise()
@@ -5712,10 +5712,10 @@ describe("ArgumentEngine — variable management", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — deleteExpressionsUsingVariable
+// PremiseEngine — deleteExpressionsUsingVariable
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — deleteExpressionsUsingVariable", () => {
+describe("PremiseEngine — deleteExpressionsUsingVariable", () => {
     it("returns empty result when variable has no expressions", () => {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -5895,10 +5895,10 @@ describe("ArgumentEngine — auto-conclusion on first premise", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — updateExpression
+// PremiseEngine — updateExpression
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — updateExpression", () => {
+describe("PremiseEngine — updateExpression", () => {
     function setup() {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -6600,12 +6600,12 @@ describe("ExpressionManager — generic type parameter", () => {
     })
 })
 
-describe("PremiseManager — generic type parameters", () => {
+describe("PremiseEngine — generic type parameters", () => {
     it("preserves extended premise type in toData()", () => {
         type ExtPremise = TCorePremise & { color: string }
         const arg: TCoreArgument = { id: "a1", version: 0, checksum: "x" }
         const vm = new VariableManager()
-        const pm = new PremiseManager<TCoreArgument, ExtPremise>(
+        const pm = new PremiseEngine<TCoreArgument, ExtPremise>(
             "p1",
             arg,
             vm,
@@ -6779,7 +6779,7 @@ describe("configurable position range", () => {
         expect(c0.position).toBe(midpoint(100, 200)) // midpoint(min, c1.pos)
     })
 
-    it("PremiseManager forwards positionConfig to ExpressionManager", () => {
+    it("PremiseEngine forwards positionConfig to ExpressionManager", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
         const vm = new VariableManager()
         vm.addVariable({
@@ -6789,7 +6789,7 @@ describe("configurable position range", () => {
             symbol: "P",
             checksum: "x",
         })
-        const pm = new PremiseManager(
+        const pm = new PremiseEngine(
             "p1",
             ARG,
             vm,

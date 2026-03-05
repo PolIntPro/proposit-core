@@ -3,7 +3,7 @@
  * types, and the diff function.
  */
 export { ArgumentEngine } from "./core/ArgumentEngine.js"
-export { PremiseManager } from "./core/PremiseManager.js"
+export { PremiseEngine } from "./core/PremiseEngine.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
