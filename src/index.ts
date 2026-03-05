@@ -44,4 +44,4 @@ export {
     midpoint,
 } from "./lib/utils/position.js"
 export type { TCorePositionConfig } from "./lib/utils/position.js"
-export type { TArgumentEngineOptions } from "./lib/core/ArgumentEngine.js"
+export type { TLogicEngineOptions } from "./lib/core/ArgumentEngine.js"

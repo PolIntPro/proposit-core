@@ -36,7 +36,7 @@ import {
 import { PremiseEngine } from "./PremiseEngine.js"
 import { VariableManager } from "./VariableManager.js"
 
-export type TArgumentEngineOptions = {
+export type TLogicEngineOptions = {
     checksumConfig?: TCoreChecksumConfig
     positionConfig?: TCorePositionConfig
 }
@@ -65,7 +65,7 @@ export class ArgumentEngine<
 
     constructor(
         argument: TOptionalChecksum<TArg>,
-        options?: TArgumentEngineOptions
+        options?: TLogicEngineOptions
     ) {
         this.argument = { ...argument }
         this.premises = new Map()
