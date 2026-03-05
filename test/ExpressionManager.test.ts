@@ -7763,3 +7763,129 @@ describe("ArgumentEngine — fromData bulk loading", () => {
         expect(result.customField).toBe("hello")
     })
 })
+
+describe("ArgumentEngine — toDisplayString", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    it("renders an empty argument", () => {
+        const eng = new ArgumentEngine(ARG)
+        const display = eng.toDisplayString()
+        expect(display).toContain("Argument: arg-1 (v1)")
+    })
+
+    it("labels conclusion premise", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: p1 } = eng.createPremise()
+        p1.appendExpression(null, {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: null,
+        })
+        const display = eng.toDisplayString()
+        expect(display).toContain("[Conclusion]")
+        expect(display).toContain("P")
+    })
+
+    it("labels constraint and supporting premises correctly", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        eng.addVariable({
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+
+        // p1: implies (inference) - will be conclusion (auto-assigned as first)
+        const { result: p1 } = eng.createPremise()
+        p1.appendExpression(null, {
+            id: "op1",
+            type: "operator",
+            operator: "implies",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: null,
+        })
+        p1.appendExpression("op1", {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: "op1",
+        })
+        p1.appendExpression("op1", {
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: "op1",
+        })
+
+        // p2: implies (inference) - will be supporting
+        const { result: p2 } = eng.createPremise()
+        p2.appendExpression(null, {
+            id: "op2",
+            type: "operator",
+            operator: "implies",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: null,
+        })
+        p2.appendExpression("op2", {
+            id: "e3",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: "op2",
+        })
+        p2.appendExpression("op2", {
+            id: "e4",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: "op2",
+        })
+
+        // p3: plain variable (constraint)
+        const { result: p3 } = eng.createPremise()
+        p3.appendExpression(null, {
+            id: "e5",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p3.getId(),
+            parentId: null,
+        })
+
+        const display = eng.toDisplayString()
+        expect(display).toContain("[Conclusion]")
+        expect(display).toContain("[Supporting]")
+        expect(display).toContain("[Constraint]")
+    })
+})

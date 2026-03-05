@@ -98,6 +98,33 @@ export class ArgumentEngine<
         return { ...this.argument, checksum: this.checksum() } as TArg
     }
 
+    /** Renders the argument as a multi-line string with role labels for each premise. */
+    public toDisplayString(): string {
+        const lines: string[] = []
+        const arg = this.getArgument()
+        lines.push(`Argument: ${arg.id} (v${arg.version})`)
+        lines.push("")
+
+        const supportingIds = new Set(
+            this.listSupportingPremises().map((pe) => pe.getId())
+        )
+
+        for (const pe of this.listPremises()) {
+            let role: string
+            if (pe.getId() === this.conclusionPremiseId) {
+                role = "Conclusion"
+            } else if (supportingIds.has(pe.getId())) {
+                role = "Supporting"
+            } else {
+                role = "Constraint"
+            }
+            const display = pe.toDisplayString() || "(empty)"
+            lines.push(`[${role}] ${display}`)
+        }
+
+        return lines.join("\n")
+    }
+
     /**
      * Creates a new premise with an auto-generated UUID and registers it
      * with this engine.
@@ -421,7 +448,8 @@ export class ArgumentEngine<
     public static fromSnapshot<
         TArg extends TCoreArgument = TCoreArgument,
         TPremise extends TCorePremise = TCorePremise,
-        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
         TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     >(
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
@@ -436,12 +464,11 @@ export class ArgumentEngine<
         }
         // Restore premises using PremiseEngine.fromSnapshot
         for (const premiseSnap of snapshot.premises) {
-            const pe = PremiseEngine.fromSnapshot<
-                TArg,
-                TPremise,
-                TExpr,
-                TVar
-            >(premiseSnap, snapshot.argument, engine.variables)
+            const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+                premiseSnap,
+                snapshot.argument,
+                engine.variables
+            )
             engine.premises.set(pe.getId(), pe)
         }
         // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
@@ -458,7 +485,8 @@ export class ArgumentEngine<
     public static fromData<
         TArg extends TCoreArgument = TCoreArgument,
         TPremise extends TCorePremise = TCorePremise,
-        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
         TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     >(
         argument: TOptionalChecksum<TArg>,
@@ -481,9 +509,8 @@ export class ArgumentEngine<
         // Group expressions by premiseId
         const exprsByPremise = new Map<string, TExpressionInput<TExpr>[]>()
         for (const expr of expressions) {
-            const premiseId = (
-                expr as unknown as { premiseId: string }
-            ).premiseId
+            const premiseId = (expr as unknown as { premiseId: string })
+                .premiseId
             let group = exprsByPremise.get(premiseId)
             if (!group) {
                 group = []
@@ -549,17 +576,14 @@ export class ArgumentEngine<
         this.argument = { ...snapshot.argument }
         this.checksumConfig = snapshot.config?.checksumConfig
         this.positionConfig = snapshot.config?.positionConfig
-        this.variables = VariableManager.fromSnapshot<TVar>(
-            snapshot.variables
-        )
+        this.variables = VariableManager.fromSnapshot<TVar>(snapshot.variables)
         this.premises = new Map()
         for (const premiseSnap of snapshot.premises) {
-            const pe = PremiseEngine.fromSnapshot<
-                TArg,
-                TPremise,
-                TExpr,
-                TVar
-            >(premiseSnap, this.argument, this.variables)
+            const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+                premiseSnap,
+                this.argument,
+                this.variables
+            )
             this.premises.set(pe.getId(), pe)
         }
         this.conclusionPremiseId = snapshot.conclusionPremiseId
