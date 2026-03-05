@@ -4,6 +4,7 @@ import { Value } from "typebox/value"
 import {
     CoreArgumentSchema,
     CorePropositionalVariableSchema,
+    CorePropositionalExpressionSchema,
     CorePremiseSchema,
     type TCoreArgument,
     type TCorePropositionalExpression,
@@ -6689,5 +6690,19 @@ describe("configurable position range", () => {
 
     it("POSITION_INITIAL is 0", () => {
         expect(POSITION_INITIAL).toBe(0)
+    })
+
+    it("schema allows negative positions", () => {
+        const expr = {
+            id: "e1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            parentId: null,
+            position: -100,
+            checksum: "x",
+            type: "variable" as const,
+            variableId: "v1",
+        }
+        expect(Value.Check(CorePropositionalExpressionSchema, expr)).toBe(true)
     })
 })

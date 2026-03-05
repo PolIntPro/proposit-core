@@ -24,7 +24,6 @@ const BasePropositionalExpressionSchema = Type.Object({
     }),
 
     position: Type.Number({
-        minimum: 0,
         description:
             "The ordering of this expression among its siblings under the same parent. Must be unique within (parentId, argumentId, argumentVersion).",
     }),
