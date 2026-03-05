@@ -18,6 +18,7 @@ const BasePropositionalExpressionSchema = Type.Object({
     id: UUID,
     argumentId: UUID,
     argumentVersion: Type.Number(),
+    premiseId: UUID,
     parentId: Nullable(UUID, {
         description:
             "The ID of the parent operator expression, or null if this is a top-level expression.",
@@ -116,6 +117,8 @@ export type TCorePropositionalVariable = Static<
 export const CorePremiseSchema = Type.Object(
     {
         id: UUID,
+        argumentId: UUID,
+        argumentVersion: Type.Number(),
         rootExpressionId: Type.Optional(
             Type.String({
                 description:

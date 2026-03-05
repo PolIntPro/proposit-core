@@ -111,6 +111,7 @@ export function registerPremiseCommands(
                         if (expr.parentId === null) {
                             pm.addExpression({
                                 ...expr,
+                                premiseId: pid,
                                 argumentVersion: version,
                             })
                             added.add(expr.id)
@@ -128,6 +129,7 @@ export function registerPremiseCommands(
                             ) {
                                 pm.addExpression({
                                     ...expr,
+                                    premiseId: pid,
                                     argumentVersion: version,
                                 })
                                 added.add(expr.id)
@@ -290,7 +292,7 @@ export function registerPremiseCommands(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId === null) {
-                    pm.addExpression({ ...expr, argumentVersion: version })
+                    pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                 }
@@ -303,6 +305,7 @@ export function registerPremiseCommands(
                     if (expr.parentId !== null && added.has(expr.parentId)) {
                         pm.addExpression({
                             ...expr,
+                            premiseId: premiseId,
                             argumentVersion: version,
                         })
                         added.add(expr.id)

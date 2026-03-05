@@ -1008,6 +1008,8 @@ export class PremiseEngine<
         return {
             ...this.extras,
             id: this.id,
+            argumentId: this.argument.id,
+            argumentVersion: this.argument.version,
             rootExpressionId: this.rootExpressionId,
             variables,
             expressions,

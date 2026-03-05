@@ -24,7 +24,7 @@ async function assertNotPublished(
     }
 }
 
-function typeSpecificInfo(expr: TExpressionInput): string {
+function typeSpecificInfo(expr: { type: string; variableId?: string; operator?: string }): string {
     if (expr.type === "variable") return `variableId=${expr.variableId}`
     if (expr.type === "operator") return `operator=${expr.operator}`
     return ""
@@ -104,6 +104,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "variable",
@@ -116,6 +117,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "operator",
@@ -126,6 +128,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "formula",
@@ -252,6 +255,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "variable",
@@ -264,6 +268,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "operator",
@@ -274,6 +279,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "formula",

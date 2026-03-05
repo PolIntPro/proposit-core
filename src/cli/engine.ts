@@ -75,7 +75,7 @@ export async function hydrateEngine(
         for (let i = remaining.length - 1; i >= 0; i--) {
             const expr = remaining[i]
             if (expr.parentId === null) {
-                pm.addExpression({ ...expr, argumentVersion: version })
+                pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
                 added.add(expr.id)
                 remaining.splice(i, 1)
             }
@@ -88,7 +88,7 @@ export async function hydrateEngine(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId !== null && added.has(expr.parentId)) {
-                    pm.addExpression({ ...expr, argumentVersion: version })
+                    pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                     progress = true

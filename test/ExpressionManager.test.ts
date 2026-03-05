@@ -76,12 +76,13 @@ function makeVar(id: string, symbol: string): TVariableInput {
 function makeVarExpr(
     id: string,
     variableId: string,
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "variable",
         variableId,
         parentId: opts.parentId ?? null,
@@ -92,12 +93,13 @@ function makeVarExpr(
 function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "operator",
         operator,
         parentId: opts.parentId ?? null,
@@ -107,12 +109,13 @@ function makeOpExpr(
 
 function makeFormulaExpr(
     id: string,
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "formula",
         parentId: opts.parentId ?? null,
         position: opts.position ?? POSITION_INITIAL,
@@ -2234,6 +2237,8 @@ describe("diffArguments", () => {
         it("returns empty when rootExpressionId matches", () => {
             const before = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2241,6 +2246,8 @@ describe("diffArguments", () => {
             }
             const after = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2252,6 +2259,8 @@ describe("diffArguments", () => {
         it("detects rootExpressionId change", () => {
             const before = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2259,6 +2268,8 @@ describe("diffArguments", () => {
             }
             const after = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r2",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -3282,6 +3293,8 @@ describe("schema shapes with additionalProperties", () => {
     it("CorePremiseSchema accepts minimal shape with additional properties", () => {
         const valid = Value.Check(CorePremiseSchema, {
             id: "p-1",
+            argumentId: "a-1",
+            argumentVersion: 0,
             variables: [],
             expressions: [],
             checksum: "abc123",
@@ -4378,6 +4391,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -4398,6 +4412,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4406,6 +4421,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4429,6 +4445,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4437,6 +4454,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c0",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4459,6 +4477,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4467,6 +4486,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c3",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-r",
             parentId: "root",
@@ -4475,6 +4495,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4498,6 +4519,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4506,6 +4528,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4524,6 +4547,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
                 id: "c1",
                 argumentId: ARG.id,
                 argumentVersion: ARG.version,
+            premiseId: "premise-1",
                 type: "variable",
                 variableId: "var-p",
                 parentId: null,
@@ -4547,6 +4571,7 @@ describe("ChangeCollector", () => {
             variableId: "v1",
             argumentId: "a1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 0,
             checksum: "x",
@@ -4597,6 +4622,8 @@ describe("ChangeCollector", () => {
         const collector = new ChangeCollector()
         const p = {
             id: "p1",
+            argumentId: "a1",
+            argumentVersion: 0,
             variables: [],
             expressions: [],
             checksum: "x",
@@ -4661,6 +4688,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         }
@@ -4681,6 +4709,7 @@ describe("PremiseEngine — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4690,6 +4719,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -4699,6 +4729,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -4724,6 +4755,7 @@ describe("PremiseEngine — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4733,6 +4765,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4742,6 +4775,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 2,
         })
@@ -4752,6 +4786,7 @@ describe("PremiseEngine — mutation changesets", () => {
                 type: "formula",
                 argumentId: "arg1",
                 argumentVersion: 0,
+                premiseId: "premise-1",
                 parentId: "and1",
                 position: 1,
             },
@@ -4776,6 +4811,7 @@ describe("PremiseEngine — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4785,6 +4821,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4794,6 +4831,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
         })
         expect(result.id).toBe("e2")
@@ -4810,6 +4848,7 @@ describe("PremiseEngine — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4819,6 +4858,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4828,6 +4868,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 3,
         })
@@ -4837,6 +4878,7 @@ describe("PremiseEngine — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
         })
         expect(result.id).toBe("e3")
@@ -5080,6 +5122,7 @@ describe("checksum utilities", () => {
                 variableId: "v1",
                 argumentId: "arg1",
                 argumentVersion: 0,
+                premiseId: "premise-1",
                 parentId: null,
                 position: 1,
             })
@@ -5175,6 +5218,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5227,6 +5271,7 @@ describe("entity checksum fields", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5236,6 +5281,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -5245,6 +5291,7 @@ describe("entity checksum fields", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -5293,6 +5340,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5349,6 +5397,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5412,6 +5461,7 @@ describe("entity checksum fields", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5421,6 +5471,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -5430,6 +5481,7 @@ describe("entity checksum fields", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -6584,6 +6636,7 @@ describe("ExpressionManager — generic type parameter", () => {
             id: "e1",
             argumentId: "a1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1000,
             type: "variable" as const,
@@ -6698,6 +6751,7 @@ describe("configurable position range", () => {
             id: "e1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             parentId: null,
             position: -100,
             checksum: "x",
@@ -6715,6 +6769,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6726,6 +6781,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v1",
             parentId: "root",
@@ -6737,6 +6793,7 @@ describe("configurable position range", () => {
             id: "c2",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v2",
             parentId: "root",
@@ -6753,6 +6810,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6762,6 +6820,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v1",
             parentId: "root",
@@ -6771,6 +6830,7 @@ describe("configurable position range", () => {
             id: "c0",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v2",
             parentId: "root",
@@ -6802,6 +6862,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6821,6 +6882,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6832,6 +6894,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -6840,6 +6903,7 @@ describe("configurable position range", () => {
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -6858,6 +6922,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: null,

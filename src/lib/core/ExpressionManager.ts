@@ -264,6 +264,7 @@ export class ExpressionManager<
             "id",
             "argumentId",
             "argumentVersion",
+            "premiseId",
             "checksum",
             "parentId",
             "type",

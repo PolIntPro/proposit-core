@@ -66,8 +66,9 @@ const CliBaseExpressionSchema = Type.Object({
     id: UUID,
     argumentId: UUID,
     argumentVersion: Type.Number(),
+    premiseId: Type.Optional(UUID),
     parentId: Nullable(UUID),
-    position: Type.Number({ minimum: 0 }),
+    position: Type.Number(),
     checksum: Type.Optional(Type.String()),
 })
 
