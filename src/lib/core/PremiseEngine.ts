@@ -16,11 +16,7 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
-import type {
-    TCoreChangeset,
-    TCoreEntityChanges,
-    TCoreMutationResult,
-} from "../types/mutation.js"
+import type { TCoreMutationResult } from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -109,7 +105,7 @@ export class PremiseEngine<
         }
 
         // Expressions in the collector already have checksums attached
-        // (from removeExpression's attachChangesetChecksums).
+        // (from ExpressionManager which stores expressions with checksums).
         return {
             result: removed,
             changes: collector.toChangeset(),
@@ -180,8 +176,8 @@ export class PremiseEngine<
 
             this.markDirty()
             return {
-                result: this.attachExpressionChecksum({ ...expression }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -245,10 +241,9 @@ export class PremiseEngine<
             }
 
             this.markDirty()
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -304,10 +299,9 @@ export class PremiseEngine<
             }
 
             this.markDirty()
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -378,10 +372,8 @@ export class PremiseEngine<
             }
 
             return {
-                result: this.attachExpressionChecksum({
-                    ...updated,
-                }),
-                changes: this.attachChangesetChecksums(changeset),
+                result: updated,
+                changes: changeset,
             }
         } finally {
             this.expressions.setCollector(null)
@@ -444,8 +436,8 @@ export class PremiseEngine<
             this.syncRootExpressionId()
             this.markDirty()
             return {
-                result: this.attachExpressionChecksum({ ...snapshot }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: snapshot,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -503,10 +495,9 @@ export class PremiseEngine<
             this.syncRootExpressionId()
             this.markDirty()
 
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -518,9 +509,7 @@ export class PremiseEngine<
      * premise.
      */
     public getExpression(id: string): TExpr | undefined {
-        const expr = this.expressions.getExpression(id)
-        if (!expr) return undefined
-        return this.attachExpressionChecksum(expr)
+        return this.expressions.getExpression(id)
     }
 
     public getId(): string {
@@ -582,9 +571,7 @@ export class PremiseEngine<
         if (this.rootExpressionId === undefined) {
             return undefined
         }
-        const expr = this.expressions.getExpression(this.rootExpressionId)
-        if (!expr) return undefined
-        return this.attachExpressionChecksum(expr)
+        return this.expressions.getExpression(this.rootExpressionId)
     }
 
     /**
@@ -598,27 +585,11 @@ export class PremiseEngine<
     }
 
     public getExpressions(): TExpr[] {
-        const fields =
-            this.checksumConfig?.expressionFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionFields!
-        return sortedCopyById(
-            this.expressions.toArray().map(
-                (e) =>
-                    ({
-                        ...e,
-                        checksum: entityChecksum(
-                            e as unknown as Record<string, unknown>,
-                            fields
-                        ),
-                    }) as TExpr
-            )
-        )
+        return sortedCopyById(this.expressions.toArray())
     }
 
     public getChildExpressions(parentId: string | null): TExpr[] {
-        return this.expressions
-            .getChildExpressions(parentId)
-            .map((expr) => this.attachExpressionChecksum(expr))
+        return this.expressions.getChildExpressions(parentId)
     }
 
     /**
@@ -1060,66 +1031,6 @@ export class PremiseEngine<
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private attachExpressionChecksum(expr: TExpressionInput<TExpr>): TExpr {
-        const fields =
-            this.checksumConfig?.expressionFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionFields!
-        return {
-            ...expr,
-            checksum: entityChecksum(
-                expr as unknown as Record<string, unknown>,
-                fields
-            ),
-        } as TExpr
-    }
-
-    private attachVariableChecksum(v: Omit<TVar, "checksum"> | TVar): TVar {
-        const fields =
-            this.checksumConfig?.variableFields ??
-            DEFAULT_CHECKSUM_CONFIG.variableFields!
-        return {
-            ...v,
-            checksum: entityChecksum(
-                v as unknown as Record<string, unknown>,
-                fields
-            ),
-        } as TVar
-    }
-
-    private attachChangesetChecksums(
-        changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>
-    ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
-        const result = {
-            ...changes,
-        } as TCoreChangeset<TExpr, TVar, TPremise, TArg>
-        if (changes.expressions) {
-            result.expressions = {
-                added: changes.expressions.added.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-                modified: changes.expressions.modified.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-                removed: changes.expressions.removed.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-            }
-        }
-        // Variables in the changeset should already have checksums
-        // (from ArgumentEngine.addVariable), but cast for type safety
-        if (changes.variables) {
-            result.variables =
-                changes.variables as unknown as TCoreEntityChanges<TVar>
-        }
-        return result
-    }
-
     private computeChecksum(): string {
         const config = this.checksumConfig
         const parts: string[] = []
@@ -1174,8 +1085,8 @@ export class PremiseEngine<
         this.rootExpressionId = roots[0]?.id
     }
 
-    private collectSubtree(rootId: string): TExpressionInput<TExpr>[] {
-        const result: TExpressionInput<TExpr>[] = []
+    private collectSubtree(rootId: string): TExpr[] {
+        const result: TExpr[] = []
         const stack = [rootId]
         while (stack.length > 0) {
             const id = stack.pop()!
