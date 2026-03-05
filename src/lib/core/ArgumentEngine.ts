@@ -7,7 +7,6 @@ import type {
     TOptionalChecksum,
 } from "../schemata/index.js"
 import type {
-    TCoreArgumentEngineData,
     TCoreArgumentEvaluationOptions,
     TCoreArgumentEvaluationResult,
     TCoreArgumentRoleState,
@@ -26,19 +25,35 @@ import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./ChangeCollector.js"
-import { computeHash, entityChecksum } from "./checksum.js"
+import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import {
     kleeneAnd,
     kleeneNot,
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/shared.js"
-import { PremiseManager } from "./PremiseManager.js"
+import type { TExpressionInput } from "./ExpressionManager.js"
+import { PremiseEngine } from "./PremiseEngine.js"
+import type { TPremiseEngineSnapshot } from "./PremiseEngine.js"
 import { VariableManager } from "./VariableManager.js"
+import type { TVariableManagerSnapshot } from "./VariableManager.js"
 
-export type TArgumentEngineOptions = {
+export type TLogicEngineOptions = {
     checksumConfig?: TCoreChecksumConfig
     positionConfig?: TCorePositionConfig
+}
+
+export type TArgumentEngineSnapshot<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> = {
+    argument: TOptionalChecksum<TArg>
+    variables: TVariableManagerSnapshot<TVar>
+    premises: TPremiseEngineSnapshot<TPremise, TExpr>[]
+    conclusionPremiseId?: string
+    config?: TLogicEngineOptions
 }
 
 /**
@@ -55,7 +70,7 @@ export class ArgumentEngine<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
     private argument: TOptionalChecksum<TArg>
-    private premises: Map<string, PremiseManager<TArg, TPremise, TExpr, TVar>>
+    private premises: Map<string, PremiseEngine<TArg, TPremise, TExpr, TVar>>
     private variables: VariableManager<TVar>
     private conclusionPremiseId: string | undefined
     private checksumConfig?: TCoreChecksumConfig
@@ -65,11 +80,14 @@ export class ArgumentEngine<
 
     constructor(
         argument: TOptionalChecksum<TArg>,
-        options?: TArgumentEngineOptions
+        options?: TLogicEngineOptions
     ) {
         this.argument = { ...argument }
         this.premises = new Map()
-        this.variables = new VariableManager<TVar>()
+        this.variables = new VariableManager<TVar>({
+            checksumConfig: this.checksumConfig,
+            positionConfig: this.positionConfig,
+        })
         this.conclusionPremiseId = undefined
         this.checksumConfig = options?.checksumConfig
         this.positionConfig = options?.positionConfig
@@ -80,6 +98,33 @@ export class ArgumentEngine<
         return { ...this.argument, checksum: this.checksum() } as TArg
     }
 
+    /** Renders the argument as a multi-line string with role labels for each premise. */
+    public toDisplayString(): string {
+        const lines: string[] = []
+        const arg = this.getArgument()
+        lines.push(`Argument: ${arg.id} (v${arg.version})`)
+        lines.push("")
+
+        const supportingIds = new Set(
+            this.listSupportingPremises().map((pe) => pe.getId())
+        )
+
+        for (const pe of this.listPremises()) {
+            let role: string
+            if (pe.getId() === this.conclusionPremiseId) {
+                role = "Conclusion"
+            } else if (supportingIds.has(pe.getId())) {
+                role = "Supporting"
+            } else {
+                role = "Constraint"
+            }
+            const display = pe.toDisplayString() || "(empty)"
+            lines.push(`[${role}] ${display}`)
+        }
+
+        return lines.join("\n")
+    }
+
     /**
      * Creates a new premise with an auto-generated UUID and registers it
      * with this engine.
@@ -87,7 +132,7 @@ export class ArgumentEngine<
     public createPremise(
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseManager<TArg, TPremise, TExpr, TVar>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
@@ -106,7 +151,7 @@ export class ArgumentEngine<
         id: string,
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseManager<TArg, TPremise, TExpr, TVar>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
@@ -115,17 +160,23 @@ export class ArgumentEngine<
         if (this.premises.has(id)) {
             throw new Error(`Premise "${id}" already exists.`)
         }
-        const pm = new PremiseManager<TArg, TPremise, TExpr, TVar>(
+        const premiseData = {
+            ...extras,
             id,
-            this.argument,
-            this.variables,
-            extras,
-            this.checksumConfig,
-            this.positionConfig
+            argumentId: this.argument.id,
+            argumentVersion: this.argument.version,
+        } as TOptionalChecksum<TPremise>
+        const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+            premiseData,
+            { argument: this.argument, variables: this.variables },
+            {
+                checksumConfig: this.checksumConfig,
+                positionConfig: this.positionConfig,
+            }
         )
         this.premises.set(id, pm)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedPremise(pm.toData())
+        collector.addedPremise(pm.toPremiseData())
         this.markDirty()
 
         if (this.conclusionPremiseId === undefined) {
@@ -148,7 +199,7 @@ export class ArgumentEngine<
     ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg> {
         const pm = this.premises.get(premiseId)
         if (!pm) return { result: undefined, changes: {} }
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         this.premises.delete(premiseId)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         collector.removedPremise(data)
@@ -166,7 +217,7 @@ export class ArgumentEngine<
     /** Returns the premise with the given ID, or `undefined` if not found. */
     public getPremise(
         premiseId: string
-    ): PremiseManager<TArg, TPremise, TExpr, TVar> | undefined {
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
         return this.premises.get(premiseId)
     }
 
@@ -183,11 +234,11 @@ export class ArgumentEngine<
     }
 
     /** Returns all premises in lexicographic ID order. */
-    public listPremises(): PremiseManager<TArg, TPremise, TExpr, TVar>[] {
+    public listPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar>[] {
         return this.listPremiseIds()
             .map((id) => this.premises.get(id))
             .filter(
-                (pm): pm is PremiseManager<TArg, TPremise, TExpr, TVar> =>
+                (pm): pm is PremiseEngine<TArg, TPremise, TExpr, TVar> =>
                     pm !== undefined
             )
     }
@@ -354,7 +405,7 @@ export class ArgumentEngine<
 
     /** Returns the conclusion premise, or `undefined` if none is set. */
     public getConclusionPremise():
-        | PremiseManager<TArg, TPremise, TExpr, TVar>
+        | PremiseEngine<TArg, TPremise, TExpr, TVar>
         | undefined {
         if (this.conclusionPremiseId === undefined) {
             return undefined
@@ -366,7 +417,7 @@ export class ArgumentEngine<
      * Returns all supporting premises (derived: inference premises that are
      * not the conclusion) in lexicographic ID order.
      */
-    public listSupportingPremises(): PremiseManager<
+    public listSupportingPremises(): PremiseEngine<
         TArg,
         TPremise,
         TExpr,
@@ -378,17 +429,170 @@ export class ArgumentEngine<
     }
 
     /** Returns a serializable snapshot of the full engine state. */
-    public toData(): TCoreArgumentEngineData {
+    public snapshot(): TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar> {
         return {
-            argument: { ...this.argument, checksum: this.checksum() },
-            premises: this.listPremises().map((pm) => pm.toData()),
-            roles: this.getRoleState(),
+            argument: { ...this.argument },
+            variables: this.variables.snapshot(),
+            premises: this.listPremises().map((pe) => pe.snapshot()),
+            ...(this.conclusionPremiseId !== undefined
+                ? { conclusionPremiseId: this.conclusionPremiseId }
+                : {}),
+            config: {
+                checksumConfig: this.checksumConfig,
+                positionConfig: this.positionConfig,
+            },
         }
     }
 
-    /** Alias for {@link toData}. */
-    public exportState(): TCoreArgumentEngineData {
-        return this.toData()
+    /** Creates a new ArgumentEngine from a previously captured snapshot. */
+    public static fromSnapshot<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(
+        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
+    ): ArgumentEngine<TArg, TPremise, TExpr, TVar> {
+        const engine = new ArgumentEngine<TArg, TPremise, TExpr, TVar>(
+            snapshot.argument,
+            snapshot.config
+        )
+        // Restore variables
+        for (const v of snapshot.variables.variables) {
+            engine.addVariable(v)
+        }
+        // Restore premises using PremiseEngine.fromSnapshot
+        for (const premiseSnap of snapshot.premises) {
+            const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+                premiseSnap,
+                snapshot.argument,
+                engine.variables
+            )
+            engine.premises.set(pe.getId(), pe)
+        }
+        // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
+        engine.conclusionPremiseId = snapshot.conclusionPremiseId
+        return engine
+    }
+
+    /**
+     * Creates a new ArgumentEngine from flat arrays of entities, as typically
+     * stored in a relational database. Expressions are grouped by their
+     * `premiseId` field and loaded in BFS order (roots first, then children
+     * of already-added nodes) to satisfy parent-existence requirements.
+     */
+    public static fromData<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(
+        argument: TOptionalChecksum<TArg>,
+        variables: TOptionalChecksum<TVar>[],
+        premises: TOptionalChecksum<TPremise>[],
+        expressions: TExpressionInput<TExpr>[],
+        roles: TCoreArgumentRoleState,
+        config?: TLogicEngineOptions
+    ): ArgumentEngine<TArg, TPremise, TExpr, TVar> {
+        const engine = new ArgumentEngine<TArg, TPremise, TExpr, TVar>(
+            argument,
+            config
+        )
+
+        // Register variables
+        for (const v of variables) {
+            engine.addVariable(v)
+        }
+
+        // Group expressions by premiseId
+        const exprsByPremise = new Map<string, TExpressionInput<TExpr>[]>()
+        for (const expr of expressions) {
+            const premiseId = (expr as unknown as { premiseId: string })
+                .premiseId
+            let group = exprsByPremise.get(premiseId)
+            if (!group) {
+                group = []
+                exprsByPremise.set(premiseId, group)
+            }
+            group.push(expr)
+        }
+
+        // Create premises and load their expressions in BFS order
+        for (const premise of premises) {
+            const {
+                id: _id,
+                argumentId: _argumentId,
+                argumentVersion: _argumentVersion,
+                rootExpressionId: _rootExpressionId,
+                variables: _vars,
+                expressions: _exprs,
+                checksum: _checksum,
+                ...extras
+            } = premise as unknown as Record<string, unknown>
+            const { result: pe } = engine.createPremiseWithId(
+                premise.id,
+                extras
+            )
+
+            // Add expressions in BFS order (roots first, then children)
+            const premiseExprs = exprsByPremise.get(premise.id) ?? []
+            // Cast to base type to access .id and .parentId on the distributive conditional type
+            type BaseInput = TExpressionInput<TCorePropositionalExpression>
+            const pending = new Map(
+                premiseExprs.map((e) => [(e as unknown as BaseInput).id, e])
+            )
+            let progressed = true
+            while (pending.size > 0 && progressed) {
+                progressed = false
+                for (const [eid, expr] of Array.from(pending.entries())) {
+                    const base = expr as unknown as BaseInput
+                    if (
+                        base.parentId !== null &&
+                        !pe.getExpression(base.parentId)
+                    ) {
+                        continue
+                    }
+                    pe.addExpression(expr)
+                    pending.delete(eid)
+                    progressed = true
+                }
+            }
+            if (pending.size > 0) {
+                throw new Error(
+                    `Could not resolve parent relationships for expressions: ${Array.from(pending.keys()).join(", ")}`
+                )
+            }
+        }
+
+        // Set roles (override auto-assignment)
+        if (roles.conclusionPremiseId !== undefined) {
+            engine.setConclusionPremise(roles.conclusionPremiseId)
+        }
+
+        return engine
+    }
+
+    /** Restores the engine to a previously captured snapshot state. */
+    public rollback(
+        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
+    ): void {
+        this.argument = { ...snapshot.argument }
+        this.checksumConfig = snapshot.config?.checksumConfig
+        this.positionConfig = snapshot.config?.positionConfig
+        this.variables = VariableManager.fromSnapshot<TVar>(snapshot.variables)
+        this.premises = new Map()
+        for (const premiseSnap of snapshot.premises) {
+            const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+                premiseSnap,
+                this.argument,
+                this.variables
+            )
+            this.premises.set(pe.getId(), pe)
+        }
+        this.conclusionPremiseId = snapshot.conclusionPremiseId
+        this.markDirty()
     }
 
     /**
@@ -406,31 +610,31 @@ export class ArgumentEngine<
 
     private computeChecksum(): string {
         const config = this.checksumConfig
-        const parts: string[] = []
+        const checksumMap: Record<string, string> = {}
 
-        // Argument metadata
-        parts.push(
-            entityChecksum(
-                this.argument as unknown as Record<string, unknown>,
-                config?.argumentFields ??
-                    DEFAULT_CHECKSUM_CONFIG.argumentFields!
-            )
+        // Argument entity checksum
+        checksumMap[this.argument.id as string] = entityChecksum(
+            this.argument as unknown as Record<string, unknown>,
+            config?.argumentFields ?? DEFAULT_CHECKSUM_CONFIG.argumentFields!
         )
 
-        // Role state
-        parts.push(
-            entityChecksum(
-                this.getRoleState() as unknown as Record<string, unknown>,
-                config?.roleFields ?? DEFAULT_CHECKSUM_CONFIG.roleFields!
-            )
+        // Role state checksum (use fixed key since roles have no ID)
+        checksumMap.__roles__ = entityChecksum(
+            this.getRoleState() as unknown as Record<string, unknown>,
+            config?.roleFields ?? DEFAULT_CHECKSUM_CONFIG.roleFields!
         )
 
-        // Premise checksums (sorted by ID for determinism)
-        for (const pm of this.listPremises()) {
-            parts.push(pm.checksum())
+        // Variable checksums
+        for (const v of this.variables.toArray()) {
+            checksumMap[v.id] = v.checksum
         }
 
-        return computeHash(parts.join(":"))
+        // Premise checksums (cumulative, from each PremiseEngine)
+        for (const pe of this.listPremises()) {
+            checksumMap[pe.getId()] = pe.checksum()
+        }
+
+        return computeHash(canonicalSerialize(checksumMap))
     }
 
     private markDirty(): void {

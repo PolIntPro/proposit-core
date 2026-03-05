@@ -1,4 +1,12 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
+
+export type TVariableManagerSnapshot<
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> = {
+    variables: TVar[]
+    config?: TLogicEngineOptions
+}
 
 /**
  * Registry for propositional variables within an argument, shared across
@@ -6,21 +14,19 @@ import type { TCorePropositionalVariable } from "../schemata/index.js"
  *
  * Enforces uniqueness of both variable IDs and symbols. This class is an
  * internal building block owned by {@link ArgumentEngine} and passed by
- * reference to each {@link PremiseManager}. It is not part of the public API.
+ * reference to each {@link PremiseEngine}. It is not part of the public API.
  */
 export class VariableManager<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
     private variables: Map<string, TVar>
     private variableSymbols: Set<string>
+    private config?: TLogicEngineOptions
 
-    constructor(initialVariables: TVar[] = []) {
+    constructor(config?: TLogicEngineOptions) {
         this.variables = new Map()
         this.variableSymbols = new Set()
-
-        for (const variable of initialVariables) {
-            this.addVariable(variable)
-        }
+        this.config = config
     }
 
     /** Returns all registered variables sorted by ID for deterministic output. */
@@ -119,5 +125,24 @@ export class VariableManager<
         }
 
         return this.variables.get(variableId)
+    }
+
+    /** Returns a serializable snapshot of the current state. */
+    public snapshot(): TVariableManagerSnapshot<TVar> {
+        return {
+            variables: this.toArray(),
+            config: this.config,
+        }
+    }
+
+    /** Creates a new VariableManager from a previously captured snapshot. */
+    public static fromSnapshot<
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(snapshot: TVariableManagerSnapshot<TVar>): VariableManager<TVar> {
+        const vm = new VariableManager<TVar>(snapshot.config)
+        for (const v of snapshot.variables) {
+            vm.addVariable(v)
+        }
+        return vm
     }
 }

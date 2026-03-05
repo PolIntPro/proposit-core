@@ -81,6 +81,7 @@ function buildExpressions(
     position: number,
     argumentId: string,
     argumentVersion: number,
+    premiseId: string,
     variablesByName: Map<string, Omit<TCorePropositionalVariable, "checksum">>,
     addExpression: (expr: TExpressionInput) => void
 ): string {
@@ -93,6 +94,7 @@ function buildExpressions(
                 id,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 type: "variable",
                 variableId: variable.id,
                 parentId,
@@ -105,6 +107,7 @@ function buildExpressions(
                 id,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 type: "operator",
                 operator: "not",
                 parentId,
@@ -116,6 +119,7 @@ function buildExpressions(
                 0,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 variablesByName,
                 addExpression
             )
@@ -127,6 +131,7 @@ function buildExpressions(
                 id,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 type: "operator",
                 operator: ast.type,
                 parentId,
@@ -139,6 +144,7 @@ function buildExpressions(
                     i,
                     argumentId,
                     argumentVersion,
+                    premiseId,
                     variablesByName,
                     addExpression
                 )
@@ -151,6 +157,7 @@ function buildExpressions(
                 id,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 type: "operator",
                 operator: ast.type,
                 parentId,
@@ -162,6 +169,7 @@ function buildExpressions(
                 0,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 variablesByName,
                 addExpression
             )
@@ -171,6 +179,7 @@ function buildExpressions(
                 1,
                 argumentId,
                 argumentVersion,
+                premiseId,
                 variablesByName,
                 addExpression
             )
@@ -277,6 +286,7 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             POSITION_INITIAL,
             argumentId,
             0,
+            pm.getId(),
             variablesByName,
             (expr) => pm.addExpression(expr)
         )

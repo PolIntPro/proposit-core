@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import { PremiseManager } from "../../lib/core/PremiseManager.js"
+import { PremiseEngine } from "../../lib/core/PremiseEngine.js"
 import { VariableManager } from "../../lib/core/VariableManager.js"
-import type { TCoreArgument } from "../../lib/schemata/index.js"
+import type { TCoreArgument, TCorePremise } from "../../lib/schemata/index.js"
 import {
     errorExit,
     printJson,
@@ -88,19 +88,20 @@ export function registerPremiseCommands(
                         readPremiseData(argumentId, version, pid),
                     ])
 
-                    // Hydrate a temporary PremiseManager for display string
+                    // Hydrate a temporary PremiseEngine for display string
                     const { id: _id, ...premiseExtras } = meta
-                    const vm = new VariableManager(
-                        allVariables.map((v) => ({
-                            ...v,
+                    const vm = new VariableManager()
+                    for (const v of allVariables) {
+                        vm.addVariable({ ...v, argumentVersion: version })
+                    }
+                    const pm = new PremiseEngine(
+                        {
+                            id: pid,
+                            argumentId: argument.id,
                             argumentVersion: version,
-                        }))
-                    )
-                    const pm = new PremiseManager(
-                        pid,
-                        argument,
-                        vm,
-                        premiseExtras
+                            ...premiseExtras,
+                        } as TCorePremise,
+                        { argument, variables: vm }
                     )
 
                     // Add expressions BFS-order
@@ -111,6 +112,7 @@ export function registerPremiseCommands(
                         if (expr.parentId === null) {
                             pm.addExpression({
                                 ...expr,
+                                premiseId: pid,
                                 argumentVersion: version,
                             })
                             added.add(expr.id)
@@ -128,6 +130,7 @@ export function registerPremiseCommands(
                             ) {
                                 pm.addExpression({
                                     ...expr,
+                                    premiseId: pid,
                                     argumentVersion: version,
                                 })
                                 added.add(expr.id)
@@ -272,17 +275,18 @@ export function registerPremiseCommands(
             ])
 
             const { id: _id, ...renderPremiseExtras } = meta
-            const renderVm = new VariableManager(
-                allVariables.map((v) => ({
-                    ...v,
+            const renderVm = new VariableManager()
+            for (const v of allVariables) {
+                renderVm.addVariable({ ...v, argumentVersion: version })
+            }
+            const pm = new PremiseEngine(
+                {
+                    id: premiseId,
+                    argumentId: argument.id,
                     argumentVersion: version,
-                }))
-            )
-            const pm = new PremiseManager(
-                premiseId,
-                argument,
-                renderVm,
-                renderPremiseExtras
+                    ...renderPremiseExtras,
+                } as TCorePremise,
+                { argument, variables: renderVm }
             )
 
             const remaining = [...data.expressions]
@@ -290,7 +294,11 @@ export function registerPremiseCommands(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId === null) {
-                    pm.addExpression({ ...expr, argumentVersion: version })
+                    pm.addExpression({
+                        ...expr,
+                        premiseId: premiseId,
+                        argumentVersion: version,
+                    })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                 }
@@ -303,6 +311,7 @@ export function registerPremiseCommands(
                     if (expr.parentId !== null && added.has(expr.parentId)) {
                         pm.addExpression({
                             ...expr,
+                            premiseId: premiseId,
                             argumentVersion: version,
                         })
                         added.add(expr.id)

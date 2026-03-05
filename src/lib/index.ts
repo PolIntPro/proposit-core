@@ -3,7 +3,14 @@
  * types, and the diff function.
  */
 export { ArgumentEngine } from "./core/ArgumentEngine.js"
-export { PremiseManager } from "./core/PremiseManager.js"
+export type {
+    TLogicEngineOptions,
+    TArgumentEngineSnapshot,
+} from "./core/ArgumentEngine.js"
+export { PremiseEngine } from "./core/PremiseEngine.js"
+export type { TPremiseEngineSnapshot } from "./core/PremiseEngine.js"
+export type { TExpressionManagerSnapshot } from "./core/ExpressionManager.js"
+export type { TVariableManagerSnapshot } from "./core/VariableManager.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
@@ -37,5 +44,7 @@ export {
     POSITION_MIN,
     POSITION_MAX,
     POSITION_INITIAL,
+    DEFAULT_POSITION_CONFIG,
     midpoint,
 } from "./utils/position.js"
+export type { TCorePositionConfig } from "./utils/position.js"

@@ -244,8 +244,8 @@ export function diffArguments<
 ): TCoreArgumentDiff<TArg, TVar, TPremise, TExpr> {
     const argA = engineA.getArgument()
     const argB = engineB.getArgument()
-    const premisesA = engineA.listPremises().map((pm) => pm.toData())
-    const premisesB = engineB.listPremises().map((pm) => pm.toData())
+    const premisesA = engineA.listPremises().map((pe) => pe.toPremiseData())
+    const premisesB = engineB.listPremises().map((pe) => pe.toPremiseData())
     const rolesA = engineA.getRoleState()
     const rolesB = engineB.getRoleState()
 

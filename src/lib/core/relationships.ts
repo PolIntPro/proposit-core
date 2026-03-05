@@ -1,5 +1,5 @@
 import type { ArgumentEngine } from "./ArgumentEngine.js"
-import type { PremiseManager } from "./PremiseManager.js"
+import type { PremiseEngine } from "./PremiseEngine.js"
 import type {
     TCoreVariableAppearance,
     TCorePremiseProfile,
@@ -12,7 +12,7 @@ import type {
 // ── Variable profiling ──────────────────────────────────────────────────
 
 function collectVariableAppearances(
-    premise: PremiseManager,
+    premise: PremiseEngine,
     expressionId: string,
     side: TCorePremiseSide
 ): TCoreVariableAppearance[] {
@@ -51,7 +51,7 @@ function collectVariableAppearances(
  * variable's side (antecedent/consequent) and polarity (positive/negative).
  */
 export function buildPremiseProfile(
-    premise: PremiseManager
+    premise: PremiseEngine
 ): TCorePremiseProfile {
     const premiseId = premise.getId()
 
@@ -272,7 +272,7 @@ function hasVariableOnBothSides(
 // ── Constraint premise classification ───────────────────────────────────
 
 function classifyConstraintPremise(
-    premise: PremiseManager,
+    premise: PremiseEngine,
     focusedProfile: TCorePremiseProfile,
     connectedVarIds: Set<string>
 ): TCorePremiseRelationResult {

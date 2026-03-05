@@ -2,11 +2,18 @@
  * @module @polintpro/proposit-core
  *
  * Core engine for building, evaluating, and diffing propositional logic
- * arguments. Exports {@link ArgumentEngine} and {@link PremiseManager} as
+ * arguments. Exports {@link ArgumentEngine} and {@link PremiseEngine} as
  * the primary API, along with all type schemata and the {@link diffArguments}
  * utility.
  */
-export { ArgumentEngine, PremiseManager } from "./lib/index.js"
+export { ArgumentEngine, PremiseEngine } from "./lib/index.js"
+export type {
+    TLogicEngineOptions,
+    TArgumentEngineSnapshot,
+    TPremiseEngineSnapshot,
+    TExpressionManagerSnapshot,
+    TVariableManagerSnapshot,
+} from "./lib/index.js"
 export * from "./lib/schemata/index.js"
 export * from "./lib/types/diff.js"
 export * from "./lib/types/mutation.js"
@@ -44,4 +51,3 @@ export {
     midpoint,
 } from "./lib/utils/position.js"
 export type { TCorePositionConfig } from "./lib/utils/position.js"
-export type { TArgumentEngineOptions } from "./lib/core/ArgumentEngine.js"

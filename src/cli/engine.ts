@@ -23,7 +23,7 @@ import { readVariables, writeVariables } from "./storage/variables.js"
  * Builds a fully-hydrated ArgumentEngine from the on-disk state for the
  * given argument ID and version number.
  *
- * All argument-level variables are registered with every PremiseManager so
+ * All argument-level variables are registered with every PremiseEngine so
  * that expression validation and evaluation work correctly.
  *
  * Expressions are added in BFS order (root first, then children) to satisfy
@@ -49,7 +49,7 @@ export async function hydrateEngine(
     const engine = new ArgumentEngine(argument)
 
     // Register all argument-level variables once on the engine; the shared
-    // VariableManager is visible to every PremiseManager.
+    // VariableManager is visible to every PremiseEngine.
     for (const variable of allVariables) {
         engine.addVariable({ ...variable, argumentVersion: version })
     }
@@ -75,7 +75,11 @@ export async function hydrateEngine(
         for (let i = remaining.length - 1; i >= 0; i--) {
             const expr = remaining[i]
             if (expr.parentId === null) {
-                pm.addExpression({ ...expr, argumentVersion: version })
+                pm.addExpression({
+                    ...expr,
+                    premiseId: premiseId,
+                    argumentVersion: version,
+                })
                 added.add(expr.id)
                 remaining.splice(i, 1)
             }
@@ -88,7 +92,11 @@ export async function hydrateEngine(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId !== null && added.has(expr.parentId)) {
-                    pm.addExpression({ ...expr, argumentVersion: version })
+                    pm.addExpression({
+                        ...expr,
+                        premiseId: premiseId,
+                        argumentVersion: version,
+                    })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                     progress = true
@@ -136,9 +144,12 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
 
     await fs.mkdir(getPremisesDir(id, arg.version), { recursive: true })
     for (const pm of engine.listPremises()) {
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         const {
             id: premiseId,
+            argumentId: _a,
+            argumentVersion: _av,
+            checksum: _c,
             rootExpressionId: _r,
             variables: _v,
             expressions: _e,

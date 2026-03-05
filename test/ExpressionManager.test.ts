@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ArgumentEngine, PremiseManager } from "../src/lib/index"
+import { ArgumentEngine, PremiseEngine } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
     CoreArgumentSchema,
@@ -19,6 +19,7 @@ import {
     DEFAULT_CHECKSUM_CONFIG,
     createChecksumConfig,
 } from "../src/lib/consts"
+import type { TOptionalChecksum } from "../src/lib/schemata/shared"
 import type { TCoreExpressionAssignment } from "../src/lib/types/evaluation"
 import type { TCoreChangeset } from "../src/lib/types/mutation"
 import {
@@ -76,12 +77,17 @@ function makeVar(id: string, symbol: string): TVariableInput {
 function makeVarExpr(
     id: string,
     variableId: string,
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "variable",
         variableId,
         parentId: opts.parentId ?? null,
@@ -92,12 +98,17 @@ function makeVarExpr(
 function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "operator",
         operator,
         parentId: opts.parentId ?? null,
@@ -107,12 +118,17 @@ function makeOpExpr(
 
 function makeFormulaExpr(
     id: string,
-    opts: { parentId?: string | null; position?: number } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
+        premiseId: opts.premiseId ?? "premise-1",
         type: "formula",
         parentId: opts.parentId ?? null,
         position: opts.position ?? POSITION_INITIAL,
@@ -128,7 +144,7 @@ const VAR_R = makeVar("var-r", "R")
 // ---------------------------------------------------------------------------
 
 /** Create a premise (via ArgumentEngine) with P, Q, R pre-loaded. */
-function premiseWithVars(): PremiseManager {
+function premiseWithVars(): PremiseEngine {
     const eng = new ArgumentEngine(ARG)
     eng.addVariable(VAR_P)
     eng.addVariable(VAR_Q)
@@ -137,10 +153,18 @@ function premiseWithVars(): PremiseManager {
     return pm
 }
 
-/** Create a PremiseManager directly with a deterministic ID (for toData tests). */
-function makePremise(extras?: Record<string, unknown>): PremiseManager {
+/** Create a PremiseEngine directly with a deterministic ID (for toData tests). */
+function makePremise(extras?: Record<string, unknown>): PremiseEngine {
     const vm = new VariableManager()
-    return new PremiseManager("premise-1", ARG, vm, extras)
+    return new PremiseEngine(
+        {
+            id: "premise-1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            ...extras,
+        } as unknown as TCorePremise,
+        { argument: ARG, variables: vm }
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -886,7 +910,7 @@ describe("toArray behaviour (via toData().expressions)", () => {
         )
 
         const ids = premise
-            .toData()
+            .toPremiseData()
             .expressions.map((e) => e.id)
             .sort()
         expect(ids).toEqual(["expr-1", "expr-2", "op-1"].sort())
@@ -941,8 +965,8 @@ describe("stress test", () => {
         )
 
         const allExpressions: TExpressionInput[] = []
-        const premiseManagers: PremiseManager[] = []
-        const termIdsByPremise = new Map<PremiseManager, string[]>()
+        const premiseManagers: PremiseEngine[] = []
+        const termIdsByPremise = new Map<PremiseEngine, string[]>()
         const referencedVarIds = new Set<string>()
 
         function pickVar() {
@@ -952,7 +976,7 @@ describe("stress test", () => {
         }
 
         function emit(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             expr: TExpressionInput
         ): TExpressionInput {
             pm.addExpression(expr)
@@ -961,7 +985,7 @@ describe("stress test", () => {
         }
 
         function emitLeaf(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             parentId: string,
             position: number,
             key: string,
@@ -983,7 +1007,7 @@ describe("stress test", () => {
         }
 
         function emitSide(
-            pm: PremiseManager,
+            pm: PremiseEngine,
             parentId: string,
             position: number,
             key: string,
@@ -1090,7 +1114,7 @@ describe("stress test", () => {
     it("removing a premise cascades to all of its terms", () => {
         const { premiseManagers, termIdsByPremise } = buildStress()
         const pm = premiseManagers[0]
-        const rootId = pm.toData().rootExpressionId!
+        const rootId = pm.toPremiseData().rootExpressionId!
         const termIds = termIdsByPremise.get(pm)!
 
         expect(pm.removeExpression(rootId, true).result).toMatchObject({
@@ -1104,9 +1128,9 @@ describe("stress test", () => {
     it("removing one premise does not affect a different premise", () => {
         const { premiseManagers, termIdsByPremise } = buildStress()
         const [pm1, pm2] = premiseManagers
-        const root2 = pm2.toData().rootExpressionId!
+        const root2 = pm2.toPremiseData().rootExpressionId!
 
-        pm1.removeExpression(pm1.toData().rootExpressionId!, true)
+        pm1.removeExpression(pm1.toPremiseData().rootExpressionId!, true)
 
         // Second premise root is still present
         expect(pm2.removeExpression(root2, true).result).toMatchObject({
@@ -1122,7 +1146,7 @@ describe("stress test", () => {
         // Pick a variable that is referenced somewhere
         const referencedVar = variables[0]
         const hadExpressions = premiseManagers.some((pm) =>
-            pm.toData().variables.includes(referencedVar.id)
+            pm.toPremiseData().variables.includes(referencedVar.id)
         )
         expect(hadExpressions).toBe(true)
 
@@ -1133,7 +1157,7 @@ describe("stress test", () => {
 
         // No premise should reference the variable anymore
         for (const pm of premiseManagers) {
-            expect(pm.toData().variables).not.toContain(referencedVar.id)
+            expect(pm.toPremiseData().variables).not.toContain(referencedVar.id)
         }
     })
 
@@ -1148,11 +1172,11 @@ describe("stress test", () => {
         const { premiseManagers } = buildStress()
 
         for (const pm of [...premiseManagers].reverse()) {
-            pm.removeExpression(pm.toData().rootExpressionId!, true)
+            pm.removeExpression(pm.toPremiseData().rootExpressionId!, true)
         }
 
         for (const pm of premiseManagers) {
-            expect(pm.toData().rootExpressionId).toBeUndefined()
+            expect(pm.toPremiseData().rootExpressionId).toBeUndefined()
         }
     })
 
@@ -1160,20 +1184,20 @@ describe("stress test", () => {
         const { eng, premiseManagers } = buildStress()
 
         for (const pm of premiseManagers) {
-            pm.removeExpression(pm.toData().rootExpressionId!, true)
+            pm.removeExpression(pm.toPremiseData().rootExpressionId!, true)
         }
 
         const { result: newPm } = eng.createPremise({ title: "rebuilt" })
         // Variables are already registered at engine level
         newPm.addExpression(makeOpExpr("new-root", "and"))
-        expect(newPm.toData().rootExpressionId).toBe("new-root")
+        expect(newPm.toPremiseData().rootExpressionId).toBe("new-root")
     })
 
     it("all expressions appear in exactly one premise", () => {
         const { premiseManagers, allExpressions } = buildStress()
         const counts = new Map<string, number>()
         for (const pm of premiseManagers) {
-            for (const expr of pm.toData().expressions) {
+            for (const expr of pm.toPremiseData().expressions) {
                 counts.set(expr.id, (counts.get(expr.id) ?? 0) + 1)
             }
         }
@@ -1186,7 +1210,7 @@ describe("stress test", () => {
         const { premiseManagers, referencedVarIds } = buildStress()
         const variableIdsInPremises = new Set<string>()
         for (const pm of premiseManagers) {
-            for (const v of pm.toData().variables) {
+            for (const v of pm.toPremiseData().variables) {
                 variableIdsInPremises.add(v)
             }
         }
@@ -1363,19 +1387,21 @@ describe("formula", () => {
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine premise CRUD", () => {
-    it("createPremise returns a PremiseManager with a generated ID", () => {
+    it("createPremise returns a PremiseEngine with a generated ID", () => {
         const eng = new ArgumentEngine(ARG)
         const { result: pm } = eng.createPremise({ title: "test" })
-        expect(pm.toData().id).toMatch(
+        expect(pm.toPremiseData().id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         )
-        expect((pm.toData() as Record<string, unknown>).title).toBe("test")
+        expect((pm.toPremiseData() as Record<string, unknown>).title).toBe(
+            "test"
+        )
     })
 
     it("getPremise(id) returns the same instance", () => {
         const eng = new ArgumentEngine(ARG)
         const { result: pm } = eng.createPremise()
-        expect(eng.getPremise(pm.toData().id)).toBe(pm)
+        expect(eng.getPremise(pm.toPremiseData().id)).toBe(pm)
     })
 
     it("getPremise returns undefined for unknown IDs", () => {
@@ -1386,7 +1412,7 @@ describe("ArgumentEngine premise CRUD", () => {
     it("removePremise causes getPremise to return undefined", () => {
         const eng = new ArgumentEngine(ARG)
         const { result: pm } = eng.createPremise()
-        const { id } = pm.toData()
+        const { id } = pm.toPremiseData()
         eng.removePremise(id)
         expect(eng.getPremise(id)).toBeUndefined()
     })
@@ -1399,15 +1425,15 @@ describe("ArgumentEngine premise CRUD", () => {
         const { result: pm2 } = eng.createPremise({ title: "second" })
         pm1.addExpression(makeVarExpr("expr-p", VAR_P.id))
         pm2.addExpression(makeVarExpr("expr-q", VAR_Q.id))
-        expect(pm1.toData().expressions).toHaveLength(1)
-        expect(pm2.toData().expressions).toHaveLength(1)
+        expect(pm1.toPremiseData().expressions).toHaveLength(1)
+        expect(pm2.toPremiseData().expressions).toHaveLength(1)
         expect(pm1.getExpression("expr-q")).toBeUndefined()
         expect(pm2.getExpression("expr-p")).toBeUndefined()
     })
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager
+// PremiseEngine
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine — addVariable / removeVariable", () => {
@@ -1469,7 +1495,7 @@ describe("ArgumentEngine — addVariable / removeVariable", () => {
     })
 })
 
-describe("PremiseManager — single-root enforcement", () => {
+describe("PremiseEngine — single-root enforcement", () => {
     it("accepts the first root expression", () => {
         const pm = premiseWithVars()
         expect(() =>
@@ -1504,7 +1530,7 @@ describe("PremiseManager — single-root enforcement", () => {
     })
 })
 
-describe("PremiseManager — addExpression / removeExpression / insertExpression", () => {
+describe("PremiseEngine — addExpression / removeExpression / insertExpression", () => {
     it("builds a tree and getExpression finds each node", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeOpExpr("op-and", "and"))
@@ -1565,12 +1591,12 @@ describe("PremiseManager — addExpression / removeExpression / insertExpression
         // Removing expr-p leaves op-and with 1 child; op-and is collapsed and
         // expr-q is promoted to root.
         pm.removeExpression("expr-p", true)
-        expect(pm.toData().rootExpressionId).toBe("expr-q")
+        expect(pm.toPremiseData().rootExpressionId).toBe("expr-q")
         expect(pm.toDisplayString()).toBe("Q")
     })
 })
 
-describe("PremiseManager — toDisplayString", () => {
+describe("PremiseEngine — toDisplayString", () => {
     it("returns empty string when the premise is empty", () => {
         expect(makePremise().toDisplayString()).toBe("")
     })
@@ -1613,24 +1639,30 @@ describe("PremiseManager — toDisplayString", () => {
     })
 })
 
-describe("PremiseManager — toData", () => {
+describe("PremiseEngine — toData", () => {
     it("returns correct id and extras", () => {
-        const pm = new PremiseManager("my-id", ARG, new VariableManager(), {
-            title: "My Premise",
-        })
-        const data = pm.toData()
+        const pm = new PremiseEngine(
+            {
+                id: "my-id",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                title: "My Premise",
+            } as unknown as TCorePremise,
+            { argument: ARG, variables: new VariableManager() }
+        )
+        const data = pm.toPremiseData()
         expect(data.id).toBe("my-id")
         expect((data as Record<string, unknown>).title).toBe("My Premise")
     })
 
     it("rootExpressionId is absent before any expression is added", () => {
-        expect(makePremise().toData().rootExpressionId).toBeUndefined()
+        expect(makePremise().toPremiseData().rootExpressionId).toBeUndefined()
     })
 
     it("rootExpressionId is set after adding the root expression", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
-        expect(pm.toData().rootExpressionId).toBe("expr-p")
+        expect(pm.toPremiseData().rootExpressionId).toBe("expr-p")
     })
 
     it("isConstraint for non-inference roots", () => {
@@ -1677,14 +1709,14 @@ describe("PremiseManager — toData", () => {
         pm.addExpression(
             makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 2 })
         )
-        const { variables } = pm.toData()
+        const { variables } = pm.toPremiseData()
         expect([...variables].sort()).toEqual([VAR_P.id, VAR_Q.id].sort())
     })
 
     it("variables does not include registered-but-unreferenced variables", () => {
         const pm = premiseWithVars() // P, Q, R all registered
         pm.addExpression(makeVarExpr("expr-p", VAR_P.id)) // only P referenced
-        const { variables } = pm.toData()
+        const { variables } = pm.toPremiseData()
         expect(variables).toEqual([VAR_P.id])
     })
 
@@ -1698,7 +1730,7 @@ describe("PremiseManager — toData", () => {
             makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
         )
         const ids = pm
-            .toData()
+            .toPremiseData()
             .expressions.map((e) => e.id)
             .sort()
         expect(ids).toEqual(["expr-p", "expr-q", "op-and"].sort())
@@ -1709,7 +1741,7 @@ describe("PremiseManager — toData", () => {
 // Evaluation support plan
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — validation and evaluation", () => {
+describe("PremiseEngine — validation and evaluation", () => {
     it("validateEvaluability reports empty premise", () => {
         const pm = makePremise()
         const result = pm.validateEvaluability()
@@ -1773,15 +1805,15 @@ describe("PremiseManager — validation and evaluation", () => {
 })
 
 describe("ArgumentEngine — roles and evaluation", () => {
-    function buildPremiseP(pm: PremiseManager) {
+    function buildPremiseP(pm: PremiseEngine) {
         pm.addExpression(makeVarExpr(`${pm.getId()}-p`, VAR_P.id))
     }
 
-    function buildPremiseQ(pm: PremiseManager) {
+    function buildPremiseQ(pm: PremiseEngine) {
         pm.addExpression(makeVarExpr(`${pm.getId()}-q`, VAR_Q.id))
     }
 
-    function buildPremiseImplies(pm: PremiseManager) {
+    function buildPremiseImplies(pm: PremiseEngine) {
         const rootId = `${pm.getId()}-impl`
         pm.addExpression(makeOpExpr(rootId, "implies"))
         pm.addExpression(
@@ -1918,7 +1950,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildVarRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         exprId: string,
         variableId: string
     ) {
@@ -1926,7 +1958,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildNotRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         rootId: string,
         childExprId: string,
         variableId: string
@@ -1941,7 +1973,7 @@ describe("ArgumentEngine — complex argument scenarios across multiple evaluati
     }
 
     function buildBinaryRoot(
-        pm: PremiseManager,
+        pm: PremiseEngine,
         rootId: string,
         operator: "and" | "or" | "implies" | "iff",
         left: { exprId: string; variableId: string },
@@ -2234,6 +2266,8 @@ describe("diffArguments", () => {
         it("returns empty when rootExpressionId matches", () => {
             const before = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2241,6 +2275,8 @@ describe("diffArguments", () => {
             }
             const after = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2252,6 +2288,8 @@ describe("diffArguments", () => {
         it("detects rootExpressionId change", () => {
             const before = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r1",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2259,6 +2297,8 @@ describe("diffArguments", () => {
             }
             const after = {
                 id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
                 rootExpressionId: "r2",
                 variables: [] as string[],
                 expressions: [] as TCorePropositionalExpression[],
@@ -2903,10 +2943,10 @@ describe("Kleene three-valued logic helpers", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — three-valued evaluation
+// PremiseEngine — three-valued evaluation
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — three-valued evaluation", () => {
+describe("PremiseEngine — three-valued evaluation", () => {
     it("evaluates unset variables as null", () => {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -3282,6 +3322,8 @@ describe("schema shapes with additionalProperties", () => {
     it("CorePremiseSchema accepts minimal shape with additional properties", () => {
         const valid = Value.Check(CorePremiseSchema, {
             id: "p-1",
+            argumentId: "a-1",
+            argumentVersion: 0,
             variables: [],
             expressions: [],
             checksum: "abc123",
@@ -3309,15 +3351,15 @@ describe("field preservation — unknown fields survive round-trips", () => {
         expect((result as Record<string, unknown>).customField).toBe(42)
     })
 
-    it("preserves unknown fields on the argument through toData()", () => {
+    it("preserves unknown fields on the argument through snapshot()", () => {
         const engine = new ArgumentEngine(
             ARG_WITH_EXTRAS as Omit<TCoreArgument, "checksum">
         )
-        const data = engine.toData()
-        expect((data.argument as Record<string, unknown>).title).toBe(
+        const snap = engine.snapshot()
+        expect((snap.argument as Record<string, unknown>).title).toBe(
             "My Argument"
         )
-        expect((data.argument as Record<string, unknown>).customField).toBe(42)
+        expect((snap.argument as Record<string, unknown>).customField).toBe(42)
     })
 
     it("preserves extras on premises through toData()", () => {
@@ -3326,18 +3368,18 @@ describe("field preservation — unknown fields survive round-trips", () => {
             title: "My Premise",
             priority: "high",
         })
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect((data as Record<string, unknown>).title).toBe("My Premise")
         expect((data as Record<string, unknown>).priority).toBe("high")
     })
 
-    it("preserves extras on premises through engine.toData()", () => {
+    it("preserves extras on premises through engine.snapshot()", () => {
         const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
         engine.createPremise({ title: "Premise One" })
-        const data = engine.toData()
-        expect((data.premises[0] as Record<string, unknown>).title).toBe(
-            "Premise One"
-        )
+        const snap = engine.snapshot()
+        expect(
+            (snap.premises[0].premise as Record<string, unknown>).title
+        ).toBe("Premise One")
     })
 
     it("setExtras replaces all extras, not merges", () => {
@@ -3354,7 +3396,7 @@ describe("field preservation — unknown fields survive round-trips", () => {
             id: "should-be-overridden",
             rootExpressionId: "fake",
         })
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.id).not.toBe("should-be-overridden")
         expect(data.id).toBe(pm.getId())
         expect(data.rootExpressionId).toBeUndefined()
@@ -3619,7 +3661,7 @@ describe("analyzePremiseRelationships — direct relationships", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -3858,7 +3900,7 @@ describe("analyzePremiseRelationships — transitive relationships", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -4091,7 +4133,7 @@ describe("analyzePremiseRelationships — precedence and edge cases", () => {
         premiseId: string,
         leftVar: TVariableInput,
         rightVar: TVariableInput
-    ): PremiseManager {
+    ): PremiseEngine {
         try {
             eng.addVariable(leftVar)
         } catch {
@@ -4371,13 +4413,14 @@ describe("position utilities", () => {
     })
 })
 
-describe("PremiseManager — appendExpression and addExpressionRelative", () => {
+describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
     it("appendExpression assigns POSITION_INITIAL to first child", () => {
         const pm = premiseWithVars()
         pm.appendExpression(null, {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -4398,6 +4441,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4406,6 +4450,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4429,6 +4474,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4437,6 +4483,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c0",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4459,6 +4506,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4467,6 +4515,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c3",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-r",
             parentId: "root",
@@ -4475,6 +4524,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4498,6 +4548,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -4506,6 +4557,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -4524,6 +4576,7 @@ describe("PremiseManager — appendExpression and addExpressionRelative", () => 
                 id: "c1",
                 argumentId: ARG.id,
                 argumentVersion: ARG.version,
+                premiseId: "premise-1",
                 type: "variable",
                 variableId: "var-p",
                 parentId: null,
@@ -4547,6 +4600,7 @@ describe("ChangeCollector", () => {
             variableId: "v1",
             argumentId: "a1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 0,
             checksum: "x",
@@ -4597,6 +4651,8 @@ describe("ChangeCollector", () => {
         const collector = new ChangeCollector()
         const p = {
             id: "p1",
+            argumentId: "a1",
+            argumentVersion: 0,
             variables: [],
             expressions: [],
             checksum: "x",
@@ -4629,10 +4685,10 @@ describe("ChangeCollector", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — mutation changesets
+// PremiseEngine — mutation changesets
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — mutation changesets", () => {
+describe("PremiseEngine — mutation changesets", () => {
     function setup() {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const v1 = {
@@ -4661,6 +4717,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         }
@@ -4681,6 +4738,7 @@ describe("PremiseManager — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4690,6 +4748,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -4699,6 +4758,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -4724,6 +4784,7 @@ describe("PremiseManager — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4733,6 +4794,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4742,6 +4804,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 2,
         })
@@ -4752,6 +4815,7 @@ describe("PremiseManager — mutation changesets", () => {
                 type: "formula",
                 argumentId: "arg1",
                 argumentVersion: 0,
+                premiseId: "premise-1",
                 parentId: "and1",
                 position: 1,
             },
@@ -4776,6 +4840,7 @@ describe("PremiseManager — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4785,6 +4850,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4794,6 +4860,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
         })
         expect(result.id).toBe("e2")
@@ -4810,6 +4877,7 @@ describe("PremiseManager — mutation changesets", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -4819,6 +4887,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 1,
         })
@@ -4828,6 +4897,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
             position: 3,
         })
@@ -4837,6 +4907,7 @@ describe("PremiseManager — mutation changesets", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "and1",
         })
         expect(result.id).toBe("e3")
@@ -4905,15 +4976,15 @@ describe("PremiseManager — mutation changesets", () => {
 // ---------------------------------------------------------------------------
 
 describe("ArgumentEngine — mutation changesets", () => {
-    it("createPremise returns PremiseManager and records added premise", () => {
+    it("createPremise returns PremiseEngine and records added premise", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const { result: pm, changes } = eng.createPremise()
-        expect(pm).toBeInstanceOf(PremiseManager)
+        expect(pm).toBeInstanceOf(PremiseEngine)
         expect(changes.premises?.added).toHaveLength(1)
         expect(changes.premises?.added[0].id).toBe(pm.getId())
     })
 
-    it("createPremiseWithId returns PremiseManager with specified ID", () => {
+    it("createPremiseWithId returns PremiseEngine with specified ID", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         const { result: pm, changes } = eng.createPremiseWithId("my-premise")
         expect(pm.getId()).toBe("my-premise")
@@ -5054,7 +5125,7 @@ describe("checksum utilities", () => {
         })
     })
 
-    describe("PremiseManager — checksum", () => {
+    describe("PremiseEngine — checksum", () => {
         it("returns consistent checksum for same state", () => {
             const eng = new ArgumentEngine({ id: "arg1", version: 0 })
             const { result: pm } = eng.createPremise()
@@ -5080,6 +5151,7 @@ describe("checksum utilities", () => {
                 variableId: "v1",
                 argumentId: "arg1",
                 argumentVersion: 0,
+                premiseId: "premise-1",
                 parentId: null,
                 position: 1,
             })
@@ -5087,7 +5159,7 @@ describe("checksum utilities", () => {
             expect(before).not.toBe(after)
         })
 
-        it("checksum changes when a variable is added", () => {
+        it("premise checksum does not change when a variable is added (variables are argument-scoped)", () => {
             const eng = new ArgumentEngine({ id: "arg1", version: 0 })
             const { result: pm } = eng.createPremise()
             const before = pm.checksum()
@@ -5098,7 +5170,7 @@ describe("checksum utilities", () => {
                 argumentVersion: 0,
             })
             const after = pm.checksum()
-            expect(before).not.toBe(after)
+            expect(before).toBe(after)
         })
 
         it("identical premises built the same way produce same checksum", () => {
@@ -5175,6 +5247,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5227,6 +5300,7 @@ describe("entity checksum fields", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5236,6 +5310,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -5245,6 +5320,7 @@ describe("entity checksum fields", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -5265,7 +5341,7 @@ describe("entity checksum fields", () => {
 
     it("toData includes premise-level checksum", () => {
         const { pm } = setupPremise()
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.checksum).toBeDefined()
         expect(typeof data.checksum).toBe("string")
         expect(data.checksum).toMatch(/^[0-9a-f]{8}$/)
@@ -5273,7 +5349,7 @@ describe("entity checksum fields", () => {
 
     it("toData expressions include entity checksums", () => {
         const { pm } = setupPremise()
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.expressions).toHaveLength(1)
         expect(data.expressions[0].checksum).toMatch(/^[0-9a-f]{8}$/)
     })
@@ -5293,6 +5369,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5349,6 +5426,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5366,20 +5444,20 @@ describe("entity checksum fields", () => {
         expect(result.checksum).toMatch(/^[0-9a-f]{8}$/)
     })
 
-    it("ArgumentEngine toData includes argument-level checksum", () => {
+    it("ArgumentEngine getArgument includes argument-level checksum", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         eng.createPremise()
-        const data = eng.toData()
-        expect(data.argument.checksum).toBeDefined()
-        expect(data.argument.checksum).toMatch(/^[0-9a-f]{8}$/)
+        const arg = eng.getArgument()
+        expect(arg.checksum).toBeDefined()
+        expect(arg.checksum).toMatch(/^[0-9a-f]{8}$/)
     })
 
-    it("ArgumentEngine toData premises include premise-level checksums", () => {
+    it("ArgumentEngine premise checksums via listPremises", () => {
         const eng = new ArgumentEngine({ id: "arg1", version: 0 })
         eng.createPremise()
-        const data = eng.toData()
-        expect(data.premises).toHaveLength(1)
-        expect(data.premises[0].checksum).toMatch(/^[0-9a-f]{8}$/)
+        const premises = eng.listPremises()
+        expect(premises).toHaveLength(1)
+        expect(premises[0].checksum()).toMatch(/^[0-9a-f]{8}$/)
     })
 
     it("expression checksum is consistent across getters", () => {
@@ -5412,6 +5490,7 @@ describe("entity checksum fields", () => {
             operator: "and",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1,
         })
@@ -5421,6 +5500,7 @@ describe("entity checksum fields", () => {
             variableId: "v1",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 1,
         })
@@ -5430,6 +5510,7 @@ describe("entity checksum fields", () => {
             variableId: "v2",
             argumentId: "arg1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: "op",
             position: 2,
         })
@@ -5712,10 +5793,10 @@ describe("ArgumentEngine — variable management", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — deleteExpressionsUsingVariable
+// PremiseEngine — deleteExpressionsUsingVariable
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — deleteExpressionsUsingVariable", () => {
+describe("PremiseEngine — deleteExpressionsUsingVariable", () => {
     it("returns empty result when variable has no expressions", () => {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -5895,10 +5976,10 @@ describe("ArgumentEngine — auto-conclusion on first premise", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PremiseManager — updateExpression
+// PremiseEngine — updateExpression
 // ---------------------------------------------------------------------------
 
-describe("PremiseManager — updateExpression", () => {
+describe("PremiseEngine — updateExpression", () => {
     function setup() {
         const eng = new ArgumentEngine(ARG)
         eng.addVariable(VAR_P)
@@ -6302,7 +6383,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove P with deleteSubtree: true — collapse promotes Q to root
         pm.removeExpression("expr-p", true)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("expr-q")
         expect(data.expressions).toHaveLength(1)
         expect(data.expressions[0].id).toBe("expr-q")
@@ -6328,7 +6409,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove and with deleteSubtree: false — or promoted to root
         pm.removeExpression("op-and", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("op-or")
         expect(data.expressions).toHaveLength(3)
         const orExpr = data.expressions.find((e) => e.id === "op-or")!
@@ -6353,7 +6434,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove not with deleteSubtree: false — P promoted to root
         pm.removeExpression("op-not", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("expr-p")
         expect(data.expressions).toHaveLength(1)
         expect(data.expressions[0].id).toBe("expr-p")
@@ -6379,7 +6460,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         )
 
         // Tree is unchanged
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.expressions).toHaveLength(3)
         expect(data.rootExpressionId).toBe("op-and")
     })
@@ -6400,7 +6481,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove leaf P with deleteSubtree: false — collapse promotes Q to root
         pm.removeExpression("expr-p", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("expr-q")
         expect(data.expressions).toHaveLength(1)
         expect(data.expressions[0].id).toBe("expr-q")
@@ -6429,7 +6510,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove not with deleteSubtree: false — or promoted into not's slot under and
         pm.removeExpression("op-not", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("op-and")
         expect(data.expressions).toHaveLength(4) // and, or, P, Q
         const orExpr = data.expressions.find((e) => e.id === "op-or")!
@@ -6478,7 +6559,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove and with deleteSubtree: false — not promoted to root, tree intact as not(P)
         pm.removeExpression("op-and", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("op-not")
         expect(data.expressions).toHaveLength(2)
         const notExpr = data.expressions.find((e) => e.id === "op-not")!
@@ -6500,14 +6581,14 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove formula with deleteSubtree: false — P promoted
         pm.removeExpression("f-1", false)
 
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.rootExpressionId).toBe("expr-p")
         expect(data.expressions).toHaveLength(1)
 
         // Verify variable cascade still works on P
         // (P should still be tracked in expressionsByVariableId)
         pm.deleteExpressionsUsingVariable(VAR_P.id)
-        const dataAfter = pm.toData()
+        const dataAfter = pm.toPremiseData()
         expect(dataAfter.expressions).toHaveLength(0)
         expect(dataAfter.rootExpressionId).toBeUndefined()
     })
@@ -6584,6 +6665,7 @@ describe("ExpressionManager — generic type parameter", () => {
             id: "e1",
             argumentId: "a1",
             argumentVersion: 0,
+            premiseId: "premise-1",
             parentId: null,
             position: 1000,
             type: "variable" as const,
@@ -6600,18 +6682,21 @@ describe("ExpressionManager — generic type parameter", () => {
     })
 })
 
-describe("PremiseManager — generic type parameters", () => {
+describe("PremiseEngine — generic type parameters", () => {
     it("preserves extended premise type in toData()", () => {
         type ExtPremise = TCorePremise & { color: string }
         const arg: TCoreArgument = { id: "a1", version: 0, checksum: "x" }
         const vm = new VariableManager()
-        const pm = new PremiseManager<TCoreArgument, ExtPremise>(
-            "p1",
-            arg,
-            vm,
-            { color: "blue" }
+        const pm = new PremiseEngine<TCoreArgument, ExtPremise>(
+            {
+                id: "p1",
+                argumentId: arg.id,
+                argumentVersion: arg.version,
+                color: "blue",
+            } as ExtPremise,
+            { argument: arg, variables: vm }
         )
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         expect(data.color).toBe("blue")
     })
 })
@@ -6698,6 +6783,7 @@ describe("configurable position range", () => {
             id: "e1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             parentId: null,
             position: -100,
             checksum: "x",
@@ -6709,12 +6795,13 @@ describe("configurable position range", () => {
 
     it("ExpressionManager uses custom positionConfig in appendExpression", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
-        const em = new ExpressionManager([], config)
+        const em = new ExpressionManager({ positionConfig: config })
 
         em.appendExpression(null, {
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6726,6 +6813,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v1",
             parentId: "root",
@@ -6737,6 +6825,7 @@ describe("configurable position range", () => {
             id: "c2",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v2",
             parentId: "root",
@@ -6747,12 +6836,13 @@ describe("configurable position range", () => {
 
     it("ExpressionManager uses custom positionConfig in addExpressionRelative before", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
-        const em = new ExpressionManager([], config)
+        const em = new ExpressionManager({ positionConfig: config })
 
         em.addExpression({
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6762,6 +6852,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v1",
             parentId: "root",
@@ -6771,6 +6862,7 @@ describe("configurable position range", () => {
             id: "c0",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "v2",
             parentId: "root",
@@ -6779,7 +6871,7 @@ describe("configurable position range", () => {
         expect(c0.position).toBe(midpoint(100, 200)) // midpoint(min, c1.pos)
     })
 
-    it("PremiseManager forwards positionConfig to ExpressionManager", () => {
+    it("PremiseEngine forwards positionConfig to ExpressionManager", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
         const vm = new VariableManager()
         vm.addVariable({
@@ -6789,19 +6881,21 @@ describe("configurable position range", () => {
             symbol: "P",
             checksum: "x",
         })
-        const pm = new PremiseManager(
-            "p1",
-            ARG,
-            vm,
-            undefined,
-            undefined,
-            config
+        const pm = new PremiseEngine(
+            {
+                id: "p1",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+            } as unknown as TCorePremise,
+            { argument: ARG, variables: vm },
+            { positionConfig: config }
         )
 
         pm.appendExpression(null, {
             id: "root",
             argumentId: "arg-1",
             argumentVersion: 1,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6821,6 +6915,7 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "operator",
             operator: "and",
             parentId: null,
@@ -6832,6 +6927,7 @@ describe("configurable position range", () => {
             id: "c1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: "root",
@@ -6840,6 +6936,7 @@ describe("configurable position range", () => {
             id: "c2",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-q",
             parentId: "root",
@@ -6858,11 +6955,937 @@ describe("configurable position range", () => {
             id: "root",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
+            premiseId: "premise-1",
             type: "variable",
             variableId: "var-p",
             parentId: null,
         })
         const root = pm.getExpression("root")!
         expect(root.position).toBe(POSITION_INITIAL)
+    })
+})
+
+describe("ExpressionManager — snapshot and fromSnapshot", () => {
+    it("round-trips an empty manager", () => {
+        const em = new ExpressionManager()
+        const snap = em.snapshot()
+        expect(snap.expressions).toEqual([])
+        expect(snap.config).toBeUndefined()
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        expect(restored.toArray()).toEqual([])
+    })
+
+    it("round-trips a manager with expressions", () => {
+        const em = new ExpressionManager()
+        em.addExpression({
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+        })
+        em.addExpression({
+            id: "c1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: "root",
+            position: 0,
+        })
+        em.addExpression({
+            id: "c2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v2",
+            parentId: "root",
+            position: 1,
+        })
+
+        const snap = em.snapshot()
+        expect(snap.expressions).toHaveLength(3)
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        const originalArr = em.toArray()
+        const restoredArr = restored.toArray()
+        expect(restoredArr).toHaveLength(originalArr.length)
+        for (let i = 0; i < originalArr.length; i++) {
+            expect(restoredArr[i].id).toBe(originalArr[i].id)
+            expect(restoredArr[i].parentId).toBe(originalArr[i].parentId)
+            expect(restoredArr[i].position).toBe(originalArr[i].position)
+        }
+
+        // Verify tree structure
+        const children = restored.getChildExpressions("root")
+        expect(children).toHaveLength(2)
+        expect(children[0].id).toBe("c1")
+        expect(children[1].id).toBe("c2")
+    })
+
+    it("preserves config in snapshot", () => {
+        const config = {
+            positionConfig: { min: 10, max: 90, initial: 50 },
+        }
+        const em = new ExpressionManager(config)
+        const snap = em.snapshot()
+        expect(snap.config).toEqual(config)
+
+        const restored = ExpressionManager.fromSnapshot(snap)
+        // Verify config is applied by checking position behavior
+        restored.appendExpression(null, {
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+        })
+        const root = restored.getExpression("root")!
+        expect(root.position).toBe(50) // custom initial
+    })
+
+    it("restored manager is functionally independent", () => {
+        const em = new ExpressionManager()
+        em.addExpression({
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+        })
+
+        const snap = em.snapshot()
+        const restored = ExpressionManager.fromSnapshot(snap)
+
+        // Mutate restored — should not affect original
+        restored.removeExpression("root", true)
+        expect(restored.toArray()).toHaveLength(0)
+        expect(em.toArray()).toHaveLength(1)
+    })
+})
+
+describe("VariableManager — snapshot and fromSnapshot", () => {
+    it("round-trips an empty manager", () => {
+        const vm = new VariableManager()
+        const snap = vm.snapshot()
+        expect(snap.variables).toEqual([])
+        expect(snap.config).toBeUndefined()
+
+        const restored = VariableManager.fromSnapshot(snap)
+        expect(restored.toArray()).toEqual([])
+    })
+
+    it("round-trips with variables", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            checksum: "x",
+        })
+        vm.addVariable({
+            id: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "Q",
+            checksum: "y",
+        })
+
+        const snap = vm.snapshot()
+        expect(snap.variables).toHaveLength(2)
+
+        const restored = VariableManager.fromSnapshot(snap)
+        const restoredArr = restored.toArray()
+        expect(restoredArr).toHaveLength(2)
+        expect(restoredArr[0].symbol).toBe("P")
+        expect(restoredArr[1].symbol).toBe("Q")
+        expect(restored.hasVariable("v1")).toBe(true)
+        expect(restored.hasVariable("v2")).toBe(true)
+    })
+
+    it("preserves config in snapshot", () => {
+        const config = {
+            positionConfig: { min: 10, max: 90, initial: 50 },
+        }
+        const vm = new VariableManager(config)
+        const snap = vm.snapshot()
+        expect(snap.config).toEqual(config)
+    })
+
+    it("restored manager is independent", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            checksum: "x",
+        })
+
+        const snap = vm.snapshot()
+        const restored = VariableManager.fromSnapshot(snap)
+
+        // Mutate restored — should not affect original
+        restored.removeVariable("v1")
+        expect(restored.hasVariable("v1")).toBe(false)
+        expect(vm.hasVariable("v1")).toBe(true)
+    })
+})
+
+describe("PremiseEngine — snapshot and fromSnapshot", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    it("round-trips an empty premise", () => {
+        const vm = new VariableManager()
+        const pe = new PremiseEngine(
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TCorePremise,
+            { argument: ARG as TCoreArgument, variables: vm }
+        )
+        const snap = pe.snapshot()
+        const restored = PremiseEngine.fromSnapshot(
+            snap,
+            ARG as TCoreArgument,
+            vm
+        )
+        expect(restored.getId()).toBe("p1")
+        expect(restored.getExpressions()).toEqual([])
+    })
+
+    it("round-trips a premise with expressions", () => {
+        const eng = new ArgumentEngine(ARG as TCoreArgument)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: pe } = eng.createPremise()
+        pe.appendExpression(null, {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: null,
+        })
+        const snap = pe.snapshot()
+        // Create a fresh VariableManager with same variables for restore
+        const vm2 = new VariableManager()
+        vm2.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            checksum: "x",
+        })
+        const restored = PremiseEngine.fromSnapshot(
+            snap,
+            ARG as TCoreArgument,
+            vm2
+        )
+        expect(restored.getExpressions().length).toBe(1)
+        expect(restored.toDisplayString()).toBe(pe.toDisplayString())
+    })
+
+    it("snapshot excludes variables and argument", () => {
+        const vm = new VariableManager()
+        const pe = new PremiseEngine(
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TCorePremise,
+            { argument: ARG as TCoreArgument, variables: vm }
+        )
+        const snap = pe.snapshot()
+        expect(snap).not.toHaveProperty("variables")
+        expect(snap).not.toHaveProperty("argument")
+        expect(snap).toHaveProperty("premise")
+        expect(snap).toHaveProperty("expressions")
+        expect(snap).toHaveProperty("config")
+    })
+
+    it("restored premise is independent from original", () => {
+        const eng = new ArgumentEngine(ARG as TCoreArgument)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: pe } = eng.createPremise()
+        pe.addExpression({
+            id: "op1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: null,
+            position: 0,
+        })
+        pe.appendExpression("op1", {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: "op1",
+        })
+        const snap = pe.snapshot()
+        const vm2 = new VariableManager()
+        vm2.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            checksum: "x",
+        })
+        const restored = PremiseEngine.fromSnapshot(
+            snap,
+            ARG as TCoreArgument,
+            vm2
+        )
+
+        // Mutate restored — add a second child to the operator
+        restored.appendExpression("op1", {
+            id: "e2",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: restored.getId(),
+            parentId: "op1",
+        })
+        expect(restored.getExpressions().length).toBe(3)
+        expect(pe.getExpressions().length).toBe(2)
+    })
+
+    it("restores rootExpressionId correctly", () => {
+        const eng = new ArgumentEngine(ARG as TCoreArgument)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: pe } = eng.createPremise()
+        pe.appendExpression(null, {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: null,
+        })
+        const snap = pe.snapshot()
+        const vm2 = new VariableManager()
+        vm2.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            checksum: "x",
+        })
+        const restored = PremiseEngine.fromSnapshot(
+            snap,
+            ARG as TCoreArgument,
+            vm2
+        )
+        // The root expression ID should be preserved
+        const data = restored.toPremiseData()
+        expect(data.rootExpressionId).toBe("e1")
+    })
+
+    it("rebuilds expressionsByVariableId index on restore", () => {
+        const eng = new ArgumentEngine(ARG as TCoreArgument)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        eng.addVariable({
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: pe } = eng.createPremise()
+        pe.addExpression({
+            id: "op1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: null,
+            position: 0,
+        })
+        pe.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: "op1",
+            position: 0,
+        })
+        pe.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: pe.getId(),
+            parentId: "op1",
+            position: 1,
+        })
+
+        const snap = pe.snapshot()
+        const vm2 = new VariableManager()
+        vm2.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            checksum: "x",
+        })
+        vm2.addVariable({
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            checksum: "x",
+        })
+        const restored = PremiseEngine.fromSnapshot(
+            snap,
+            ARG as TCoreArgument,
+            vm2
+        )
+
+        // deleteExpressionsUsingVariable relies on the index; if the index
+        // was not rebuilt this would be a no-op.
+        const { result: removed } =
+            restored.deleteExpressionsUsingVariable("v1")
+        expect(removed.length).toBeGreaterThan(0)
+    })
+})
+
+describe("ArgumentEngine — snapshot, fromSnapshot, and rollback", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    function makeVariable(
+        id: string,
+        symbol: string
+    ): Omit<TCorePropositionalVariable, "checksum"> {
+        return { id, symbol, argumentId: "arg-1", argumentVersion: 1 }
+    }
+
+    it("round-trips an empty engine", () => {
+        const engine = new ArgumentEngine(ARG)
+        const snap = engine.snapshot()
+        const restored = ArgumentEngine.fromSnapshot(snap)
+        expect(restored.getArgument().id).toBe("arg-1")
+        expect(restored.listPremiseIds()).toEqual([])
+        expect(restored.getVariables()).toEqual([])
+        expect(restored.getRoleState()).toEqual({})
+    })
+
+    it("round-trips engine with premises and variables", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(makeVariable("v1", "P"))
+        engine.addVariable(makeVariable("v2", "Q"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        const snap = engine.snapshot()
+        const restored = ArgumentEngine.fromSnapshot(snap)
+
+        expect(restored.listPremiseIds()).toEqual(["p1"])
+        expect(restored.getVariables()).toHaveLength(2)
+        const restoredPm = restored.getPremise("p1")!
+        expect(restoredPm.getExpressions()).toHaveLength(1)
+        expect(restoredPm.getExpressions()[0].id).toBe("e1")
+    })
+
+    it("preserves conclusion role through round-trip", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.createPremiseWithId("p1")
+        engine.createPremiseWithId("p2")
+        engine.setConclusionPremise("p2")
+
+        const snap = engine.snapshot()
+        const restored = ArgumentEngine.fromSnapshot(snap)
+
+        expect(restored.getRoleState().conclusionPremiseId).toBe("p2")
+    })
+
+    it("snapshot includes config", () => {
+        const config = {
+            checksumConfig: DEFAULT_CHECKSUM_CONFIG,
+            positionConfig: DEFAULT_POSITION_CONFIG,
+        }
+        const engine = new ArgumentEngine(ARG, config)
+        const snap = engine.snapshot()
+        expect(snap.config).toBeDefined()
+        expect(snap.config!.positionConfig).toEqual(DEFAULT_POSITION_CONFIG)
+    })
+
+    it("fromSnapshot produces independent copy", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(makeVariable("v1", "P"))
+        engine.createPremiseWithId("p1")
+
+        const snap = engine.snapshot()
+        const restored = ArgumentEngine.fromSnapshot(snap)
+
+        // Mutate restored, original should be unaffected
+        restored.createPremiseWithId("p2")
+        expect(engine.listPremiseIds()).toEqual(["p1"])
+        expect(restored.listPremiseIds()).toEqual(["p1", "p2"])
+    })
+
+    it("rollback restores previous state", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(makeVariable("v1", "P"))
+        engine.createPremiseWithId("p1")
+
+        const snap = engine.snapshot()
+
+        // Mutate the engine
+        engine.addVariable(makeVariable("v2", "Q"))
+        engine.createPremiseWithId("p2")
+
+        expect(engine.listPremiseIds()).toEqual(["p1", "p2"])
+        expect(engine.getVariables()).toHaveLength(2)
+
+        // Rollback
+        engine.rollback(snap)
+
+        expect(engine.listPremiseIds()).toEqual(["p1"])
+        expect(engine.getVariables()).toHaveLength(1)
+        expect(engine.getVariables()[0].symbol).toBe("P")
+    })
+
+    it("rollback after multiple mutations restores correct state", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+        engine.setConclusionPremise("p1")
+
+        const snap = engine.snapshot()
+
+        // Multiple mutations
+        engine.createPremiseWithId("p2")
+        engine.addVariable(makeVariable("v2", "Q"))
+        engine.setConclusionPremise("p2")
+        engine.removeVariable("v1")
+
+        // Rollback to original
+        engine.rollback(snap)
+
+        expect(engine.listPremiseIds()).toEqual(["p1"])
+        expect(engine.getVariables()).toHaveLength(1)
+        expect(engine.getVariables()[0].id).toBe("v1")
+        expect(engine.getRoleState().conclusionPremiseId).toBe("p1")
+        const restoredPm = engine.getPremise("p1")!
+        expect(restoredPm.getExpressions()).toHaveLength(1)
+        expect(restoredPm.getExpressions()[0].id).toBe("e1")
+    })
+})
+
+describe("ArgumentEngine — fromData bulk loading", () => {
+    it("loads an engine from flat arrays", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises: TOptionalChecksum<TCorePremise>[] = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+            {
+                id: "p2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ]
+        const expressions = [
+            {
+                id: "e1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p2",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const roles = { conclusionPremiseId: "p2" }
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            roles
+        )
+        expect(engine.getVariables().length).toBe(2)
+        expect(engine.listPremiseIds()).toEqual(["p1", "p2"])
+        expect(engine.getRoleState().conclusionPremiseId).toBe("p2")
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(1)
+    })
+
+    it("handles premises with no expressions", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const engine = ArgumentEngine.fromData(
+            arg,
+            [],
+            [
+                {
+                    id: "p1",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    variables: [],
+                    expressions: [],
+                },
+            ] as TOptionalChecksum<TCorePremise>[],
+            [],
+            {}
+        )
+        expect(engine.listPremiseIds()).toEqual(["p1"])
+    })
+
+    it("groups expressions by premiseId correctly", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises: TOptionalChecksum<TCorePremise>[] = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+            {
+                id: "p2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ]
+        const expressions = [
+            {
+                id: "e1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p2",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            {}
+        )
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(1)
+        expect(engine.getPremise("p2")?.getExpressions().length).toBe(1)
+    })
+
+    it("loads nested expressions in BFS order", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises: TOptionalChecksum<TCorePremise>[] = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ]
+        // Expressions out of order — child before parent
+        const expressions = [
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e1",
+                position: 0,
+            },
+            {
+                id: "e3",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e1",
+                position: 1,
+            },
+            {
+                id: "e1",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            {}
+        )
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(3)
+    })
+
+    it("infers generic types from parameters", () => {
+        type MyArg = TCoreArgument & { customField: string }
+        const arg: MyArg = {
+            id: "arg-1",
+            version: 1,
+            checksum: "x",
+            customField: "hello",
+        }
+        const engine = ArgumentEngine.fromData<MyArg>(arg, [], [], [], {})
+        const result = engine.getArgument()
+        expect(result.customField).toBe("hello")
+    })
+})
+
+describe("ArgumentEngine — toDisplayString", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    it("renders an empty argument", () => {
+        const eng = new ArgumentEngine(ARG)
+        const display = eng.toDisplayString()
+        expect(display).toContain("Argument: arg-1 (v1)")
+    })
+
+    it("labels conclusion premise", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        const { result: p1 } = eng.createPremise()
+        p1.appendExpression(null, {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: null,
+        })
+        const display = eng.toDisplayString()
+        expect(display).toContain("[Conclusion]")
+        expect(display).toContain("P")
+    })
+
+    it("labels constraint and supporting premises correctly", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+        eng.addVariable({
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+        })
+
+        // p1: implies (inference) - will be conclusion (auto-assigned as first)
+        const { result: p1 } = eng.createPremise()
+        p1.appendExpression(null, {
+            id: "op1",
+            type: "operator",
+            operator: "implies",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: null,
+        })
+        p1.appendExpression("op1", {
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: "op1",
+        })
+        p1.appendExpression("op1", {
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p1.getId(),
+            parentId: "op1",
+        })
+
+        // p2: implies (inference) - will be supporting
+        const { result: p2 } = eng.createPremise()
+        p2.appendExpression(null, {
+            id: "op2",
+            type: "operator",
+            operator: "implies",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: null,
+        })
+        p2.appendExpression("op2", {
+            id: "e3",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: "op2",
+        })
+        p2.appendExpression("op2", {
+            id: "e4",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p2.getId(),
+            parentId: "op2",
+        })
+
+        // p3: plain variable (constraint)
+        const { result: p3 } = eng.createPremise()
+        p3.appendExpression(null, {
+            id: "e5",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: p3.getId(),
+            parentId: null,
+        })
+
+        const display = eng.toDisplayString()
+        expect(display).toContain("[Conclusion]")
+        expect(display).toContain("[Supporting]")
+        expect(display).toContain("[Constraint]")
     })
 })

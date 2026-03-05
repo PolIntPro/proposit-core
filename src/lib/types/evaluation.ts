@@ -1,19 +1,6 @@
-import type {
-    TCoreArgument,
-    TCoreArgumentRoleState,
-    TCorePremise,
-} from "../schemata/index.js"
+import type { TCoreArgumentRoleState } from "../schemata/index.js"
 
 export type { TCoreArgumentRoleState }
-
-export interface TCoreArgumentEngineData {
-    /** Snapshot of the argument metadata managed by the engine. */
-    argument: TCoreArgument
-    /** Serialized premise snapshots (one per premise manager). */
-    premises: TCorePremise[]
-    /** Current role assignments for the premises in this engine. */
-    roles: TCoreArgumentRoleState
-}
 
 /** Three-valued truth value: true, false, or null (unset/unknown). */
 export type TCoreTrivalentValue = boolean | null

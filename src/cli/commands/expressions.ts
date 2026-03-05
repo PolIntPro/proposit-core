@@ -24,7 +24,11 @@ async function assertNotPublished(
     }
 }
 
-function typeSpecificInfo(expr: TExpressionInput): string {
+function typeSpecificInfo(expr: {
+    type: string
+    variableId?: string
+    operator?: string
+}): string {
     if (expr.type === "variable") return `variableId=${expr.variableId}`
     if (expr.type === "operator") return `operator=${expr.operator}`
     return ""
@@ -104,6 +108,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "variable",
@@ -116,6 +121,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "operator",
@@ -126,6 +132,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "formula",
@@ -185,7 +192,7 @@ export function registerExpressionCommands(
                     argumentId,
                     version,
                     premiseId,
-                    pm.toData()
+                    pm.toPremiseData()
                 )
                 printLine(id)
             }
@@ -252,6 +259,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "variable",
@@ -264,6 +272,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "operator",
@@ -274,6 +283,7 @@ export function registerExpressionCommands(
                         id,
                         argumentId,
                         argumentVersion: version,
+                        premiseId,
                         parentId,
                         position,
                         type: "formula",
@@ -300,7 +310,7 @@ export function registerExpressionCommands(
                     argumentId,
                     version,
                     premiseId,
-                    pm.toData()
+                    pm.toPremiseData()
                 )
                 printLine(id)
             }
@@ -322,7 +332,12 @@ export function registerExpressionCommands(
             const { result: removed } = pm.removeExpression(expressionId, true)
             if (!removed) errorExit(`Expression "${expressionId}" not found.`)
 
-            await writePremiseData(argumentId, version, premiseId, pm.toData())
+            await writePremiseData(
+                argumentId,
+                version,
+                premiseId,
+                pm.toPremiseData()
+            )
             printLine("success")
         })
 

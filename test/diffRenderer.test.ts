@@ -177,6 +177,8 @@ describe("renderDiff", () => {
                 added: [
                     {
                         id: "p2",
+                        argumentId: "a",
+                        argumentVersion: 0,
                         title: "New Premise",
                         variables: [],
                         expressions: [],
@@ -186,6 +188,8 @@ describe("renderDiff", () => {
                 removed: [
                     {
                         id: "p3",
+                        argumentId: "a",
+                        argumentVersion: 0,
                         title: "Old Premise",
                         variables: [],
                         expressions: [],
@@ -196,6 +200,8 @@ describe("renderDiff", () => {
                     {
                         before: {
                             id: "p1",
+                            argumentId: "a",
+                            argumentVersion: 0,
                             title: "Before",
                             variables: [],
                             expressions: [],
@@ -203,6 +209,8 @@ describe("renderDiff", () => {
                         } as TCorePremise,
                         after: {
                             id: "p1",
+                            argumentId: "a",
+                            argumentVersion: 1,
                             title: "After",
                             variables: [],
                             expressions: [],
@@ -222,6 +230,7 @@ describe("renderDiff", () => {
                                     type: "variable",
                                     argumentId: "a",
                                     argumentVersion: 1,
+                                    premiseId: "p1",
                                     parentId: null,
                                     position: 0,
                                     variableId: "v1",

@@ -9,6 +9,9 @@ import {
     type TCorePositionConfig,
     midpoint,
 } from "../utils/position.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
+import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
+import { entityChecksum } from "./checksum.js"
 
 // Distribute Omit across the union to preserve discriminated-union narrowing.
 export type TExpressionInput<
@@ -26,6 +29,13 @@ export type TExpressionWithoutPosition<
         ? Omit<U, "position" | "checksum">
         : never
     : never
+
+export type TExpressionManagerSnapshot<
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = {
+    expressions: TExpr[]
+    config?: TLogicEngineOptions
+}
 
 /** Fields that may be updated on an existing expression. */
 export type TExpressionUpdate = {
@@ -49,36 +59,46 @@ const PERMITTED_OPERATOR_SWAPS: Record<string, string | undefined> = {
  * index. Structural invariants (child limits, root-only operators, position
  * uniqueness) are enforced on every mutation.
  *
- * This class is an internal building block used by {@link PremiseManager}
+ * This class is an internal building block used by {@link PremiseEngine}
  * and is not part of the public API.
  */
 export class ExpressionManager<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > {
-    private expressions: Map<string, TExpressionInput<TExpr>>
+    private expressions: Map<string, TExpr>
     private childExpressionIdsByParentId: Map<string | null, Set<string>>
     private childPositionsByParentId: Map<string | null, Set<number>>
     private positionConfig: TCorePositionConfig
+    private config?: TLogicEngineOptions
     private collector: ChangeCollector | null = null
 
     setCollector(collector: ChangeCollector | null): void {
         this.collector = collector
     }
 
-    constructor(
-        initialExpressions: TExpressionInput<TExpr>[] = [],
-        positionConfig?: TCorePositionConfig
-    ) {
+    constructor(config?: TLogicEngineOptions) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
         this.childPositionsByParentId = new Map()
-        this.positionConfig = positionConfig ?? DEFAULT_POSITION_CONFIG
+        this.positionConfig = config?.positionConfig ?? DEFAULT_POSITION_CONFIG
+        this.config = config
+    }
 
-        this.loadInitialExpressions(initialExpressions)
+    private attachChecksum(expr: TExpressionInput<TExpr>): TExpr {
+        const fields =
+            this.config?.checksumConfig?.expressionFields ??
+            DEFAULT_CHECKSUM_CONFIG.expressionFields!
+        return {
+            ...expr,
+            checksum: entityChecksum(
+                expr as unknown as Record<string, unknown>,
+                fields
+            ),
+        } as TExpr
     }
 
     /** Returns all expressions sorted by ID for deterministic output. */
-    public toArray(): TExpressionInput<TExpr>[] {
+    public toArray(): TExpr[] {
         return Array.from(this.expressions.values()).sort((a, b) =>
             a.id.localeCompare(b.id)
         )
@@ -156,9 +176,10 @@ export class ExpressionManager<
         }
         occupiedPositions.add(expression.position)
 
-        this.expressions.set(expression.id, expression)
+        const withChecksum = this.attachChecksum(expression)
+        this.expressions.set(expression.id, withChecksum)
         this.collector?.addedExpression({
-            ...expression,
+            ...withChecksum,
         } as unknown as TCorePropositionalExpression)
         getOrCreate(
             this.childExpressionIdsByParentId,
@@ -253,7 +274,7 @@ export class ExpressionManager<
     public updateExpression(
         expressionId: string,
         updates: TExpressionUpdate
-    ): TExpressionInput<TExpr> {
+    ): TExpr {
         const expression = this.expressions.get(expressionId)
         if (!expression) {
             throw new Error(`Expression "${expressionId}" not found.`)
@@ -264,6 +285,7 @@ export class ExpressionManager<
             "id",
             "argumentId",
             "argumentVersion",
+            "premiseId",
             "checksum",
             "parentId",
             "type",
@@ -328,7 +350,7 @@ export class ExpressionManager<
         }
 
         // Build an updated copy and replace in the map.
-        const updated = {
+        const updated = this.attachChecksum({
             ...expression,
             ...(updates.position !== undefined
                 ? { position: updates.position }
@@ -339,7 +361,7 @@ export class ExpressionManager<
             ...(updates.operator !== undefined
                 ? { operator: updates.operator }
                 : {}),
-        } as TExpressionInput<TExpr>
+        } as TExpressionInput<TExpr>)
         this.expressions.set(expressionId, updated)
 
         this.collector?.modifiedExpression({
@@ -369,7 +391,7 @@ export class ExpressionManager<
     public removeExpression(
         expressionId: string,
         deleteSubtree: boolean
-    ): TExpressionInput<TExpr> | undefined {
+    ): TExpr | undefined {
         const target = this.expressions.get(expressionId)
         if (!target) {
             return undefined
@@ -382,10 +404,7 @@ export class ExpressionManager<
         }
     }
 
-    private removeSubtree(
-        expressionId: string,
-        target: TExpressionInput<TExpr>
-    ): TExpressionInput<TExpr> {
+    private removeSubtree(expressionId: string, target: TExpr): TExpr {
         const parentId = target.parentId
 
         const toRemove = new Set<string>()
@@ -433,10 +452,7 @@ export class ExpressionManager<
         return target
     }
 
-    private removeAndPromote(
-        expressionId: string,
-        target: TExpressionInput<TExpr>
-    ): TExpressionInput<TExpr> {
+    private removeAndPromote(expressionId: string, target: TExpr): TExpr {
         const children = this.getChildExpressions(expressionId)
 
         if (children.length > 1) {
@@ -480,11 +496,11 @@ export class ExpressionManager<
         }
 
         // Promote child into the target's slot.
-        const promoted = {
+        const promoted = this.attachChecksum({
             ...child,
             parentId: target.parentId,
             position: target.position,
-        } as TExpressionInput<TExpr>
+        } as TExpressionInput<TExpr>)
         this.expressions.set(child.id, promoted)
 
         // Update parent's child-id set: remove target, add promoted child.
@@ -575,11 +591,11 @@ export class ExpressionManager<
             const grandparentPosition = operator.position
 
             // Promote the surviving child into the operator's slot in the grandparent.
-            const promoted = {
+            const promoted = this.attachChecksum({
                 ...child,
                 parentId: grandparentId,
                 position: grandparentPosition,
-            } as TExpressionInput<TExpr>
+            } as TExpressionInput<TExpr>)
             this.expressions.set(child.id, promoted)
             this.collector?.modifiedExpression({
                 ...promoted,
@@ -625,22 +641,18 @@ export class ExpressionManager<
     }
 
     /** Returns the expression with the given ID, or `undefined` if not found. */
-    public getExpression(
-        expressionId: string
-    ): TExpressionInput<TExpr> | undefined {
+    public getExpression(expressionId: string): TExpr | undefined {
         return this.expressions.get(expressionId)
     }
 
     /** Returns the children of the given parent, sorted by position. */
-    public getChildExpressions(
-        parentId: string | null
-    ): TExpressionInput<TExpr>[] {
+    public getChildExpressions(parentId: string | null): TExpr[] {
         const childIds = this.childExpressionIdsByParentId.get(parentId)
         if (!childIds || childIds.size === 0) {
             return []
         }
 
-        const children: TExpressionInput<TExpr>[] = []
+        const children: TExpr[] = []
         for (const childId of childIds) {
             const child = this.expressions.get(childId)
             if (child) {
@@ -723,11 +735,11 @@ export class ExpressionManager<
             ?.delete(expression.position)
 
         // Replace the stored value (expressions are immutable value objects).
-        const updated = {
+        const updated = this.attachChecksum({
             ...expression,
             parentId: newParentId,
             position: newPosition,
-        } as TExpressionInput<TExpr>
+        } as TExpressionInput<TExpr>)
         this.expressions.set(expressionId, updated)
         this.collector?.modifiedExpression({
             ...updated,
@@ -900,11 +912,11 @@ export class ExpressionManager<
         }
 
         // Store the new expression in the freed anchor slot.
-        const stored = {
+        const stored = this.attachChecksum({
             ...expression,
             parentId: anchorParentId,
             position: anchorPosition,
-        } as TExpressionInput<TExpr>
+        } as TExpressionInput<TExpr>)
         this.expressions.set(expression.id, stored)
         this.collector?.addedExpression({
             ...stored,
@@ -919,5 +931,25 @@ export class ExpressionManager<
             anchorParentId,
             () => new Set()
         ).add(anchorPosition)
+    }
+
+    /** Returns a serializable snapshot of the current state. */
+    public snapshot(): TExpressionManagerSnapshot<TExpr> {
+        return {
+            expressions: this.toArray(),
+            config: this.config,
+        }
+    }
+
+    /** Creates a new ExpressionManager from a previously captured snapshot. */
+    public static fromSnapshot<
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+    >(snapshot: TExpressionManagerSnapshot<TExpr>): ExpressionManager<TExpr> {
+        const em = new ExpressionManager<TExpr>(snapshot.config)
+        em.loadInitialExpressions(
+            snapshot.expressions as unknown as TExpressionInput<TExpr>[]
+        )
+        return em
     }
 }

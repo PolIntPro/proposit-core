@@ -16,11 +16,7 @@ import type {
     TCoreValidationIssue,
     TCoreValidationResult,
 } from "../types/evaluation.js"
-import type {
-    TCoreChangeset,
-    TCoreEntityChanges,
-    TCoreMutationResult,
-} from "../types/mutation.js"
+import type { TCoreMutationResult } from "../types/mutation.js"
 import {
     buildDirectionalVacuity,
     kleeneAnd,
@@ -32,26 +28,35 @@ import {
     makeValidationResult,
 } from "./evaluation/shared.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
-import type { TCorePositionConfig } from "../utils/position.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
-import { computeHash, entityChecksum } from "./checksum.js"
+import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import type {
     TExpressionInput,
+    TExpressionManagerSnapshot,
     TExpressionWithoutPosition,
     TExpressionUpdate,
 } from "./ExpressionManager.js"
 import { ExpressionManager } from "./ExpressionManager.js"
 import { VariableManager } from "./VariableManager.js"
 
-export class PremiseManager<
+export type TPremiseEngineSnapshot<
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> = {
+    premise: TOptionalChecksum<TPremise>
+    expressions: TExpressionManagerSnapshot<TExpr>
+    config?: TLogicEngineOptions
+}
+
+export class PremiseEngine<
     TArg extends TCoreArgument = TCoreArgument,
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
-    private id: string
-    private extras: Record<string, unknown>
+    private premise: TOptionalChecksum<TPremise>
     private rootExpressionId: string | undefined
     private variables: VariableManager<TVar>
     private expressions: ExpressionManager<TExpr>
@@ -62,20 +67,19 @@ export class PremiseManager<
     private cachedChecksum: string | undefined
 
     constructor(
-        id: string,
-        argument: TOptionalChecksum<TArg>,
-        variables: VariableManager<TVar>,
-        extras?: Record<string, unknown>,
-        checksumConfig?: TCoreChecksumConfig,
-        positionConfig?: TCorePositionConfig
+        premise: TOptionalChecksum<TPremise>,
+        deps: {
+            argument: TOptionalChecksum<TArg>
+            variables: VariableManager<TVar>
+        },
+        config?: TLogicEngineOptions
     ) {
-        this.id = id
-        this.argument = argument
-        this.extras = extras ?? {}
-        this.checksumConfig = checksumConfig
+        this.premise = { ...premise }
+        this.argument = deps.argument
+        this.checksumConfig = config?.checksumConfig
         this.rootExpressionId = undefined
-        this.variables = variables
-        this.expressions = new ExpressionManager<TExpr>([], positionConfig)
+        this.variables = deps.variables
+        this.expressions = new ExpressionManager<TExpr>(config)
         this.expressionsByVariableId = new DefaultMap(() => new Set())
     }
 
@@ -111,7 +115,7 @@ export class PremiseManager<
         }
 
         // Expressions in the collector already have checksums attached
-        // (from removeExpression's attachChangesetChecksums).
+        // (from ExpressionManager which stores expressions with checksums).
         return {
             result: removed,
             changes: collector.toChangeset(),
@@ -153,7 +157,7 @@ export class PremiseManager<
         if (expression.parentId === null) {
             if (this.rootExpressionId !== undefined) {
                 throw new Error(
-                    `Premise "${this.id}" already has a root expression.`
+                    `Premise "${this.premise.id}" already has a root expression.`
                 )
             }
         } else {
@@ -182,8 +186,8 @@ export class PremiseManager<
 
             this.markDirty()
             return {
-                result: this.attachExpressionChecksum({ ...expression }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -221,7 +225,7 @@ export class PremiseManager<
         if (parentId === null) {
             if (this.rootExpressionId !== undefined) {
                 throw new Error(
-                    `Premise "${this.id}" already has a root expression.`
+                    `Premise "${this.premise.id}" already has a root expression.`
                 )
             }
         } else {
@@ -247,10 +251,9 @@ export class PremiseManager<
             }
 
             this.markDirty()
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -306,10 +309,9 @@ export class PremiseManager<
             }
 
             this.markDirty()
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -338,7 +340,7 @@ export class PremiseManager<
         const existing = this.expressions.getExpression(expressionId)
         if (!existing) {
             throw new Error(
-                `Expression "${expressionId}" not found in premise "${this.id}".`
+                `Expression "${expressionId}" not found in premise "${this.premise.id}".`
             )
         }
 
@@ -380,10 +382,8 @@ export class PremiseManager<
             }
 
             return {
-                result: this.attachExpressionChecksum({
-                    ...updated,
-                }),
-                changes: this.attachChangesetChecksums(changeset),
+                result: updated,
+                changes: changeset,
             }
         } finally {
             this.expressions.setCollector(null)
@@ -446,8 +446,8 @@ export class PremiseManager<
             this.syncRootExpressionId()
             this.markDirty()
             return {
-                result: this.attachExpressionChecksum({ ...snapshot }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: snapshot,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -505,10 +505,9 @@ export class PremiseManager<
             this.syncRootExpressionId()
             this.markDirty()
 
-            const stored = this.expressions.getExpression(expression.id)!
             return {
-                result: this.attachExpressionChecksum({ ...stored }),
-                changes: this.attachChangesetChecksums(collector.toChangeset()),
+                result: this.expressions.getExpression(expression.id)!,
+                changes: collector.toChangeset(),
             }
         } finally {
             this.expressions.setCollector(null)
@@ -520,17 +519,25 @@ export class PremiseManager<
      * premise.
      */
     public getExpression(id: string): TExpr | undefined {
-        const expr = this.expressions.getExpression(id)
-        if (!expr) return undefined
-        return this.attachExpressionChecksum(expr)
+        return this.expressions.getExpression(id)
     }
 
     public getId(): string {
-        return this.id
+        return this.premise.id
     }
 
     public getExtras(): Record<string, unknown> {
-        return { ...this.extras }
+        const {
+            id: _id,
+            argumentId: _argumentId,
+            argumentVersion: _argumentVersion,
+            rootExpressionId: _rootExpressionId,
+            variables: _variables,
+            expressions: _expressions,
+            checksum: _checksum,
+            ...extras
+        } = this.premise as Record<string, unknown>
+        return { ...extras }
     }
 
     public setExtras(
@@ -542,9 +549,28 @@ export class PremiseManager<
         TPremise,
         TArg
     > {
-        this.extras = { ...extras }
+        // Strip old extras and replace with new ones
+        const {
+            id,
+            argumentId,
+            argumentVersion,
+            rootExpressionId,
+            variables,
+            expressions,
+            checksum,
+        } = this.premise as Record<string, unknown>
+        this.premise = {
+            ...extras,
+            id,
+            argumentId,
+            argumentVersion,
+            ...(rootExpressionId !== undefined ? { rootExpressionId } : {}),
+            ...(variables !== undefined ? { variables } : {}),
+            ...(expressions !== undefined ? { expressions } : {}),
+            ...(checksum !== undefined ? { checksum } : {}),
+        } as TOptionalChecksum<TPremise>
         this.markDirty()
-        return { result: { ...this.extras }, changes: {} }
+        return { result: this.getExtras(), changes: {} }
     }
 
     public getRootExpressionId(): string | undefined {
@@ -555,9 +581,7 @@ export class PremiseManager<
         if (this.rootExpressionId === undefined) {
             return undefined
         }
-        const expr = this.expressions.getExpression(this.rootExpressionId)
-        if (!expr) return undefined
-        return this.attachExpressionChecksum(expr)
+        return this.expressions.getExpression(this.rootExpressionId)
     }
 
     /**
@@ -571,27 +595,11 @@ export class PremiseManager<
     }
 
     public getExpressions(): TExpr[] {
-        const fields =
-            this.checksumConfig?.expressionFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionFields!
-        return sortedCopyById(
-            this.expressions.toArray().map(
-                (e) =>
-                    ({
-                        ...e,
-                        checksum: entityChecksum(
-                            e as unknown as Record<string, unknown>,
-                            fields
-                        ),
-                    }) as TExpr
-            )
-        )
+        return sortedCopyById(this.expressions.toArray())
     }
 
     public getChildExpressions(parentId: string | null): TExpr[] {
-        return this.expressions
-            .getChildExpressions(parentId)
-            .map((expr) => this.attachExpressionChecksum(expr))
+        return this.expressions.getChildExpressions(parentId)
     }
 
     /**
@@ -622,8 +630,8 @@ export class PremiseManager<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_EMPTY",
-                    message: `Premise "${this.id}" has no expressions to evaluate.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" has no expressions to evaluate.`,
+                    premiseId: this.premise.id,
                 })
             )
             return makeValidationResult(issues)
@@ -633,8 +641,8 @@ export class PremiseManager<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISSING",
-                    message: `Premise "${this.id}" has expressions but no root expression.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" has expressions but no root expression.`,
+                    premiseId: this.premise.id,
                 })
             )
         }
@@ -643,16 +651,16 @@ export class PremiseManager<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISSING",
-                    message: `Premise "${this.id}" does not have rootExpressionId set.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" does not have rootExpressionId set.`,
+                    premiseId: this.premise.id,
                 })
             )
         } else if (!this.expressions.getExpression(this.rootExpressionId)) {
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISMATCH",
-                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
+                    premiseId: this.premise.id,
                     expressionId: this.rootExpressionId,
                 })
             )
@@ -660,8 +668,8 @@ export class PremiseManager<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISMATCH",
-                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
+                    premiseId: this.premise.id,
                     expressionId: this.rootExpressionId,
                 })
             )
@@ -676,7 +684,7 @@ export class PremiseManager<
                     makeErrorIssue({
                         code: "EXPR_VARIABLE_UNDECLARED",
                         message: `Expression "${expr.id}" references undeclared variable "${expr.variableId}".`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                         variableId: expr.variableId,
                     })
@@ -695,7 +703,7 @@ export class PremiseManager<
                         makeErrorIssue({
                             code: "EXPR_CHILD_COUNT_INVALID",
                             message: `Formula expression "${expr.id}" must have exactly 1 child; found ${children.length}.`,
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             expressionId: expr.id,
                         })
                     )
@@ -708,7 +716,7 @@ export class PremiseManager<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (not) must have exactly 1 child; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -722,7 +730,7 @@ export class PremiseManager<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (${expr.operator}) must have exactly 2 children; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -736,7 +744,7 @@ export class PremiseManager<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (${expr.operator}) must have at least 2 children; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -751,7 +759,7 @@ export class PremiseManager<
                         makeErrorIssue({
                             code: "EXPR_BINARY_POSITIONS_INVALID",
                             message: `Operator "${expr.id}" (${expr.operator}) must have children at positions 0 and 1.`,
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             expressionId: expr.id,
                         })
                     )
@@ -783,7 +791,7 @@ export class PremiseManager<
         const validation = this.validateEvaluability()
         if (!validation.ok) {
             throw new Error(
-                `Premise "${this.id}" is not evaluable: ${validation.issues
+                `Premise "${this.premise.id}" is not evaluable: ${validation.issues
                     .map((issue) => issue.code)
                     .join(", ")}`
             )
@@ -811,7 +819,7 @@ export class PremiseManager<
             )
             if (unknownKeys.length > 0) {
                 throw new Error(
-                    `Assignment contains unknown variable IDs for premise "${this.id}": ${unknownKeys.join(", ")}`
+                    `Assignment contains unknown variable IDs for premise "${this.premise.id}": ${unknownKeys.join(", ")}`
                 )
             }
         }
@@ -911,7 +919,7 @@ export class PremiseManager<
                     if (root.operator === "implies") {
                         inferenceDiagnostic = {
                             kind: "implies",
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             rootExpressionId,
                             leftValue,
                             rightValue,
@@ -933,7 +941,7 @@ export class PremiseManager<
                         )
                         inferenceDiagnostic = {
                             kind: "iff",
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             rootExpressionId,
                             leftValue,
                             rightValue,
@@ -952,7 +960,7 @@ export class PremiseManager<
         }
 
         return {
-            premiseId: this.id,
+            premiseId: this.premise.id,
             premiseType: this.isInference() ? "inference" : "constraint",
             rootExpressionId,
             rootValue,
@@ -990,27 +998,16 @@ export class PremiseManager<
     }
 
     /**
-     * Returns a serialisable snapshot of this premise conforming to
-     * `TCorePremise`.  `variables` contains only the variables that are actually
-     * referenced by expressions in this premise.
+     * Returns a serializable TPremise representation of this premise.
+     * Builds the premise data from the snapshot, including expressions,
+     * referenced variable IDs, and checksum.
      */
-    public toData(): TPremise {
-        const expressions = this.getExpressions()
-
-        const referencedVariableIds = new Set<string>()
-        for (const expr of expressions) {
-            if (expr.type === "variable") {
-                referencedVariableIds.add(expr.variableId)
-            }
-        }
-        const variables = Array.from(referencedVariableIds).sort()
-
+    public toPremiseData(): TPremise {
+        const snap = this.snapshot()
         return {
-            ...this.extras,
-            id: this.id,
-            rootExpressionId: this.rootExpressionId,
-            variables,
-            expressions,
+            ...snap.premise,
+            expressions: snap.expressions.expressions,
+            variables: [...this.getReferencedVariableIds()].sort(),
             checksum: this.checksum(),
         } as TPremise
     }
@@ -1031,104 +1028,27 @@ export class PremiseManager<
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private attachExpressionChecksum(expr: TExpressionInput<TExpr>): TExpr {
-        const fields =
-            this.checksumConfig?.expressionFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionFields!
-        return {
-            ...expr,
-            checksum: entityChecksum(
-                expr as unknown as Record<string, unknown>,
-                fields
-            ),
-        } as TExpr
-    }
-
-    private attachVariableChecksum(v: Omit<TVar, "checksum"> | TVar): TVar {
-        const fields =
-            this.checksumConfig?.variableFields ??
-            DEFAULT_CHECKSUM_CONFIG.variableFields!
-        return {
-            ...v,
-            checksum: entityChecksum(
-                v as unknown as Record<string, unknown>,
-                fields
-            ),
-        } as TVar
-    }
-
-    private attachChangesetChecksums(
-        changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>
-    ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
-        const result = {
-            ...changes,
-        } as TCoreChangeset<TExpr, TVar, TPremise, TArg>
-        if (changes.expressions) {
-            result.expressions = {
-                added: changes.expressions.added.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-                modified: changes.expressions.modified.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-                removed: changes.expressions.removed.map((e) =>
-                    this.attachExpressionChecksum(
-                        e as unknown as TExpressionInput<TExpr>
-                    )
-                ),
-            }
-        }
-        // Variables in the changeset should already have checksums
-        // (from ArgumentEngine.addVariable), but cast for type safety
-        if (changes.variables) {
-            result.variables =
-                changes.variables as unknown as TCoreEntityChanges<TVar>
-        }
-        return result
-    }
-
     private computeChecksum(): string {
-        const config = this.checksumConfig
-        const parts: string[] = []
+        const checksumMap: Record<string, string> = {}
 
-        // Premise metadata
-        parts.push(
-            entityChecksum(
-                {
-                    id: this.id,
-                    rootExpressionId: this.rootExpressionId,
-                } as Record<string, unknown>,
-                config?.premiseFields ?? DEFAULT_CHECKSUM_CONFIG.premiseFields!
-            )
+        // Premise's own entity checksum
+        const premiseFields =
+            this.checksumConfig?.premiseFields ??
+            DEFAULT_CHECKSUM_CONFIG.premiseFields!
+        checksumMap[this.premise.id] = entityChecksum(
+            {
+                id: this.premise.id,
+                rootExpressionId: this.rootExpressionId,
+            } as Record<string, unknown>,
+            premiseFields
         )
 
-        // Variable checksums (sorted by ID for determinism)
-        for (const v of this.getVariables()) {
-            parts.push(
-                entityChecksum(
-                    v as unknown as Record<string, unknown>,
-                    config?.variableFields ??
-                        DEFAULT_CHECKSUM_CONFIG.variableFields!
-                )
-            )
+        // All owned expression checksums
+        for (const expr of this.expressions.toArray()) {
+            checksumMap[expr.id] = expr.checksum
         }
 
-        // Expression checksums (sorted by ID for determinism)
-        for (const e of this.getExpressions()) {
-            parts.push(
-                entityChecksum(
-                    e as unknown as Record<string, unknown>,
-                    config?.expressionFields ??
-                        DEFAULT_CHECKSUM_CONFIG.expressionFields!
-                )
-            )
-        }
-
-        return computeHash(parts.join(":"))
+        return computeHash(canonicalSerialize(checksumMap))
     }
 
     /** Invalidate the cached checksum so the next call recomputes it. */
@@ -1145,8 +1065,8 @@ export class PremiseManager<
         this.rootExpressionId = roots[0]?.id
     }
 
-    private collectSubtree(rootId: string): TExpressionInput<TExpr>[] {
-        const result: TExpressionInput<TExpr>[] = []
+    private collectSubtree(rootId: string): TExpr[] {
+        const result: TExpr[] = []
         const stack = [rootId]
         while (stack.length > 0) {
             const id = stack.pop()!
@@ -1230,6 +1150,60 @@ export class PremiseManager<
                 return "↔"
             case "not":
                 return "¬"
+        }
+    }
+
+    /** Returns a serializable snapshot of the premise's owned state. */
+    public snapshot(): TPremiseEngineSnapshot<TPremise, TExpr> {
+        const exprSnapshot = this.expressions.snapshot()
+        return {
+            premise: {
+                ...this.premise,
+                rootExpressionId: this.rootExpressionId,
+            } as TOptionalChecksum<TPremise>,
+            expressions: exprSnapshot,
+            config: {
+                checksumConfig: this.checksumConfig,
+                positionConfig: exprSnapshot.config?.positionConfig,
+            },
+        }
+    }
+
+    /** Creates a new PremiseEngine from a previously captured snapshot. */
+    public static fromSnapshot<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression =
+            TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(
+        snapshot: TPremiseEngineSnapshot<TPremise, TExpr>,
+        argument: TOptionalChecksum<TArg>,
+        variables: VariableManager<TVar>
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
+        const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+            snapshot.premise,
+            { argument, variables },
+            snapshot.config
+        )
+        // Restore expressions from the snapshot
+        pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
+            snapshot.expressions
+        )
+        // Restore rootExpressionId from premise data
+        pe.rootExpressionId = (snapshot.premise as Record<string, unknown>)
+            .rootExpressionId as string | undefined
+        // Rebuild the expressionsByVariableId index
+        pe.rebuildVariableIndex()
+        return pe
+    }
+
+    private rebuildVariableIndex(): void {
+        this.expressionsByVariableId = new DefaultMap(() => new Set())
+        for (const expr of this.expressions.toArray()) {
+            if (expr.type === "variable") {
+                this.expressionsByVariableId.get(expr.variableId).add(expr.id)
+            }
         }
     }
 }
