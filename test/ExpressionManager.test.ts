@@ -5156,7 +5156,7 @@ describe("checksum utilities", () => {
             expect(before).not.toBe(after)
         })
 
-        it("checksum changes when a variable is added", () => {
+        it("premise checksum does not change when a variable is added (variables are argument-scoped)", () => {
             const eng = new ArgumentEngine({ id: "arg1", version: 0 })
             const { result: pm } = eng.createPremise()
             const before = pm.checksum()
@@ -5167,7 +5167,7 @@ describe("checksum utilities", () => {
                 argumentVersion: 0,
             })
             const after = pm.checksum()
-            expect(before).not.toBe(after)
+            expect(before).toBe(after)
         })
 
         it("identical premises built the same way produce same checksum", () => {

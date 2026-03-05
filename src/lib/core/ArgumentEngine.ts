@@ -26,7 +26,7 @@ import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./ChangeCollector.js"
-import { computeHash, entityChecksum } from "./checksum.js"
+import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import {
     kleeneAnd,
     kleeneNot,
@@ -415,31 +415,31 @@ export class ArgumentEngine<
 
     private computeChecksum(): string {
         const config = this.checksumConfig
-        const parts: string[] = []
+        const checksumMap: Record<string, string> = {}
 
-        // Argument metadata
-        parts.push(
-            entityChecksum(
-                this.argument as unknown as Record<string, unknown>,
-                config?.argumentFields ??
-                    DEFAULT_CHECKSUM_CONFIG.argumentFields!
-            )
+        // Argument entity checksum
+        checksumMap[this.argument.id as string] = entityChecksum(
+            this.argument as unknown as Record<string, unknown>,
+            config?.argumentFields ?? DEFAULT_CHECKSUM_CONFIG.argumentFields!
         )
 
-        // Role state
-        parts.push(
-            entityChecksum(
-                this.getRoleState() as unknown as Record<string, unknown>,
-                config?.roleFields ?? DEFAULT_CHECKSUM_CONFIG.roleFields!
-            )
+        // Role state checksum (use fixed key since roles have no ID)
+        checksumMap["__roles__"] = entityChecksum(
+            this.getRoleState() as unknown as Record<string, unknown>,
+            config?.roleFields ?? DEFAULT_CHECKSUM_CONFIG.roleFields!
         )
 
-        // Premise checksums (sorted by ID for determinism)
-        for (const pm of this.listPremises()) {
-            parts.push(pm.checksum())
+        // Variable checksums
+        for (const v of this.variables.toArray()) {
+            checksumMap[v.id] = v.checksum
         }
 
-        return computeHash(parts.join(":"))
+        // Premise checksums (cumulative, from each PremiseEngine)
+        for (const pe of this.listPremises()) {
+            checksumMap[pe.getId()] = pe.checksum()
+        }
+
+        return computeHash(canonicalSerialize(checksumMap))
     }
 
     private markDirty(): void {

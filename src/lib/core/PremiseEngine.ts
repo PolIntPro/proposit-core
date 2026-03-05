@@ -31,7 +31,7 @@ import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
-import { computeHash, entityChecksum } from "./checksum.js"
+import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import type {
     TExpressionInput,
     TExpressionWithoutPosition,
@@ -1032,43 +1032,26 @@ export class PremiseEngine<
     // -------------------------------------------------------------------------
 
     private computeChecksum(): string {
-        const config = this.checksumConfig
-        const parts: string[] = []
+        const checksumMap: Record<string, string> = {}
 
-        // Premise metadata
-        parts.push(
-            entityChecksum(
-                {
-                    id: this.premise.id,
-                    rootExpressionId: this.rootExpressionId,
-                } as Record<string, unknown>,
-                config?.premiseFields ?? DEFAULT_CHECKSUM_CONFIG.premiseFields!
-            )
+        // Premise's own entity checksum
+        const premiseFields =
+            this.checksumConfig?.premiseFields ??
+            DEFAULT_CHECKSUM_CONFIG.premiseFields!
+        checksumMap[this.premise.id] = entityChecksum(
+            {
+                id: this.premise.id,
+                rootExpressionId: this.rootExpressionId,
+            } as Record<string, unknown>,
+            premiseFields
         )
 
-        // Variable checksums (sorted by ID for determinism)
-        for (const v of this.getVariables()) {
-            parts.push(
-                entityChecksum(
-                    v as unknown as Record<string, unknown>,
-                    config?.variableFields ??
-                        DEFAULT_CHECKSUM_CONFIG.variableFields!
-                )
-            )
+        // All owned expression checksums
+        for (const expr of this.expressions.toArray()) {
+            checksumMap[expr.id] = expr.checksum
         }
 
-        // Expression checksums (sorted by ID for determinism)
-        for (const e of this.getExpressions()) {
-            parts.push(
-                entityChecksum(
-                    e as unknown as Record<string, unknown>,
-                    config?.expressionFields ??
-                        DEFAULT_CHECKSUM_CONFIG.expressionFields!
-                )
-            )
-        }
-
-        return computeHash(parts.join(":"))
+        return computeHash(canonicalSerialize(checksumMap))
     }
 
     /** Invalidate the cached checksum so the next call recomputes it. */
