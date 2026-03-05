@@ -21,6 +21,7 @@ import type {
     TCoreValidityCheckResult,
 } from "../types/evaluation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
+import type { TCorePositionConfig } from "../utils/position.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
@@ -34,6 +35,11 @@ import {
 } from "./evaluation/shared.js"
 import { PremiseManager } from "./PremiseManager.js"
 import { VariableManager } from "./VariableManager.js"
+
+export type TArgumentEngineOptions = {
+    checksumConfig?: TCoreChecksumConfig
+    positionConfig?: TCorePositionConfig
+}
 
 /**
  * Manages a propositional logic argument composed of premises, variable
@@ -53,18 +59,20 @@ export class ArgumentEngine<
     private variables: VariableManager<TVar>
     private conclusionPremiseId: string | undefined
     private checksumConfig?: TCoreChecksumConfig
+    private positionConfig?: TCorePositionConfig
     private checksumDirty = true
     private cachedChecksum: string | undefined
 
     constructor(
         argument: TOptionalChecksum<TArg>,
-        options?: { checksumConfig?: TCoreChecksumConfig }
+        options?: TArgumentEngineOptions
     ) {
         this.argument = { ...argument }
         this.premises = new Map()
         this.variables = new VariableManager<TVar>()
         this.conclusionPremiseId = undefined
         this.checksumConfig = options?.checksumConfig
+        this.positionConfig = options?.positionConfig
     }
 
     /** Returns a shallow copy of the argument metadata with checksum attached. */
@@ -112,7 +120,8 @@ export class ArgumentEngine<
             this.argument,
             this.variables,
             extras,
-            this.checksumConfig
+            this.checksumConfig,
+            this.positionConfig
         )
         this.premises.set(id, pm)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()

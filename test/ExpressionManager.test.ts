@@ -6778,4 +6778,91 @@ describe("configurable position range", () => {
         const c0 = em.getExpression("c0")!
         expect(c0.position).toBe(midpoint(100, 200)) // midpoint(min, c1.pos)
     })
+
+    it("PremiseManager forwards positionConfig to ExpressionManager", () => {
+        const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "v1",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            checksum: "x",
+        })
+        const pm = new PremiseManager(
+            "p1",
+            ARG,
+            vm,
+            undefined,
+            undefined,
+            config
+        )
+
+        pm.appendExpression(null, {
+            id: "root",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            type: "operator",
+            operator: "and",
+            parentId: null,
+        })
+        const root = pm.getExpression("root")!
+        expect(root.position).toBe(200)
+    })
+
+    it("ArgumentEngine passes positionConfig to premises", () => {
+        const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
+        const eng = new ArgumentEngine(ARG, { positionConfig: config })
+        eng.addVariable(VAR_P)
+        eng.addVariable(VAR_Q)
+        const { result: pm } = eng.createPremise()
+
+        pm.appendExpression(null, {
+            id: "root",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            type: "operator",
+            operator: "and",
+            parentId: null,
+        })
+        const root = pm.getExpression("root")!
+        expect(root.position).toBe(200)
+
+        pm.appendExpression("root", {
+            id: "c1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            type: "variable",
+            variableId: "var-p",
+            parentId: "root",
+        })
+        pm.appendExpression("root", {
+            id: "c2",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            type: "variable",
+            variableId: "var-q",
+            parentId: "root",
+        })
+        const children = pm.getChildExpressions("root")
+        expect(children[0].position).toBe(200)
+        expect(children[1].position).toBe(midpoint(200, 300))
+    })
+
+    it("ArgumentEngine defaults work without positionConfig", () => {
+        const eng = new ArgumentEngine(ARG)
+        eng.addVariable(VAR_P)
+        const { result: pm } = eng.createPremise()
+
+        pm.appendExpression(null, {
+            id: "root",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            type: "variable",
+            variableId: "var-p",
+            parentId: null,
+        })
+        const root = pm.getExpression("root")!
+        expect(root.position).toBe(POSITION_INITIAL)
+    })
 })
