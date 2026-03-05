@@ -7535,3 +7535,231 @@ describe("ArgumentEngine — snapshot, fromSnapshot, and rollback", () => {
         expect(restoredPm.getExpressions()[0].id).toBe("e1")
     })
 })
+
+describe("ArgumentEngine — fromData bulk loading", () => {
+    it("loads an engine from flat arrays", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+            {
+                id: "p2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ] as any[]
+        const expressions = [
+            {
+                id: "e1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p2",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const roles = { conclusionPremiseId: "p2" }
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            roles
+        )
+        expect(engine.getVariables().length).toBe(2)
+        expect(engine.listPremiseIds()).toEqual(["p1", "p2"])
+        expect(engine.getRoleState().conclusionPremiseId).toBe("p2")
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(1)
+    })
+
+    it("handles premises with no expressions", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const engine = ArgumentEngine.fromData(
+            arg,
+            [],
+            [
+                {
+                    id: "p1",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                },
+            ] as any[],
+            [],
+            {}
+        )
+        expect(engine.listPremiseIds()).toEqual(["p1"])
+    })
+
+    it("groups expressions by premiseId correctly", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+            {
+                id: "p2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ] as any[]
+        const expressions = [
+            {
+                id: "e1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p2",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            {}
+        )
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(1)
+        expect(engine.getPremise("p2")?.getExpressions().length).toBe(1)
+    })
+
+    it("loads nested expressions in BFS order", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            },
+        ]
+        const premises = [
+            {
+                id: "p1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                variables: [],
+                expressions: [],
+            },
+        ] as any[]
+        // Expressions out of order — child before parent
+        const expressions = [
+            {
+                id: "e2",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e1",
+                position: 0,
+            },
+            {
+                id: "e3",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e1",
+                position: 1,
+            },
+            {
+                id: "e1",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            variables,
+            premises,
+            expressions,
+            {}
+        )
+        expect(engine.getPremise("p1")?.getExpressions().length).toBe(3)
+    })
+
+    it("infers generic types from parameters", () => {
+        type MyArg = TCoreArgument & { customField: string }
+        const arg: MyArg = {
+            id: "arg-1",
+            version: 1,
+            checksum: "x",
+            customField: "hello",
+        }
+        const engine = ArgumentEngine.fromData<MyArg>(arg, [], [], [], {})
+        const result = engine.getArgument()
+        expect(result.customField).toBe("hello")
+    })
+})

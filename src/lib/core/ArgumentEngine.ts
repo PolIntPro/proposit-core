@@ -32,6 +32,7 @@ import {
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/shared.js"
+import type { TExpressionInput } from "./ExpressionManager.js"
 import { PremiseEngine } from "./PremiseEngine.js"
 import type { TPremiseEngineSnapshot } from "./PremiseEngine.js"
 import { VariableManager } from "./VariableManager.js"
@@ -445,6 +446,99 @@ export class ArgumentEngine<
         }
         // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
         engine.conclusionPremiseId = snapshot.conclusionPremiseId
+        return engine
+    }
+
+    /**
+     * Creates a new ArgumentEngine from flat arrays of entities, as typically
+     * stored in a relational database. Expressions are grouped by their
+     * `premiseId` field and loaded in BFS order (roots first, then children
+     * of already-added nodes) to satisfy parent-existence requirements.
+     */
+    public static fromData<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(
+        argument: TOptionalChecksum<TArg>,
+        variables: TOptionalChecksum<TVar>[],
+        premises: TOptionalChecksum<TPremise>[],
+        expressions: TExpressionInput<TExpr>[],
+        roles: TCoreArgumentRoleState,
+        config?: TLogicEngineOptions
+    ): ArgumentEngine<TArg, TPremise, TExpr, TVar> {
+        const engine = new ArgumentEngine<TArg, TPremise, TExpr, TVar>(
+            argument,
+            config
+        )
+
+        // Register variables
+        for (const v of variables) {
+            engine.addVariable(v)
+        }
+
+        // Group expressions by premiseId
+        const exprsByPremise = new Map<string, TExpressionInput<TExpr>[]>()
+        for (const expr of expressions) {
+            const premiseId = (
+                expr as unknown as { premiseId: string }
+            ).premiseId
+            let group = exprsByPremise.get(premiseId)
+            if (!group) {
+                group = []
+                exprsByPremise.set(premiseId, group)
+            }
+            group.push(expr)
+        }
+
+        // Create premises and load their expressions in BFS order
+        for (const premise of premises) {
+            const {
+                id: _id,
+                argumentId: _argumentId,
+                argumentVersion: _argumentVersion,
+                rootExpressionId: _rootExpressionId,
+                variables: _vars,
+                expressions: _exprs,
+                checksum: _checksum,
+                ...extras
+            } = premise as unknown as Record<string, unknown>
+            const { result: pe } = engine.createPremiseWithId(
+                premise.id,
+                extras
+            )
+
+            // Add expressions in BFS order (roots first, then children)
+            const premiseExprs = exprsByPremise.get(premise.id) ?? []
+            const pending = new Map(premiseExprs.map((e) => [e.id, e]))
+            let progressed = true
+            while (pending.size > 0 && progressed) {
+                progressed = false
+                for (const [eid, expr] of Array.from(pending.entries())) {
+                    if (
+                        expr.parentId !== null &&
+                        !pe.getExpression(expr.parentId)
+                    ) {
+                        continue
+                    }
+                    pe.addExpression(expr)
+                    pending.delete(eid)
+                    progressed = true
+                }
+            }
+            if (pending.size > 0) {
+                throw new Error(
+                    `Could not resolve parent relationships for expressions: ${Array.from(pending.keys()).join(", ")}`
+                )
+            }
+        }
+
+        // Set roles (override auto-assignment)
+        if (roles.conclusionPremiseId !== undefined) {
+            engine.setConclusionPremise(roles.conclusionPremiseId)
+        }
+
         return engine
     }
 
