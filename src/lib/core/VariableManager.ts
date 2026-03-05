@@ -1,4 +1,5 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 
 /**
  * Registry for propositional variables within an argument, shared across
@@ -13,14 +14,12 @@ export class VariableManager<
 > {
     private variables: Map<string, TVar>
     private variableSymbols: Set<string>
+    private config?: TLogicEngineOptions
 
-    constructor(initialVariables: TVar[] = []) {
+    constructor(config?: TLogicEngineOptions) {
         this.variables = new Map()
         this.variableSymbols = new Set()
-
-        for (const variable of initialVariables) {
-            this.addVariable(variable)
-        }
+        this.config = config
     }
 
     /** Returns all registered variables sorted by ID for deterministic output. */

@@ -69,7 +69,10 @@ export class ArgumentEngine<
     ) {
         this.argument = { ...argument }
         this.premises = new Map()
-        this.variables = new VariableManager<TVar>()
+        this.variables = new VariableManager<TVar>({
+            checksumConfig: this.checksumConfig,
+            positionConfig: this.positionConfig,
+        })
         this.conclusionPremiseId = undefined
         this.checksumConfig = options?.checksumConfig
         this.positionConfig = options?.positionConfig

@@ -33,6 +33,7 @@ import {
 } from "./evaluation/shared.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TCorePositionConfig } from "../utils/position.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
 import { computeHash, entityChecksum } from "./checksum.js"
@@ -75,7 +76,10 @@ export class PremiseEngine<
         this.checksumConfig = checksumConfig
         this.rootExpressionId = undefined
         this.variables = variables
-        this.expressions = new ExpressionManager<TExpr>([], positionConfig)
+        this.expressions = new ExpressionManager<TExpr>({
+            checksumConfig,
+            positionConfig,
+        })
         this.expressionsByVariableId = new DefaultMap(() => new Set())
     }
 

@@ -6763,7 +6763,7 @@ describe("configurable position range", () => {
 
     it("ExpressionManager uses custom positionConfig in appendExpression", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
-        const em = new ExpressionManager([], config)
+        const em = new ExpressionManager({ positionConfig: config })
 
         em.appendExpression(null, {
             id: "root",
@@ -6804,7 +6804,7 @@ describe("configurable position range", () => {
 
     it("ExpressionManager uses custom positionConfig in addExpressionRelative before", () => {
         const config: TCorePositionConfig = { min: 100, max: 300, initial: 200 }
-        const em = new ExpressionManager([], config)
+        const em = new ExpressionManager({ positionConfig: config })
 
         em.addExpression({
             id: "root",
@@ -6855,7 +6855,7 @@ describe("configurable position range", () => {
             vm,
             undefined,
             undefined,
-            config
+            config,
         )
 
         pm.appendExpression(null, {

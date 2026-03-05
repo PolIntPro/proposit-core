@@ -90,12 +90,10 @@ export function registerPremiseCommands(
 
                     // Hydrate a temporary PremiseEngine for display string
                     const { id: _id, ...premiseExtras } = meta
-                    const vm = new VariableManager(
-                        allVariables.map((v) => ({
-                            ...v,
-                            argumentVersion: version,
-                        }))
-                    )
+                    const vm = new VariableManager()
+                    for (const v of allVariables) {
+                        vm.addVariable({ ...v, argumentVersion: version })
+                    }
                     const pm = new PremiseEngine(
                         pid,
                         argument,
@@ -274,12 +272,10 @@ export function registerPremiseCommands(
             ])
 
             const { id: _id, ...renderPremiseExtras } = meta
-            const renderVm = new VariableManager(
-                allVariables.map((v) => ({
-                    ...v,
-                    argumentVersion: version,
-                }))
-            )
+            const renderVm = new VariableManager()
+            for (const v of allVariables) {
+                renderVm.addVariable({ ...v, argumentVersion: version })
+            }
             const pm = new PremiseEngine(
                 premiseId,
                 argument,

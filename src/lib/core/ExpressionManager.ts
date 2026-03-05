@@ -9,6 +9,7 @@ import {
     type TCorePositionConfig,
     midpoint,
 } from "../utils/position.js"
+import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 
 // Distribute Omit across the union to preserve discriminated-union narrowing.
 export type TExpressionInput<
@@ -59,22 +60,19 @@ export class ExpressionManager<
     private childExpressionIdsByParentId: Map<string | null, Set<string>>
     private childPositionsByParentId: Map<string | null, Set<number>>
     private positionConfig: TCorePositionConfig
+    private config?: TLogicEngineOptions
     private collector: ChangeCollector | null = null
 
     setCollector(collector: ChangeCollector | null): void {
         this.collector = collector
     }
 
-    constructor(
-        initialExpressions: TExpressionInput<TExpr>[] = [],
-        positionConfig?: TCorePositionConfig
-    ) {
+    constructor(config?: TLogicEngineOptions) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
         this.childPositionsByParentId = new Map()
-        this.positionConfig = positionConfig ?? DEFAULT_POSITION_CONFIG
-
-        this.loadInitialExpressions(initialExpressions)
+        this.positionConfig = config?.positionConfig ?? DEFAULT_POSITION_CONFIG
+        this.config = config
     }
 
     /** Returns all expressions sorted by ID for deterministic output. */
