@@ -142,18 +142,21 @@ function diffEntitySet<T extends { id: string }>(
     return { added, removed, modified }
 }
 
-function diffPremiseSet(
-    beforePremises: TCorePremise[],
-    afterPremises: TCorePremise[],
-    comparePremise: TCoreFieldComparator<TCorePremise>,
-    compareExpression: TCoreFieldComparator<TCorePropositionalExpression>
-): TCorePremiseSetDiff {
+function diffPremiseSet<
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+>(
+    beforePremises: TPremise[],
+    afterPremises: TPremise[],
+    comparePremise: TCoreFieldComparator<TPremise>,
+    compareExpression: TCoreFieldComparator<TExpr>
+): TCorePremiseSetDiff<TPremise, TExpr> {
     const beforeById = new Map(beforePremises.map((p) => [p.id, p]))
     const afterById = new Map(afterPremises.map((p) => [p.id, p]))
 
-    const added: TCorePremise[] = []
-    const removed: TCorePremise[] = []
-    const modified: TCorePremiseDiff[] = []
+    const added: TPremise[] = []
+    const removed: TPremise[] = []
+    const modified: TCorePremiseDiff<TPremise, TExpr>[] = []
 
     for (const [id, beforePremise] of beforeById) {
         const afterPremise = afterById.get(id)
@@ -163,8 +166,8 @@ function diffPremiseSet(
         }
         const premiseChanges = comparePremise(beforePremise, afterPremise)
         const expressionsDiff = diffEntitySet(
-            beforePremise.expressions,
-            afterPremise.expressions,
+            beforePremise.expressions as TExpr[],
+            afterPremise.expressions as TExpr[],
             compareExpression
         )
         const hasExpressionChanges =
@@ -199,11 +202,14 @@ function diffRoles(
     }
 }
 
-function collectVariables(
-    engine: ArgumentEngine
-): TCorePropositionalVariable[] {
+function collectVariables<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+>(engine: ArgumentEngine<TArg, TPremise, TExpr, TVar>): TVar[] {
     const seen = new Set<string>()
-    const vars: TCorePropositionalVariable[] = []
+    const vars: TVar[] = []
     for (const pm of engine.listPremises()) {
         for (const v of pm.getVariables()) {
             if (!seen.has(v.id)) {
@@ -226,25 +232,42 @@ function collectVariables(
  * diffs), and role assignments. Uses pluggable comparators that default to
  * the `defaultCompare*` functions.
  */
-export function diffArguments(
-    engineA: ArgumentEngine,
-    engineB: ArgumentEngine,
-    options?: TCoreDiffOptions
-): TCoreArgumentDiff {
-    const dataA = engineA.toData()
-    const dataB = engineB.toData()
+export function diffArguments<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+>(
+    engineA: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
+    engineB: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
+    options?: TCoreDiffOptions<TArg, TVar, TPremise, TExpr>
+): TCoreArgumentDiff<TArg, TVar, TPremise, TExpr> {
+    const argA = engineA.getArgument()
+    const argB = engineB.getArgument()
+    const premisesA = engineA.listPremises().map((pm) => pm.toData())
+    const premisesB = engineB.listPremises().map((pm) => pm.toData())
+    const rolesA = engineA.getRoleState()
+    const rolesB = engineB.getRoleState()
 
-    const compareArg = options?.compareArgument ?? defaultCompareArgument
-    const compareVar = options?.compareVariable ?? defaultCompareVariable
-    const comparePrem = options?.comparePremise ?? defaultComparePremise
-    const compareExpr = options?.compareExpression ?? defaultCompareExpression
+    const compareArg =
+        options?.compareArgument ??
+        (defaultCompareArgument as TCoreFieldComparator<TArg>)
+    const compareVar =
+        options?.compareVariable ??
+        (defaultCompareVariable as TCoreFieldComparator<TVar>)
+    const comparePrem =
+        options?.comparePremise ??
+        (defaultComparePremise as TCoreFieldComparator<TPremise>)
+    const compareExpr =
+        options?.compareExpression ??
+        (defaultCompareExpression as TCoreFieldComparator<TExpr>)
 
-    const argumentChanges = compareArg(dataA.argument, dataB.argument)
+    const argumentChanges = compareArg(argA, argB)
 
     return {
         argument: {
-            before: dataA.argument,
-            after: dataB.argument,
+            before: argA,
+            after: argB,
             changes: argumentChanges,
         },
         variables: diffEntitySet(
@@ -253,14 +276,14 @@ export function diffArguments(
             compareVar
         ),
         premises: diffPremiseSet(
-            dataA.premises,
-            dataB.premises,
+            premisesA,
+            premisesB,
             comparePrem,
             compareExpr
         ),
         roles: diffRoles(
-            dataA.roles.conclusionPremiseId,
-            dataB.roles.conclusionPremiseId
+            rolesA.conclusionPremiseId,
+            rolesB.conclusionPremiseId
         ),
     }
 }

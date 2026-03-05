@@ -27,14 +27,20 @@ export interface TCoreEntitySetDiff<T extends { id: string }> {
 }
 
 /** Premise diff includes nested expression diffs. */
-export interface TCorePremiseDiff extends TCoreEntityFieldDiff<TCorePremise> {
-    expressions: TCoreEntitySetDiff<TCorePropositionalExpression>
+export interface TCorePremiseDiff<
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> extends TCoreEntityFieldDiff<TPremise> {
+    expressions: TCoreEntitySetDiff<TExpr>
 }
 
-export interface TCorePremiseSetDiff {
-    added: TCorePremise[]
-    removed: TCorePremise[]
-    modified: TCorePremiseDiff[]
+export interface TCorePremiseSetDiff<
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> {
+    added: TPremise[]
+    removed: TPremise[]
+    modified: TCorePremiseDiff<TPremise, TExpr>[]
 }
 
 /** Role changes between two argument versions. */
@@ -43,10 +49,15 @@ export interface TCoreRoleDiff {
 }
 
 /** Top-level diff result from `diffArguments`. */
-export interface TCoreArgumentDiff {
-    argument: TCoreEntityFieldDiff<TCoreArgument>
-    variables: TCoreEntitySetDiff<TCorePropositionalVariable>
-    premises: TCorePremiseSetDiff
+export interface TCoreArgumentDiff<
+    TArg extends TCoreArgument = TCoreArgument,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> {
+    argument: TCoreEntityFieldDiff<TArg>
+    variables: TCoreEntitySetDiff<TVar>
+    premises: TCorePremiseSetDiff<TPremise, TExpr>
     roles: TCoreRoleDiff
 }
 
@@ -57,9 +68,14 @@ export type TCoreFieldComparator<T> = (
 ) => TCoreFieldChange[]
 
 /** Per-entity comparator overrides for `diffArguments`. */
-export interface TCoreDiffOptions {
-    compareArgument?: TCoreFieldComparator<TCoreArgument>
-    compareVariable?: TCoreFieldComparator<TCorePropositionalVariable>
-    comparePremise?: TCoreFieldComparator<TCorePremise>
-    compareExpression?: TCoreFieldComparator<TCorePropositionalExpression>
+export interface TCoreDiffOptions<
+    TArg extends TCoreArgument = TCoreArgument,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+> {
+    compareArgument?: TCoreFieldComparator<TArg>
+    compareVariable?: TCoreFieldComparator<TVar>
+    comparePremise?: TCoreFieldComparator<TPremise>
+    compareExpression?: TCoreFieldComparator<TExpr>
 }

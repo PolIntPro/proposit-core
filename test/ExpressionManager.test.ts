@@ -6645,3 +6645,25 @@ describe("ArgumentEngine — generic type parameters", () => {
         expect(typeof result.checksum).toBe("string")
     })
 })
+
+describe("diffArguments — generic type parameters", () => {
+    it("accepts and returns extended types", () => {
+        type ExtArg = TCoreArgument & { projectId: string }
+        const argA: Omit<ExtArg, "checksum"> = {
+            id: "a1",
+            version: 0,
+            projectId: "proj-1",
+        }
+        const argB: Omit<ExtArg, "checksum"> = {
+            id: "a1",
+            version: 1,
+            projectId: "proj-1",
+        }
+        const engineA = new ArgumentEngine<ExtArg>(argA)
+        const engineB = new ArgumentEngine<ExtArg>(argB)
+
+        const diff = diffArguments(engineA, engineB)
+        expect(diff.argument.before.projectId).toBe("proj-1")
+        expect(diff.argument.after.projectId).toBe("proj-1")
+    })
+})
