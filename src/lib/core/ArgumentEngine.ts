@@ -118,13 +118,19 @@ export class ArgumentEngine<
         if (this.premises.has(id)) {
             throw new Error(`Premise "${id}" already exists.`)
         }
-        const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+        const premiseData = {
+            ...extras,
             id,
-            this.argument,
-            this.variables,
-            extras,
-            this.checksumConfig,
-            this.positionConfig
+            argumentId: this.argument.id,
+            argumentVersion: this.argument.version,
+        } as TOptionalChecksum<TPremise>
+        const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+            premiseData,
+            { argument: this.argument, variables: this.variables },
+            {
+                checksumConfig: this.checksumConfig,
+                positionConfig: this.positionConfig,
+            }
         )
         this.premises.set(id, pm)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()

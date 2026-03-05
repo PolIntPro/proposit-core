@@ -32,7 +32,6 @@ import {
     makeValidationResult,
 } from "./evaluation/shared.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
-import type { TCorePositionConfig } from "../utils/position.js"
 import type { TLogicEngineOptions } from "./ArgumentEngine.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./ChangeCollector.js"
@@ -51,8 +50,7 @@ export class PremiseEngine<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
-    private id: string
-    private extras: Record<string, unknown>
+    private premise: TOptionalChecksum<TPremise>
     private rootExpressionId: string | undefined
     private variables: VariableManager<TVar>
     private expressions: ExpressionManager<TExpr>
@@ -63,23 +61,19 @@ export class PremiseEngine<
     private cachedChecksum: string | undefined
 
     constructor(
-        id: string,
-        argument: TOptionalChecksum<TArg>,
-        variables: VariableManager<TVar>,
-        extras?: Record<string, unknown>,
-        checksumConfig?: TCoreChecksumConfig,
-        positionConfig?: TCorePositionConfig
+        premise: TOptionalChecksum<TPremise>,
+        deps: {
+            argument: TOptionalChecksum<TArg>
+            variables: VariableManager<TVar>
+        },
+        config?: TLogicEngineOptions
     ) {
-        this.id = id
-        this.argument = argument
-        this.extras = extras ?? {}
-        this.checksumConfig = checksumConfig
+        this.premise = { ...premise }
+        this.argument = deps.argument
+        this.checksumConfig = config?.checksumConfig
         this.rootExpressionId = undefined
-        this.variables = variables
-        this.expressions = new ExpressionManager<TExpr>({
-            checksumConfig,
-            positionConfig,
-        })
+        this.variables = deps.variables
+        this.expressions = new ExpressionManager<TExpr>(config)
         this.expressionsByVariableId = new DefaultMap(() => new Set())
     }
 
@@ -157,7 +151,7 @@ export class PremiseEngine<
         if (expression.parentId === null) {
             if (this.rootExpressionId !== undefined) {
                 throw new Error(
-                    `Premise "${this.id}" already has a root expression.`
+                    `Premise "${this.premise.id}" already has a root expression.`
                 )
             }
         } else {
@@ -225,7 +219,7 @@ export class PremiseEngine<
         if (parentId === null) {
             if (this.rootExpressionId !== undefined) {
                 throw new Error(
-                    `Premise "${this.id}" already has a root expression.`
+                    `Premise "${this.premise.id}" already has a root expression.`
                 )
             }
         } else {
@@ -342,7 +336,7 @@ export class PremiseEngine<
         const existing = this.expressions.getExpression(expressionId)
         if (!existing) {
             throw new Error(
-                `Expression "${expressionId}" not found in premise "${this.id}".`
+                `Expression "${expressionId}" not found in premise "${this.premise.id}".`
             )
         }
 
@@ -530,11 +524,21 @@ export class PremiseEngine<
     }
 
     public getId(): string {
-        return this.id
+        return this.premise.id
     }
 
     public getExtras(): Record<string, unknown> {
-        return { ...this.extras }
+        const {
+            id: _id,
+            argumentId: _argumentId,
+            argumentVersion: _argumentVersion,
+            rootExpressionId: _rootExpressionId,
+            variables: _variables,
+            expressions: _expressions,
+            checksum: _checksum,
+            ...extras
+        } = this.premise as Record<string, unknown>
+        return { ...extras }
     }
 
     public setExtras(
@@ -546,9 +550,28 @@ export class PremiseEngine<
         TPremise,
         TArg
     > {
-        this.extras = { ...extras }
+        // Strip old extras and replace with new ones
+        const {
+            id,
+            argumentId,
+            argumentVersion,
+            rootExpressionId,
+            variables,
+            expressions,
+            checksum,
+        } = this.premise as Record<string, unknown>
+        this.premise = {
+            ...extras,
+            id,
+            argumentId,
+            argumentVersion,
+            ...(rootExpressionId !== undefined ? { rootExpressionId } : {}),
+            ...(variables !== undefined ? { variables } : {}),
+            ...(expressions !== undefined ? { expressions } : {}),
+            ...(checksum !== undefined ? { checksum } : {}),
+        } as TOptionalChecksum<TPremise>
         this.markDirty()
-        return { result: { ...this.extras }, changes: {} }
+        return { result: this.getExtras(), changes: {} }
     }
 
     public getRootExpressionId(): string | undefined {
@@ -626,8 +649,8 @@ export class PremiseEngine<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_EMPTY",
-                    message: `Premise "${this.id}" has no expressions to evaluate.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" has no expressions to evaluate.`,
+                    premiseId: this.premise.id,
                 })
             )
             return makeValidationResult(issues)
@@ -637,8 +660,8 @@ export class PremiseEngine<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISSING",
-                    message: `Premise "${this.id}" has expressions but no root expression.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" has expressions but no root expression.`,
+                    premiseId: this.premise.id,
                 })
             )
         }
@@ -647,16 +670,16 @@ export class PremiseEngine<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISSING",
-                    message: `Premise "${this.id}" does not have rootExpressionId set.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" does not have rootExpressionId set.`,
+                    premiseId: this.premise.id,
                 })
             )
         } else if (!this.expressions.getExpression(this.rootExpressionId)) {
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISMATCH",
-                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" rootExpressionId "${this.rootExpressionId}" does not exist.`,
+                    premiseId: this.premise.id,
                     expressionId: this.rootExpressionId,
                 })
             )
@@ -664,8 +687,8 @@ export class PremiseEngine<
             issues.push(
                 makeErrorIssue({
                     code: "PREMISE_ROOT_MISMATCH",
-                    message: `Premise "${this.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
-                    premiseId: this.id,
+                    message: `Premise "${this.premise.id}" rootExpressionId "${this.rootExpressionId}" does not match actual root "${roots[0].id}".`,
+                    premiseId: this.premise.id,
                     expressionId: this.rootExpressionId,
                 })
             )
@@ -680,7 +703,7 @@ export class PremiseEngine<
                     makeErrorIssue({
                         code: "EXPR_VARIABLE_UNDECLARED",
                         message: `Expression "${expr.id}" references undeclared variable "${expr.variableId}".`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                         variableId: expr.variableId,
                     })
@@ -699,7 +722,7 @@ export class PremiseEngine<
                         makeErrorIssue({
                             code: "EXPR_CHILD_COUNT_INVALID",
                             message: `Formula expression "${expr.id}" must have exactly 1 child; found ${children.length}.`,
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             expressionId: expr.id,
                         })
                     )
@@ -712,7 +735,7 @@ export class PremiseEngine<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (not) must have exactly 1 child; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -726,7 +749,7 @@ export class PremiseEngine<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (${expr.operator}) must have exactly 2 children; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -740,7 +763,7 @@ export class PremiseEngine<
                     makeErrorIssue({
                         code: "EXPR_CHILD_COUNT_INVALID",
                         message: `Operator "${expr.id}" (${expr.operator}) must have at least 2 children; found ${children.length}.`,
-                        premiseId: this.id,
+                        premiseId: this.premise.id,
                         expressionId: expr.id,
                     })
                 )
@@ -755,7 +778,7 @@ export class PremiseEngine<
                         makeErrorIssue({
                             code: "EXPR_BINARY_POSITIONS_INVALID",
                             message: `Operator "${expr.id}" (${expr.operator}) must have children at positions 0 and 1.`,
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             expressionId: expr.id,
                         })
                     )
@@ -787,7 +810,7 @@ export class PremiseEngine<
         const validation = this.validateEvaluability()
         if (!validation.ok) {
             throw new Error(
-                `Premise "${this.id}" is not evaluable: ${validation.issues
+                `Premise "${this.premise.id}" is not evaluable: ${validation.issues
                     .map((issue) => issue.code)
                     .join(", ")}`
             )
@@ -815,7 +838,7 @@ export class PremiseEngine<
             )
             if (unknownKeys.length > 0) {
                 throw new Error(
-                    `Assignment contains unknown variable IDs for premise "${this.id}": ${unknownKeys.join(", ")}`
+                    `Assignment contains unknown variable IDs for premise "${this.premise.id}": ${unknownKeys.join(", ")}`
                 )
             }
         }
@@ -915,7 +938,7 @@ export class PremiseEngine<
                     if (root.operator === "implies") {
                         inferenceDiagnostic = {
                             kind: "implies",
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             rootExpressionId,
                             leftValue,
                             rightValue,
@@ -937,7 +960,7 @@ export class PremiseEngine<
                         )
                         inferenceDiagnostic = {
                             kind: "iff",
-                            premiseId: this.id,
+                            premiseId: this.premise.id,
                             rootExpressionId,
                             leftValue,
                             rightValue,
@@ -956,7 +979,7 @@ export class PremiseEngine<
         }
 
         return {
-            premiseId: this.id,
+            premiseId: this.premise.id,
             premiseType: this.isInference() ? "inference" : "constraint",
             rootExpressionId,
             rootValue,
@@ -1010,8 +1033,8 @@ export class PremiseEngine<
         const variables = Array.from(referencedVariableIds).sort()
 
         return {
-            ...this.extras,
-            id: this.id,
+            ...this.premise,
+            id: this.premise.id,
             argumentId: this.argument.id,
             argumentVersion: this.argument.version,
             rootExpressionId: this.rootExpressionId,
@@ -1105,7 +1128,7 @@ export class PremiseEngine<
         parts.push(
             entityChecksum(
                 {
-                    id: this.id,
+                    id: this.premise.id,
                     rootExpressionId: this.rootExpressionId,
                 } as Record<string, unknown>,
                 config?.premiseFields ?? DEFAULT_CHECKSUM_CONFIG.premiseFields!

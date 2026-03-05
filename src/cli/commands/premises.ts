@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { Command } from "commander"
 import { PremiseEngine } from "../../lib/core/PremiseEngine.js"
 import { VariableManager } from "../../lib/core/VariableManager.js"
-import type { TCoreArgument } from "../../lib/schemata/index.js"
+import type { TCoreArgument, TCorePremise } from "../../lib/schemata/index.js"
 import {
     errorExit,
     printJson,
@@ -95,10 +95,13 @@ export function registerPremiseCommands(
                         vm.addVariable({ ...v, argumentVersion: version })
                     }
                     const pm = new PremiseEngine(
-                        pid,
-                        argument,
-                        vm,
-                        premiseExtras
+                        {
+                            id: pid,
+                            argumentId: argument.id,
+                            argumentVersion: version,
+                            ...premiseExtras,
+                        } as TCorePremise,
+                        { argument, variables: vm }
                     )
 
                     // Add expressions BFS-order
@@ -277,10 +280,13 @@ export function registerPremiseCommands(
                 renderVm.addVariable({ ...v, argumentVersion: version })
             }
             const pm = new PremiseEngine(
-                premiseId,
-                argument,
-                renderVm,
-                renderPremiseExtras
+                {
+                    id: premiseId,
+                    argumentId: argument.id,
+                    argumentVersion: version,
+                    ...renderPremiseExtras,
+                } as TCorePremise,
+                { argument, variables: renderVm }
             )
 
             const remaining = [...data.expressions]
@@ -288,7 +294,11 @@ export function registerPremiseCommands(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId === null) {
-                    pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
+                    pm.addExpression({
+                        ...expr,
+                        premiseId: premiseId,
+                        argumentVersion: version,
+                    })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                 }

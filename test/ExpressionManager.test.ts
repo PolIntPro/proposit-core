@@ -76,7 +76,11 @@ function makeVar(id: string, symbol: string): TVariableInput {
 function makeVarExpr(
     id: string,
     variableId: string,
-    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
@@ -93,7 +97,11 @@ function makeVarExpr(
 function makeOpExpr(
     id: string,
     operator: "not" | "and" | "or" | "implies" | "iff",
-    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
@@ -109,7 +117,11 @@ function makeOpExpr(
 
 function makeFormulaExpr(
     id: string,
-    opts: { parentId?: string | null; position?: number; premiseId?: string } = {}
+    opts: {
+        parentId?: string | null
+        position?: number
+        premiseId?: string
+    } = {}
 ): TExpressionInput {
     return {
         id,
@@ -143,7 +155,15 @@ function premiseWithVars(): PremiseEngine {
 /** Create a PremiseEngine directly with a deterministic ID (for toData tests). */
 function makePremise(extras?: Record<string, unknown>): PremiseEngine {
     const vm = new VariableManager()
-    return new PremiseEngine("premise-1", ARG, vm, extras)
+    return new PremiseEngine(
+        {
+            id: "premise-1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            ...extras,
+        } as unknown as TCorePremise,
+        { argument: ARG, variables: vm }
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1618,9 +1638,15 @@ describe("PremiseEngine — toDisplayString", () => {
 
 describe("PremiseEngine — toData", () => {
     it("returns correct id and extras", () => {
-        const pm = new PremiseEngine("my-id", ARG, new VariableManager(), {
-            title: "My Premise",
-        })
+        const pm = new PremiseEngine(
+            {
+                id: "my-id",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                title: "My Premise",
+            } as unknown as TCorePremise,
+            { argument: ARG, variables: new VariableManager() }
+        )
         const data = pm.toData()
         expect(data.id).toBe("my-id")
         expect((data as Record<string, unknown>).title).toBe("My Premise")
@@ -4547,7 +4573,7 @@ describe("PremiseEngine — appendExpression and addExpressionRelative", () => {
                 id: "c1",
                 argumentId: ARG.id,
                 argumentVersion: ARG.version,
-            premiseId: "premise-1",
+                premiseId: "premise-1",
                 type: "variable",
                 variableId: "var-p",
                 parentId: null,
@@ -6659,10 +6685,13 @@ describe("PremiseEngine — generic type parameters", () => {
         const arg: TCoreArgument = { id: "a1", version: 0, checksum: "x" }
         const vm = new VariableManager()
         const pm = new PremiseEngine<TCoreArgument, ExtPremise>(
-            "p1",
-            arg,
-            vm,
-            { color: "blue" }
+            {
+                id: "p1",
+                argumentId: arg.id,
+                argumentVersion: arg.version,
+                color: "blue",
+            } as ExtPremise,
+            { argument: arg, variables: vm }
         )
         const data = pm.toData()
         expect(data.color).toBe("blue")
@@ -6850,12 +6879,13 @@ describe("configurable position range", () => {
             checksum: "x",
         })
         const pm = new PremiseEngine(
-            "p1",
-            ARG,
-            vm,
-            undefined,
-            undefined,
-            config,
+            {
+                id: "p1",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+            } as unknown as TCorePremise,
+            { argument: ARG, variables: vm },
+            { positionConfig: config }
         )
 
         pm.appendExpression(null, {
