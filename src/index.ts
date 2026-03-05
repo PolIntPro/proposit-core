@@ -40,5 +40,8 @@ export {
     POSITION_MIN,
     POSITION_MAX,
     POSITION_INITIAL,
+    DEFAULT_POSITION_CONFIG,
     midpoint,
 } from "./lib/utils/position.js"
+export type { TCorePositionConfig } from "./lib/utils/position.js"
+export type { TArgumentEngineOptions } from "./lib/core/ArgumentEngine.js"
