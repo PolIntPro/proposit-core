@@ -353,18 +353,29 @@ $CLI "$ARG" latest variables update "$R" --symbol R
 
 section "11b. diff (cross-argument)"
 
-# Create a second argument to diff against
-ARG2=$($CLI arguments create "Another Rain Chain" "Copy of Rain Chain")
+# Create a second argument with a complex premise: (R ∧ W) → S
+ARG2=$($CLI arguments create "Another Rain Chain" "Variant with compound antecedent")
 R2=$($CLI "$ARG2" latest variables create R)
 W2=$($CLI "$ARG2" latest variables create W)
 S2=$($CLI "$ARG2" latest variables create S)
-P2_1=$($CLI "$ARG2" latest premises create --title "Rain implies wet streets")
+P2_1=$($CLI "$ARG2" latest premises create --title "Rain and wet implies slippery")
+
+# Build: (R ∧ W) → S — manually constructing a complex antecedent
 ROOT2_1=$($CLI "$ARG2" latest expressions create "$P2_1" \
   --type operator --operator implies)
+AND2_1=$($CLI "$ARG2" latest expressions create "$P2_1" \
+  --type operator --operator and \
+  --parent-id "$ROOT2_1" --position 0)
 $CLI "$ARG2" latest expressions create "$P2_1" \
-  --type variable --variable-id "$R2" --parent-id "$ROOT2_1" --position 0
+  --type variable --variable-id "$R2" --parent-id "$AND2_1" --position 0
 $CLI "$ARG2" latest expressions create "$P2_1" \
-  --type variable --variable-id "$W2" --parent-id "$ROOT2_1" --position 1
+  --type variable --variable-id "$W2" --parent-id "$AND2_1" --position 1
+$CLI "$ARG2" latest expressions create "$P2_1" \
+  --type variable --variable-id "$S2" --parent-id "$ROOT2_1" --position 1
+
+echo "ARG2 P2_1 (complex antecedent):"
+$CLI "$ARG2" latest premises render "$P2_1"
+# Expected: ((R ∧ W) → S)
 
 $CLI diff "$ARG" 0 "$ARG2" latest
 
@@ -399,6 +410,51 @@ $CLI "$ARG3" latest render
 $CLI "$ARG3" latest analysis validate-argument
 $CLI "$ARG3" latest analysis check-validity
 
+section "12b. import from YAML — complex formulae"
+
+# Create a YAML file with complex antecedents and consequents
+YAML_COMPLEX="$PROPOSIT_HOME/test-import-complex.yaml"
+cat > "$YAML_COMPLEX" <<'YAML'
+metadata:
+    title: "Weather Hazard Argument"
+    description: "Complex argument with compound antecedents and consequents"
+premises:
+    - metadata:
+          title: "Weather conditions imply wet roads"
+      formula: "((Rain && Wind) || Storm) -> WetRoads"
+    - metadata:
+          title: "Wet roads with traffic issues imply danger"
+      formula: "(WetRoads && (HeavyTraffic || Construction)) -> Danger"
+    - metadata:
+          title: "Severe weather implies reduced visibility"
+      formula: "(Storm && !Daylight) -> (LowVisibility && SlowTraffic)"
+    - metadata:
+          title: "Weather plus traffic implies danger"
+      role: "conclusion"
+      formula: "((Rain && Wind) || Storm) -> Danger"
+YAML
+
+ARG4=$($CLI arguments import "$YAML_COMPLEX")
+echo "Imported ARG4=$ARG4"
+
+$CLI "$ARG4" latest render
+$CLI "$ARG4" latest analysis validate-argument
+
+# Evaluate with an assignment
+$CLI "$ARG4" latest analysis create --default false
+$CLI "$ARG4" latest analysis set Rain true
+$CLI "$ARG4" latest analysis set Wind true
+$CLI "$ARG4" latest analysis set Storm false
+$CLI "$ARG4" latest analysis set WetRoads true
+$CLI "$ARG4" latest analysis set HeavyTraffic true
+$CLI "$ARG4" latest analysis set Construction false
+$CLI "$ARG4" latest analysis set Danger true
+$CLI "$ARG4" latest analysis set Daylight true
+$CLI "$ARG4" latest analysis set LowVisibility false
+$CLI "$ARG4" latest analysis set SlowTraffic false
+$CLI "$ARG4" latest analysis evaluate
+$CLI "$ARG4" latest analysis check-validity
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 13. VARIABLE CASCADE DELETE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -419,6 +475,7 @@ $CLI "$ARG2" latest variables list
 section "14. cleanup"
 $CLI arguments delete "$ARG2" --all --confirm
 $CLI arguments delete "$ARG3" --all --confirm
+$CLI arguments delete "$ARG4" --all --confirm
 
 # Delete ARG: has two versions (published v0 + draft v1)
 # First delete just the latest draft
