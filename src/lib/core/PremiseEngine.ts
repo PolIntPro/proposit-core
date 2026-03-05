@@ -998,29 +998,16 @@ export class PremiseEngine<
     }
 
     /**
-     * Returns a serialisable snapshot of this premise conforming to
-     * `TCorePremise`.  `variables` contains only the variables that are actually
-     * referenced by expressions in this premise.
+     * Returns a serializable TPremise representation of this premise.
+     * Builds the premise data from the snapshot, including expressions,
+     * referenced variable IDs, and checksum.
      */
-    public toData(): TPremise {
-        const expressions = this.getExpressions()
-
-        const referencedVariableIds = new Set<string>()
-        for (const expr of expressions) {
-            if (expr.type === "variable") {
-                referencedVariableIds.add(expr.variableId)
-            }
-        }
-        const variables = Array.from(referencedVariableIds).sort()
-
+    public toPremiseData(): TPremise {
+        const snap = this.snapshot()
         return {
-            ...this.premise,
-            id: this.premise.id,
-            argumentId: this.argument.id,
-            argumentVersion: this.argument.version,
-            rootExpressionId: this.rootExpressionId,
-            variables,
-            expressions,
+            ...snap.premise,
+            expressions: snap.expressions.expressions,
+            variables: [...this.getReferencedVariableIds()].sort(),
             checksum: this.checksum(),
         } as TPremise
     }

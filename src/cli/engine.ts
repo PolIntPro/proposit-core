@@ -75,7 +75,11 @@ export async function hydrateEngine(
         for (let i = remaining.length - 1; i >= 0; i--) {
             const expr = remaining[i]
             if (expr.parentId === null) {
-                pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
+                pm.addExpression({
+                    ...expr,
+                    premiseId: premiseId,
+                    argumentVersion: version,
+                })
                 added.add(expr.id)
                 remaining.splice(i, 1)
             }
@@ -88,7 +92,11 @@ export async function hydrateEngine(
             for (let i = remaining.length - 1; i >= 0; i--) {
                 const expr = remaining[i]
                 if (expr.parentId !== null && added.has(expr.parentId)) {
-                    pm.addExpression({ ...expr, premiseId: premiseId, argumentVersion: version })
+                    pm.addExpression({
+                        ...expr,
+                        premiseId: premiseId,
+                        argumentVersion: version,
+                    })
                     added.add(expr.id)
                     remaining.splice(i, 1)
                     progress = true
@@ -136,7 +144,7 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
 
     await fs.mkdir(getPremisesDir(id, arg.version), { recursive: true })
     for (const pm of engine.listPremises()) {
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         const {
             id: premiseId,
             rootExpressionId: _r,

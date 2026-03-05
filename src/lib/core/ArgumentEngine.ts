@@ -176,7 +176,7 @@ export class ArgumentEngine<
         )
         this.premises.set(id, pm)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedPremise(pm.toData())
+        collector.addedPremise(pm.toPremiseData())
         this.markDirty()
 
         if (this.conclusionPremiseId === undefined) {
@@ -199,7 +199,7 @@ export class ArgumentEngine<
     ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg> {
         const pm = this.premises.get(premiseId)
         if (!pm) return { result: undefined, changes: {} }
-        const data = pm.toData()
+        const data = pm.toPremiseData()
         this.premises.delete(premiseId)
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         collector.removedPremise(data)
