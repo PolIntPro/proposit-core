@@ -150,7 +150,6 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
             argumentId: _a,
             argumentVersion: _av,
             checksum: _c,
-            rootExpressionId: _r,
             ...premiseMeta
         } = data as Record<string, unknown>
         await writePremiseMeta(id, arg.version, {
@@ -158,7 +157,7 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
             ...premiseMeta,
         } as import("./schemata.js").TCliPremiseMeta)
         await writePremiseData(id, arg.version, data.id, {
-            rootExpressionId: data.rootExpressionId,
+            rootExpressionId: pm.getRootExpressionId(),
             variables: [...pm.getReferencedVariableIds()].sort(),
             expressions: pm.getExpressions(),
         })

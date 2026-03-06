@@ -46,6 +46,7 @@ export type TPremiseEngineSnapshot<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
 > = {
     premise: TOptionalChecksum<TPremise>
+    rootExpressionId?: string
     expressions: TExpressionManagerSnapshot<TExpr>
     config?: TLogicEngineOptions
 }
@@ -547,7 +548,6 @@ export class PremiseEngine<
             id: _id,
             argumentId: _argumentId,
             argumentVersion: _argumentVersion,
-            rootExpressionId: _rootExpressionId,
             checksum: _checksum,
             ...extras
         } = this.premise as Record<string, unknown>
@@ -564,23 +564,13 @@ export class PremiseEngine<
         TArg
     > {
         // Strip old extras and replace with new ones
-        const {
-            id,
-            argumentId,
-            argumentVersion,
-            rootExpressionId,
-            variables,
-            expressions,
-            checksum,
-        } = this.premise as Record<string, unknown>
+        const { id, argumentId, argumentVersion, checksum } = this
+            .premise as Record<string, unknown>
         this.premise = {
             ...extras,
             id,
             argumentId,
             argumentVersion,
-            ...(rootExpressionId !== undefined ? { rootExpressionId } : {}),
-            ...(variables !== undefined ? { variables } : {}),
-            ...(expressions !== undefined ? { expressions } : {}),
             ...(checksum !== undefined ? { checksum } : {}),
         } as TOptionalChecksum<TPremise>
         this.markDirty()
@@ -1047,10 +1037,7 @@ export class PremiseEngine<
             this.checksumConfig?.premiseFields ??
             DEFAULT_CHECKSUM_CONFIG.premiseFields!
         checksumMap[this.premise.id] = entityChecksum(
-            {
-                id: this.premise.id,
-                rootExpressionId: this.rootExpressionId,
-            } as Record<string, unknown>,
+            { id: this.premise.id } as Record<string, unknown>,
             premiseFields
         )
 
@@ -1168,10 +1155,8 @@ export class PremiseEngine<
     public snapshot(): TPremiseEngineSnapshot<TPremise, TExpr> {
         const exprSnapshot = this.expressions.snapshot()
         return {
-            premise: {
-                ...this.premise,
-                rootExpressionId: this.rootExpressionId,
-            } as TOptionalChecksum<TPremise>,
+            premise: { ...this.premise },
+            rootExpressionId: this.rootExpressionId,
             expressions: exprSnapshot,
             config: {
                 checksumConfig: this.checksumConfig,
@@ -1202,9 +1187,8 @@ export class PremiseEngine<
         pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
             snapshot.expressions
         )
-        // Restore rootExpressionId from premise data
-        pe.rootExpressionId = (snapshot.premise as Record<string, unknown>)
-            .rootExpressionId as string | undefined
+        // Restore rootExpressionId from snapshot
+        pe.rootExpressionId = snapshot.rootExpressionId
         // Rebuild the expressionsByVariableId index
         pe.rebuildVariableIndex()
         // Populate the shared expression index if provided

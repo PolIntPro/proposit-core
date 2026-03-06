@@ -41,20 +41,12 @@ export function defaultCompareVariable(
     return changes
 }
 
-/** Compares two premises and returns field-level changes for `rootExpressionId`. */
+/** Compares two premises and returns field-level changes. Base premise has no diffable fields beyond identity. */
 export function defaultComparePremise(
-    before: TCorePremise,
-    after: TCorePremise
+    _before: TCorePremise,
+    _after: TCorePremise
 ): TCoreFieldChange[] {
-    const changes: TCoreFieldChange[] = []
-    if (before.rootExpressionId !== after.rootExpressionId) {
-        changes.push({
-            field: "rootExpressionId",
-            before: before.rootExpressionId,
-            after: after.rootExpressionId,
-        })
-    }
-    return changes
+    return []
 }
 
 /** Compares two expressions and returns field-level changes for structural fields (`type`, `parentId`, `position`, `variableId`, `operator`). */

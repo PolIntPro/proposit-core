@@ -637,7 +637,7 @@ Returns the expression tree rendered with standard logical notation (¬ ∧ ∨ 
 
 #### `toPremiseData()` → `TPremise`
 
-Returns a serialisable premise object (`{ id, argumentId, argumentVersion, rootExpressionId, checksum }` plus any extension fields). Does not include expressions or variables — use `getExpressions()` and `getReferencedVariableIds()` for those.
+Returns a serialisable premise object (`{ id, argumentId, argumentVersion, checksum }` plus any extension fields). Does not include `rootExpressionId`, expressions, or variables — use `getRootExpressionId()`, `getExpressions()`, and `getReferencedVariableIds()` for those.
 
 ---
 
@@ -784,7 +784,7 @@ Hierarchical snapshot types for capturing and restoring engine state:
 | ---------------------------- | --------------------------------------------------------------------------------------- |
 | `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                |
 | `TVariableManagerSnapshot`   | `variables`, `config`                                                                   |
-| `TPremiseEngineSnapshot`     | `premise` metadata, `expressions` snapshot, `config`                                    |
+| `TPremiseEngineSnapshot`     | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                |
 | `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `conclusionPremiseId`, `config` |
 
 Each snapshot captures only what the class **owns**. Dependencies (e.g., variables for a premise) are excluded and must be passed separately during restoration via `fromSnapshot()`.

@@ -119,12 +119,6 @@ export const CorePremiseSchema = Type.Object(
         id: UUID,
         argumentId: UUID,
         argumentVersion: Type.Number(),
-        rootExpressionId: Type.Optional(
-            Type.String({
-                description:
-                    "ID of the root expression, if the premise has expressions.",
-            })
-        ),
         checksum: Type.String({
             description: "Premise-level checksum for sync detection.",
         }),

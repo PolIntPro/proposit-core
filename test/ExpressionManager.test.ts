@@ -1117,7 +1117,7 @@ describe("stress test", () => {
     it("removing a premise cascades to all of its terms", () => {
         const { premiseManagers, termIdsByPremise } = buildStress()
         const pm = premiseManagers[0]
-        const rootId = pm.toPremiseData().rootExpressionId!
+        const rootId = pm.getRootExpressionId()!
         const termIds = termIdsByPremise.get(pm)!
 
         expect(pm.removeExpression(rootId, true).result).toMatchObject({
@@ -1131,9 +1131,9 @@ describe("stress test", () => {
     it("removing one premise does not affect a different premise", () => {
         const { premiseManagers, termIdsByPremise } = buildStress()
         const [pm1, pm2] = premiseManagers
-        const root2 = pm2.toPremiseData().rootExpressionId!
+        const root2 = pm2.getRootExpressionId()!
 
-        pm1.removeExpression(pm1.toPremiseData().rootExpressionId!, true)
+        pm1.removeExpression(pm1.getRootExpressionId()!, true)
 
         // Second premise root is still present
         expect(pm2.removeExpression(root2, true).result).toMatchObject({
@@ -1177,11 +1177,11 @@ describe("stress test", () => {
         const { premiseManagers } = buildStress()
 
         for (const pm of [...premiseManagers].reverse()) {
-            pm.removeExpression(pm.toPremiseData().rootExpressionId!, true)
+            pm.removeExpression(pm.getRootExpressionId()!, true)
         }
 
         for (const pm of premiseManagers) {
-            expect(pm.toPremiseData().rootExpressionId).toBeUndefined()
+            expect(pm.getRootExpressionId()).toBeUndefined()
         }
     })
 
@@ -1189,13 +1189,13 @@ describe("stress test", () => {
         const { eng, premiseManagers } = buildStress()
 
         for (const pm of premiseManagers) {
-            pm.removeExpression(pm.toPremiseData().rootExpressionId!, true)
+            pm.removeExpression(pm.getRootExpressionId()!, true)
         }
 
         const { result: newPm } = eng.createPremise({ title: "rebuilt" })
         // Variables are already registered at engine level
         newPm.addExpression(makeOpExpr("new-root", "and"))
-        expect(newPm.toPremiseData().rootExpressionId).toBe("new-root")
+        expect(newPm.getRootExpressionId()).toBe("new-root")
     })
 
     it("all expressions appear in exactly one premise", () => {
@@ -1596,7 +1596,7 @@ describe("PremiseEngine — addExpression / removeExpression / insertExpression"
         // Removing expr-p leaves op-and with 1 child; op-and is collapsed and
         // expr-q is promoted to root.
         pm.removeExpression("expr-p", true)
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-q")
+        expect(pm.getRootExpressionId()).toBe("expr-q")
         expect(pm.toDisplayString()).toBe("Q")
     })
 })
@@ -1661,13 +1661,13 @@ describe("PremiseEngine — toData", () => {
     })
 
     it("rootExpressionId is absent before any expression is added", () => {
-        expect(makePremise().toPremiseData().rootExpressionId).toBeUndefined()
+        expect(makePremise().getRootExpressionId()).toBeUndefined()
     })
 
     it("rootExpressionId is set after adding the root expression", () => {
         const pm = premiseWithVars()
         pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-p")
+        expect(pm.getRootExpressionId()).toBe("expr-p")
     })
 
     it("isConstraint for non-inference roots", () => {
@@ -2268,50 +2268,36 @@ describe("diffArguments", () => {
     })
 
     describe("defaultComparePremise", () => {
-        it("returns empty when rootExpressionId matches", () => {
+        it("returns empty when premises match", () => {
             const before = {
                 id: "p1",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                rootExpressionId: "r1",
-                variables: [] as string[],
-                expressions: [] as TCorePropositionalExpression[],
                 checksum: "x",
             }
             const after = {
                 id: "p1",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                rootExpressionId: "r1",
-                variables: [] as string[],
-                expressions: [] as TCorePropositionalExpression[],
                 checksum: "x",
             }
             expect(defaultComparePremise(before, after)).toEqual([])
         })
 
-        it("detects rootExpressionId change", () => {
+        it("returns empty for premises differing only in extra fields", () => {
             const before = {
                 id: "p1",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                rootExpressionId: "r1",
-                variables: [] as string[],
-                expressions: [] as TCorePropositionalExpression[],
                 checksum: "x",
             }
             const after = {
                 id: "p1",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                rootExpressionId: "r2",
-                variables: [] as string[],
-                expressions: [] as TCorePropositionalExpression[],
-                checksum: "x",
+                checksum: "y",
             }
-            expect(defaultComparePremise(before, after)).toEqual([
-                { field: "rootExpressionId", before: "r1", after: "r2" },
-            ])
+            expect(defaultComparePremise(before, after)).toEqual([])
         })
     })
 
@@ -2525,7 +2511,7 @@ describe("diffArguments", () => {
             expect(diff.premises.removed[0].id).toBe("premise-1")
         })
 
-        it("detects modified premise (rootExpressionId change)", () => {
+        it("detects modified premise via expression-level changes", () => {
             const { engine: engineA } = buildSimpleEngine(ARG)
             const engineB = new ArgumentEngine(ARG)
             engineB.addVariable(makeVar("var-p", "P"))
@@ -2533,7 +2519,7 @@ describe("diffArguments", () => {
             const { result: pm } = engineB.createPremiseWithId("premise-1", {
                 title: "First premise",
             })
-            // Different root expression to trigger a rootExpressionId change
+            // Different root expression ID to trigger expression-level diffs
             pm.addExpression(
                 makeOpExpr("expr-iff", "iff", {
                     parentId: null,
@@ -2556,13 +2542,19 @@ describe("diffArguments", () => {
 
             const diff = diffArguments(engineA, engineB)
             expect(diff.premises.modified).toHaveLength(1)
-            expect(diff.premises.modified[0].changes).toEqual([
-                {
-                    field: "rootExpressionId",
-                    before: "expr-implies",
-                    after: "expr-iff",
-                },
-            ])
+            // No premise-level field changes (rootExpressionId is not a schema field)
+            expect(diff.premises.modified[0].changes).toEqual([])
+            // Expression-level changes: implies removed, iff added
+            expect(diff.premises.modified[0].expressions.removed).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ id: "expr-implies" }),
+                ])
+            )
+            expect(diff.premises.modified[0].expressions.added).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ id: "expr-iff" }),
+                ])
+            )
         })
 
         it("detects modified expressions within a premise", () => {
@@ -3404,7 +3396,7 @@ describe("field preservation — unknown fields survive round-trips", () => {
         const data = pm.toPremiseData()
         expect(data.id).not.toBe("should-be-overridden")
         expect(data.id).toBe(pm.getId())
-        expect(data.rootExpressionId).toBeUndefined()
+        expect(pm.getRootExpressionId()).toBeUndefined()
     })
 })
 
@@ -6388,7 +6380,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove P with deleteSubtree: true — collapse promotes Q to root
         pm.removeExpression("expr-p", true)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-q")
+        expect(pm.getRootExpressionId()).toBe("expr-q")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(1)
         expect(expressions[0].id).toBe("expr-q")
@@ -6414,7 +6406,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove and with deleteSubtree: false — or promoted to root
         pm.removeExpression("op-and", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("op-or")
+        expect(pm.getRootExpressionId()).toBe("op-or")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(3)
         const orExpr = expressions.find((e) => e.id === "op-or")!
@@ -6439,7 +6431,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove not with deleteSubtree: false — P promoted to root
         pm.removeExpression("op-not", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-p")
+        expect(pm.getRootExpressionId()).toBe("expr-p")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(1)
         expect(expressions[0].id).toBe("expr-p")
@@ -6466,7 +6458,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
 
         // Tree is unchanged
         expect(pm.getExpressions()).toHaveLength(3)
-        expect(pm.toPremiseData().rootExpressionId).toBe("op-and")
+        expect(pm.getRootExpressionId()).toBe("op-and")
     })
 
     it("deleteSubtree: false — leaf node with collapse on parent", () => {
@@ -6485,7 +6477,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove leaf P with deleteSubtree: false — collapse promotes Q to root
         pm.removeExpression("expr-p", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-q")
+        expect(pm.getRootExpressionId()).toBe("expr-q")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(1)
         expect(expressions[0].id).toBe("expr-q")
@@ -6514,7 +6506,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove not with deleteSubtree: false — or promoted into not's slot under and
         pm.removeExpression("op-not", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("op-and")
+        expect(pm.getRootExpressionId()).toBe("op-and")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(4) // and, or, P, Q
         const orExpr = expressions.find((e) => e.id === "op-or")!
@@ -6563,7 +6555,7 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove and with deleteSubtree: false — not promoted to root, tree intact as not(P)
         pm.removeExpression("op-and", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("op-not")
+        expect(pm.getRootExpressionId()).toBe("op-not")
         const expressions = pm.getExpressions()
         expect(expressions).toHaveLength(2)
         const notExpr = expressions.find((e) => e.id === "op-not")!
@@ -6585,14 +6577,14 @@ describe("removeExpression — deleteSubtree parameter", () => {
         // Remove formula with deleteSubtree: false — P promoted
         pm.removeExpression("f-1", false)
 
-        expect(pm.toPremiseData().rootExpressionId).toBe("expr-p")
+        expect(pm.getRootExpressionId()).toBe("expr-p")
         expect(pm.getExpressions()).toHaveLength(1)
 
         // Verify variable cascade still works on P
         // (P should still be tracked in expressionsByVariableId)
         pm.deleteExpressionsUsingVariable(VAR_P.id)
         expect(pm.getExpressions()).toHaveLength(0)
-        expect(pm.toPremiseData().rootExpressionId).toBeUndefined()
+        expect(pm.getRootExpressionId()).toBeUndefined()
     })
 })
 
@@ -7314,8 +7306,7 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             vm2
         )
         // The root expression ID should be preserved
-        const data = restored.toPremiseData()
-        expect(data.rootExpressionId).toBe("e1")
+        expect(restored.getRootExpressionId()).toBe("e1")
     })
 
     it("rebuilds expressionsByVariableId index on restore", () => {

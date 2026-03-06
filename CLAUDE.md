@@ -290,7 +290,7 @@ All classes support hierarchical snapshot/restore. Each class snapshots only wha
 
 - `ExpressionManager.snapshot()` → `TExpressionManagerSnapshot` (expressions with checksums, config)
 - `VariableManager.snapshot()` → `TVariableManagerSnapshot` (variables, config)
-- `PremiseEngine.snapshot()` → `TPremiseEngineSnapshot` (premise metadata, expression snapshot, config — excludes argument/variables)
+- `PremiseEngine.snapshot()` → `TPremiseEngineSnapshot` (premise metadata, rootExpressionId, expression snapshot, config — excludes argument/variables)
 - `ArgumentEngine.snapshot()` → `TArgumentEngineSnapshot` (argument, variable snapshot, premise snapshots, conclusionPremiseId, config)
 
 Each class has a `static fromSnapshot()` that reconstructs an instance. `PremiseEngine.fromSnapshot()` accepts argument, `VariableManager`, and an optional `expressionIndex` map as dependencies. `ArgumentEngine.fromSnapshot()` reconstructs all children from the nested snapshots and passes the shared expression index to each `PremiseEngine`.
@@ -301,7 +301,7 @@ Each class has a `static fromSnapshot()` that reconstructs an instance. `Premise
 
 `ArgumentEngine.toDisplayString()` renders the full argument with role labels (`[Conclusion]`, `[Supporting]`, `[Constraint]`).
 
-`PremiseEngine.toPremiseData()` returns a `TPremise` object (premise metadata + checksum). Does not include expressions or variables — use `getExpressions()` and `getReferencedVariableIds()` for those.
+`PremiseEngine.toPremiseData()` returns a `TPremise` object (premise identity + checksum). Does not include `rootExpressionId`, expressions, or variables — use `getRootExpressionId()`, `getExpressions()`, and `getReferencedVariableIds()` for those.
 
 ### Schema additions
 
@@ -373,7 +373,7 @@ Position and input types (in `src/lib/core/ExpressionManager.ts` and `src/lib/ut
 - `TLogicEngineOptions` — `{ checksumConfig?: TCoreChecksumConfig, positionConfig?: TCorePositionConfig }`. Universal config type for all engine/manager classes.
 - `TExpressionManagerSnapshot<TExpr>` — `{ expressions: TExpr[], config? }`. Snapshot of `ExpressionManager`.
 - `TVariableManagerSnapshot<TVar>` — `{ variables: TVar[], config? }`. Snapshot of `VariableManager`.
-- `TPremiseEngineSnapshot<TPremise, TExpr>` — `{ premise, expressions, config? }`. Snapshot of `PremiseEngine` (excludes dependencies).
+- `TPremiseEngineSnapshot<TPremise, TExpr>` — `{ premise, rootExpressionId?, expressions, config? }`. Snapshot of `PremiseEngine` (excludes dependencies).
 - `TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>` — `{ argument, variables, premises, conclusionPremiseId?, config? }`. Full engine snapshot.
 - `POSITION_MIN` / `POSITION_MAX` / `POSITION_INITIAL` — default position range constants (signed int32).
 - `midpoint(a, b)` — overflow-safe midpoint helper (`a + (b - a) / 2`).

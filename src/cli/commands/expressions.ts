@@ -189,7 +189,7 @@ export function registerExpressionCommands(
                 }
 
                 await writePremiseData(argumentId, version, premiseId, {
-                    rootExpressionId: pm.toPremiseData().rootExpressionId,
+                    rootExpressionId: pm.getRootExpressionId(),
                     variables: [...pm.getReferencedVariableIds()].sort(),
                     expressions: pm.getExpressions(),
                 })
@@ -306,7 +306,7 @@ export function registerExpressionCommands(
                 }
 
                 await writePremiseData(argumentId, version, premiseId, {
-                    rootExpressionId: pm.toPremiseData().rootExpressionId,
+                    rootExpressionId: pm.getRootExpressionId(),
                     variables: [...pm.getReferencedVariableIds()].sort(),
                     expressions: pm.getExpressions(),
                 })
@@ -331,7 +331,7 @@ export function registerExpressionCommands(
             if (!removed) errorExit(`Expression "${expressionId}" not found.`)
 
             await writePremiseData(argumentId, version, premiseId, {
-                rootExpressionId: pm.toPremiseData().rootExpressionId,
+                rootExpressionId: pm.getRootExpressionId(),
                 variables: [...pm.getReferencedVariableIds()].sort(),
                 expressions: pm.getExpressions(),
             })
