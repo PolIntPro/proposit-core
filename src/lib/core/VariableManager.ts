@@ -20,12 +20,12 @@ export class VariableManager<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
 > {
     private variables: Map<string, TVar>
-    private variableSymbols: Set<string>
+    private variablesBySymbol: Map<string, string>
     private config?: TLogicEngineOptions
 
     constructor(config?: TLogicEngineOptions) {
         this.variables = new Map()
-        this.variableSymbols = new Set()
+        this.variablesBySymbol = new Map()
         this.config = config
     }
 
@@ -43,7 +43,7 @@ export class VariableManager<
      * @throws If the ID already exists.
      */
     public addVariable(variable: TVar) {
-        if (this.variableSymbols.has(variable.symbol)) {
+        if (this.variablesBySymbol.has(variable.symbol)) {
             throw new Error(
                 `Variable symbol "${variable.symbol}" already exists.`
             )
@@ -53,7 +53,7 @@ export class VariableManager<
         }
 
         this.variables.set(variable.id, variable)
-        this.variableSymbols.add(variable.symbol)
+        this.variablesBySymbol.set(variable.symbol, variable.id)
     }
 
     /**
@@ -67,7 +67,7 @@ export class VariableManager<
         }
 
         this.variables.delete(variableId)
-        this.variableSymbols.delete(variable.symbol)
+        this.variablesBySymbol.delete(variable.symbol)
         return variable
     }
 
@@ -79,6 +79,13 @@ export class VariableManager<
     /** Returns the variable with the given ID, or `undefined` if not found. */
     public getVariable(variableId: string): TVar | undefined {
         return this.variables.get(variableId)
+    }
+
+    /** Returns the variable with the given symbol, or `undefined` if not found. */
+    public getVariableBySymbol(symbol: string): TVar | undefined {
+        const id = this.variablesBySymbol.get(symbol)
+        if (id === undefined) return undefined
+        return this.variables.get(id)
     }
 
     /**
@@ -93,13 +100,13 @@ export class VariableManager<
             throw new Error(`Variable "${variableId}" does not exist.`)
         }
         if (
-            this.variableSymbols.has(newSymbol) &&
+            this.variablesBySymbol.has(newSymbol) &&
             variable.symbol !== newSymbol
         ) {
             throw new Error(`Variable symbol "${newSymbol}" is already in use.`)
         }
-        this.variableSymbols.delete(variable.symbol)
-        this.variableSymbols.add(newSymbol)
+        this.variablesBySymbol.delete(variable.symbol)
+        this.variablesBySymbol.set(newSymbol, variableId)
         this.variables.set(variableId, {
             ...variable,
             symbol: newSymbol,

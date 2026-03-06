@@ -7889,3 +7889,57 @@ describe("ArgumentEngine — toDisplayString", () => {
         expect(display).toContain("[Constraint]")
     })
 })
+
+describe("VariableManager — getVariableBySymbol", () => {
+    const makeVar = (id: string, symbol: string) => ({
+        id,
+        symbol,
+        argumentId: "arg-1",
+        argumentVersion: 0,
+        checksum: "x",
+    })
+
+    it("returns undefined for unknown symbol", () => {
+        const vm = new VariableManager()
+        expect(vm.getVariableBySymbol("P")).toBeUndefined()
+    })
+
+    it("returns the variable matching the symbol", () => {
+        const vm = new VariableManager()
+        const v = makeVar("v1", "P")
+        vm.addVariable(v)
+        expect(vm.getVariableBySymbol("P")).toEqual(v)
+    })
+
+    it("returns undefined after the variable is removed", () => {
+        const vm = new VariableManager()
+        vm.addVariable(makeVar("v1", "P"))
+        vm.removeVariable("v1")
+        expect(vm.getVariableBySymbol("P")).toBeUndefined()
+    })
+
+    it("tracks symbol changes after rename", () => {
+        const vm = new VariableManager()
+        vm.addVariable(makeVar("v1", "P"))
+        vm.renameVariable("v1", "Q")
+        expect(vm.getVariableBySymbol("P")).toBeUndefined()
+        expect(vm.getVariableBySymbol("Q")?.id).toBe("v1")
+    })
+
+    it("tracks symbol changes after updateVariable", () => {
+        const vm = new VariableManager()
+        vm.addVariable(makeVar("v1", "P"))
+        vm.updateVariable("v1", { symbol: "R" })
+        expect(vm.getVariableBySymbol("P")).toBeUndefined()
+        expect(vm.getVariableBySymbol("R")?.id).toBe("v1")
+    })
+
+    it("survives snapshot round-trip", () => {
+        const vm = new VariableManager()
+        vm.addVariable(makeVar("v1", "P"))
+        vm.addVariable(makeVar("v2", "Q"))
+        const restored = VariableManager.fromSnapshot(vm.snapshot())
+        expect(restored.getVariableBySymbol("P")?.id).toBe("v1")
+        expect(restored.getVariableBySymbol("Q")?.id).toBe("v2")
+    })
+})
