@@ -8427,7 +8427,9 @@ describe("ArgumentEngine — lookup methods", () => {
         it("survives fromData round-trip", () => {
             const { engine } = setupEngine()
             const vars = engine.getVariables()
-            const premises = engine.listPremises().map((pe) => pe.toPremiseData())
+            const premises = engine
+                .listPremises()
+                .map((pe) => pe.toPremiseData())
             const expressions = engine.getAllExpressions()
             const roles = engine.getRoleState()
             const restored = ArgumentEngine.fromData(

@@ -13,6 +13,7 @@
 ### Task 1: VariableManager — symbol reverse lookup
 
 **Files:**
+
 - Modify: `src/lib/core/VariableManager.ts`
 - Test: `test/ExpressionManager.test.ts` (new describe block at bottom)
 
@@ -86,51 +87,62 @@ Expected: FAIL — `getVariableBySymbol` does not exist
 In `src/lib/core/VariableManager.ts`:
 
 1. Replace `private variableSymbols: Set<string>` (line 23) with:
-   ```typescript
-   private variablesBySymbol: Map<string, string>
-   ```
+
+    ```typescript
+    private variablesBySymbol: Map<string, string>
+    ```
 
 2. In the constructor (line 27), replace `this.variableSymbols = new Set()` with:
-   ```typescript
-   this.variablesBySymbol = new Map()
-   ```
+
+    ```typescript
+    this.variablesBySymbol = new Map()
+    ```
 
 3. In `addVariable` (line 45), replace `this.variableSymbols.has(variable.symbol)` with:
-   ```typescript
-   this.variablesBySymbol.has(variable.symbol)
-   ```
-   And replace `this.variableSymbols.add(variable.symbol)` with:
-   ```typescript
-   this.variablesBySymbol.set(variable.symbol, variable.id)
-   ```
+
+    ```typescript
+    this.variablesBySymbol.has(variable.symbol)
+    ```
+
+    And replace `this.variableSymbols.add(variable.symbol)` with:
+
+    ```typescript
+    this.variablesBySymbol.set(variable.symbol, variable.id)
+    ```
 
 4. In `removeVariable` (line 63), replace `this.variableSymbols.delete(variable.symbol)` with:
-   ```typescript
-   this.variablesBySymbol.delete(variable.symbol)
-   ```
+
+    ```typescript
+    this.variablesBySymbol.delete(variable.symbol)
+    ```
 
 5. In `renameVariable` (line 90), replace `this.variableSymbols.has(newSymbol)` with:
-   ```typescript
-   this.variablesBySymbol.has(newSymbol)
-   ```
-   Replace `this.variableSymbols.delete(variable.symbol)` with:
-   ```typescript
-   this.variablesBySymbol.delete(variable.symbol)
-   ```
-   Replace `this.variableSymbols.add(newSymbol)` with:
-   ```typescript
-   this.variablesBySymbol.set(newSymbol, variableId)
-   ```
+
+    ```typescript
+    this.variablesBySymbol.has(newSymbol)
+    ```
+
+    Replace `this.variableSymbols.delete(variable.symbol)` with:
+
+    ```typescript
+    this.variablesBySymbol.delete(variable.symbol)
+    ```
+
+    Replace `this.variableSymbols.add(newSymbol)` with:
+
+    ```typescript
+    this.variablesBySymbol.set(newSymbol, variableId)
+    ```
 
 6. Add the new public method after `getVariable`:
-   ```typescript
-   /** Returns the variable with the given symbol, or `undefined` if not found. */
-   public getVariableBySymbol(symbol: string): TVar | undefined {
-       const id = this.variablesBySymbol.get(symbol)
-       if (id === undefined) return undefined
-       return this.variables.get(id)
-   }
-   ```
+    ```typescript
+    /** Returns the variable with the given symbol, or `undefined` if not found. */
+    public getVariableBySymbol(symbol: string): TVar | undefined {
+        const id = this.variablesBySymbol.get(symbol)
+        if (id === undefined) return undefined
+        return this.variables.get(id)
+    }
+    ```
 
 **Step 4: Run test to verify it passes**
 
@@ -154,6 +166,7 @@ git commit -m "Add getVariableBySymbol to VariableManager with symbol→id rever
 ### Task 2: Shared expression index — PremiseEngine plumbing
 
 **Files:**
+
 - Modify: `src/lib/core/PremiseEngine.ts`
 - Test: `test/ExpressionManager.test.ts` (new describe block at bottom)
 
@@ -316,11 +329,13 @@ describe("PremiseEngine — shared expression index", () => {
             premiseId: "p1",
         } as TExpressionInput)
         pe.addExpression(makeExpr("e1", "op1", "p1", { position: 0 }))
-        pe.addExpression(makeExpr("e2", "op1", "p1", {
-            position: 1,
-            id: "e2",
-            variableId: "v2",
-        }))
+        pe.addExpression(
+            makeExpr("e2", "op1", "p1", {
+                position: 1,
+                id: "e2",
+                variableId: "v2",
+            })
+        )
         pe.deleteExpressionsUsingVariable("v1")
         expect(index.has("e1")).toBe(false)
         // e2 and possibly op1 may or may not survive depending on collapse
@@ -338,86 +353,90 @@ Expected: FAIL — PremiseEngine constructor does not accept `expressionIndex`
 In `src/lib/core/PremiseEngine.ts`:
 
 1. Add `expressionIndex` to the private fields (after line 63):
-   ```typescript
-   private expressionIndex?: Map<string, string>
-   ```
+
+    ```typescript
+    private expressionIndex?: Map<string, string>
+    ```
 
 2. Update the `deps` parameter type in the constructor (line 71-74):
-   ```typescript
-   deps: {
-       argument: TOptionalChecksum<TArg>
-       variables: VariableManager<TVar>
-       expressionIndex?: Map<string, string>
-   },
-   ```
+
+    ```typescript
+    deps: {
+        argument: TOptionalChecksum<TArg>
+        variables: VariableManager<TVar>
+        expressionIndex?: Map<string, string>
+    },
+    ```
 
 3. Store it in the constructor body (after line 83):
-   ```typescript
-   this.expressionIndex = deps.expressionIndex
-   ```
+
+    ```typescript
+    this.expressionIndex = deps.expressionIndex
+    ```
 
 4. Add a private helper method to sync the expression index from a changeset:
-   ```typescript
-   private syncExpressionIndex(changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>): void {
-       if (!this.expressionIndex || !changes.expressions) return
-       for (const expr of changes.expressions.added) {
-           this.expressionIndex.set(expr.id, this.premise.id)
-       }
-       for (const expr of changes.expressions.removed) {
-           this.expressionIndex.delete(expr.id)
-       }
-   }
-   ```
 
-   Import `TCoreChangeset` from `../types/mutation.js` (add to existing import).
+    ```typescript
+    private syncExpressionIndex(changes: TCoreChangeset<TExpr, TVar, TPremise, TArg>): void {
+        if (!this.expressionIndex || !changes.expressions) return
+        for (const expr of changes.expressions.added) {
+            this.expressionIndex.set(expr.id, this.premise.id)
+        }
+        for (const expr of changes.expressions.removed) {
+            this.expressionIndex.delete(expr.id)
+        }
+    }
+    ```
+
+    Import `TCoreChangeset` from `../types/mutation.js` (add to existing import).
 
 5. Call `this.syncExpressionIndex(changeset)` before each `return` in these methods, where `changeset` is the result of `collector.toChangeset()`:
-   - `addExpression` (around line 188): add `this.syncExpressionIndex(changes)` before return, using the changeset from `collector.toChangeset()`. Restructure the return to capture the changeset first:
-     ```typescript
-     const changes = collector.toChangeset()
-     this.syncExpressionIndex(changes)
-     return { result: ..., changes }
-     ```
-   - `appendExpression` (same pattern)
-   - `addExpressionRelative` (same pattern)
-   - `updateExpression` (same pattern — note: updateExpression has no added/removed, only modified, so no index change needed, but call for consistency)
-   - `removeExpression` (same pattern)
-   - `insertExpression` (same pattern)
-   - `deleteExpressionsUsingVariable` (same pattern)
+    - `addExpression` (around line 188): add `this.syncExpressionIndex(changes)` before return, using the changeset from `collector.toChangeset()`. Restructure the return to capture the changeset first:
+        ```typescript
+        const changes = collector.toChangeset()
+        this.syncExpressionIndex(changes)
+        return { result: ..., changes }
+        ```
+    - `appendExpression` (same pattern)
+    - `addExpressionRelative` (same pattern)
+    - `updateExpression` (same pattern — note: updateExpression has no added/removed, only modified, so no index change needed, but call for consistency)
+    - `removeExpression` (same pattern)
+    - `insertExpression` (same pattern)
+    - `deleteExpressionsUsingVariable` (same pattern)
 
 6. Update `fromSnapshot` (line 1173) to accept and pass the expression index:
-   ```typescript
-   public static fromSnapshot<
-       TArg extends TCoreArgument = TCoreArgument,
-       TPremise extends TCorePremise = TCorePremise,
-       TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
-       TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-   >(
-       snapshot: TPremiseEngineSnapshot<TPremise, TExpr>,
-       argument: TOptionalChecksum<TArg>,
-       variables: VariableManager<TVar>,
-       expressionIndex?: Map<string, string>
-   ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
-       const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
-           snapshot.premise,
-           { argument, variables, expressionIndex },
-           snapshot.config
-       )
-       pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
-           snapshot.expressions
-       )
-       pe.rootExpressionId = (snapshot.premise as Record<string, unknown>)
-           .rootExpressionId as string | undefined
-       pe.rebuildVariableIndex()
-       // Populate expression index from restored expressions
-       if (expressionIndex) {
-           for (const expr of pe.expressions.toArray()) {
-               expressionIndex.set(expr.id, pe.getId())
-           }
-       }
-       return pe
-   }
-   ```
+    ```typescript
+    public static fromSnapshot<
+        TArg extends TCoreArgument = TCoreArgument,
+        TPremise extends TCorePremise = TCorePremise,
+        TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    >(
+        snapshot: TPremiseEngineSnapshot<TPremise, TExpr>,
+        argument: TOptionalChecksum<TArg>,
+        variables: VariableManager<TVar>,
+        expressionIndex?: Map<string, string>
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
+        const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+            snapshot.premise,
+            { argument, variables, expressionIndex },
+            snapshot.config
+        )
+        pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
+            snapshot.expressions
+        )
+        pe.rootExpressionId = (snapshot.premise as Record<string, unknown>)
+            .rootExpressionId as string | undefined
+        pe.rebuildVariableIndex()
+        // Populate expression index from restored expressions
+        if (expressionIndex) {
+            for (const expr of pe.expressions.toArray()) {
+                expressionIndex.set(expr.id, pe.getId())
+            }
+        }
+        return pe
+    }
+    ```
 
 **Step 4: Run test to verify it passes**
 
@@ -441,6 +460,7 @@ git commit -m "Add shared expression index plumbing to PremiseEngine"
 ### Task 3: ArgumentEngine — wire up expression index and add variable lookups
 
 **Files:**
+
 - Modify: `src/lib/core/ArgumentEngine.ts`
 - Test: `test/ExpressionManager.test.ts` (new describe block at bottom)
 
@@ -683,7 +703,9 @@ describe("ArgumentEngine — lookup methods", () => {
         it("survives fromData round-trip", () => {
             const { engine } = setupEngine()
             const vars = engine.getVariables()
-            const premises = engine.listPremises().map((pe) => pe.toPremiseData())
+            const premises = engine
+                .listPremises()
+                .map((pe) => pe.toPremiseData())
             const expressions = engine.getAllExpressions()
             const roles = engine.getRoleState()
             const restored = ArgumentEngine.fromData(
@@ -729,159 +751,172 @@ Expected: FAIL — methods do not exist
 In `src/lib/core/ArgumentEngine.ts`:
 
 1. Add the shared expression index field (after line 75):
-   ```typescript
-   private expressionIndex: Map<string, string>
-   ```
+
+    ```typescript
+    private expressionIndex: Map<string, string>
+    ```
 
 2. Initialize it in the constructor (after line 86):
-   ```typescript
-   this.expressionIndex = new Map()
-   ```
+
+    ```typescript
+    this.expressionIndex = new Map()
+    ```
 
 3. Pass the index when creating PremiseEngines — update `createPremiseWithId` (line 169):
-   ```typescript
-   const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
-       premiseData,
-       { argument: this.argument, variables: this.variables, expressionIndex: this.expressionIndex },
-       { checksumConfig: this.checksumConfig, positionConfig: this.positionConfig }
-   )
-   ```
+
+    ```typescript
+    const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+        premiseData,
+        {
+            argument: this.argument,
+            variables: this.variables,
+            expressionIndex: this.expressionIndex,
+        },
+        {
+            checksumConfig: this.checksumConfig,
+            positionConfig: this.positionConfig,
+        }
+    )
+    ```
 
 4. In `removePremise` (around line 200), after `this.premises.delete(premiseId)`, clear the expression index entries for the removed premise:
-   ```typescript
-   // Clean up expression index for all expressions in the removed premise
-   for (const expr of pm.getExpressions()) {
-       this.expressionIndex.delete(expr.id)
-   }
-   ```
+
+    ```typescript
+    // Clean up expression index for all expressions in the removed premise
+    for (const expr of pm.getExpressions()) {
+        this.expressionIndex.delete(expr.id)
+    }
+    ```
 
 5. In `fromSnapshot` (line 448), create and pass the expression index:
-   ```typescript
-   // After creating the engine (line 457):
-   // The expressionIndex is already initialized in the constructor.
-   // Pass it when restoring premises:
-   for (const premiseSnap of snapshot.premises) {
-       const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
-           premiseSnap,
-           snapshot.argument,
-           engine.variables,
-           engine.expressionIndex
-       )
-       engine.premises.set(pe.getId(), pe)
-   }
-   ```
+
+    ```typescript
+    // After creating the engine (line 457):
+    // The expressionIndex is already initialized in the constructor.
+    // Pass it when restoring premises:
+    for (const premiseSnap of snapshot.premises) {
+        const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+            premiseSnap,
+            snapshot.argument,
+            engine.variables,
+            engine.expressionIndex
+        )
+        engine.premises.set(pe.getId(), pe)
+    }
+    ```
 
 6. In `fromData` (line 498), the expression index is already initialized in the constructor. Pass it when creating premises. Update the `createPremiseWithId` call — since it already uses `engine.createPremiseWithId`, and that method now passes the index, this should work automatically. But verify that expressions added via `pe.addExpression` go through the PremiseEngine that has the index.
 
 7. In `rollback` (line 578), rebuild the expression index:
-   ```typescript
-   this.expressionIndex = new Map()
-   // Then in the loop where PremiseEngine.fromSnapshot is called, pass this.expressionIndex:
-   for (const premiseSnap of snapshot.premises) {
-       const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
-           premiseSnap,
-           this.argument,
-           this.variables,
-           this.expressionIndex
-       )
-       this.premises.set(pe.getId(), pe)
-   }
-   ```
+
+    ```typescript
+    this.expressionIndex = new Map()
+    // Then in the loop where PremiseEngine.fromSnapshot is called, pass this.expressionIndex:
+    for (const premiseSnap of snapshot.premises) {
+        const pe = PremiseEngine.fromSnapshot<TArg, TPremise, TExpr, TVar>(
+            premiseSnap,
+            this.argument,
+            this.variables,
+            this.expressionIndex
+        )
+        this.premises.set(pe.getId(), pe)
+    }
+    ```
 
 8. Add the new public methods (after `getVariables`, around line 347):
 
-   ```typescript
-   /** Returns the variable with the given ID, or `undefined` if not found. */
-   public getVariable(variableId: string): TVar | undefined {
-       return this.variables.getVariable(variableId)
-   }
+    ```typescript
+    /** Returns the variable with the given ID, or `undefined` if not found. */
+    public getVariable(variableId: string): TVar | undefined {
+        return this.variables.getVariable(variableId)
+    }
 
-   /** Returns `true` if a variable with the given ID exists. */
-   public hasVariable(variableId: string): boolean {
-       return this.variables.hasVariable(variableId)
-   }
+    /** Returns `true` if a variable with the given ID exists. */
+    public hasVariable(variableId: string): boolean {
+        return this.variables.hasVariable(variableId)
+    }
 
-   /** Returns the variable with the given symbol, or `undefined` if not found. */
-   public getVariableBySymbol(symbol: string): TVar | undefined {
-       return this.variables.getVariableBySymbol(symbol)
-   }
+    /** Returns the variable with the given symbol, or `undefined` if not found. */
+    public getVariableBySymbol(symbol: string): TVar | undefined {
+        return this.variables.getVariableBySymbol(symbol)
+    }
 
-   /**
-    * Builds a Map keyed by a caller-supplied function over all variables.
-    * Useful for indexing by extension fields (e.g. statementId).
-    * The caller should cache the result — this is O(n) per call.
-    */
-   public buildVariableIndex<K>(keyFn: (v: TVar) => K): Map<K, TVar> {
-       const map = new Map<K, TVar>()
-       for (const v of this.variables.toArray()) {
-           map.set(keyFn(v), v)
-       }
-       return map
-   }
+    /**
+     * Builds a Map keyed by a caller-supplied function over all variables.
+     * Useful for indexing by extension fields (e.g. statementId).
+     * The caller should cache the result — this is O(n) per call.
+     */
+    public buildVariableIndex<K>(keyFn: (v: TVar) => K): Map<K, TVar> {
+        const map = new Map<K, TVar>()
+        for (const v of this.variables.toArray()) {
+            map.set(keyFn(v), v)
+        }
+        return map
+    }
 
-   /** Returns an expression by ID from any premise, or `undefined` if not found. */
-   public getExpression(expressionId: string): TExpr | undefined {
-       const premiseId = this.expressionIndex.get(expressionId)
-       if (premiseId === undefined) return undefined
-       return this.premises.get(premiseId)?.getExpression(expressionId)
-   }
+    /** Returns an expression by ID from any premise, or `undefined` if not found. */
+    public getExpression(expressionId: string): TExpr | undefined {
+        const premiseId = this.expressionIndex.get(expressionId)
+        if (premiseId === undefined) return undefined
+        return this.premises.get(premiseId)?.getExpression(expressionId)
+    }
 
-   /** Returns `true` if an expression with the given ID exists in any premise. */
-   public hasExpression(expressionId: string): boolean {
-       return this.expressionIndex.has(expressionId)
-   }
+    /** Returns `true` if an expression with the given ID exists in any premise. */
+    public hasExpression(expressionId: string): boolean {
+        return this.expressionIndex.has(expressionId)
+    }
 
-   /** Returns the premise ID that contains the given expression, or `undefined`. */
-   public getExpressionPremiseId(expressionId: string): string | undefined {
-       return this.expressionIndex.get(expressionId)
-   }
+    /** Returns the premise ID that contains the given expression, or `undefined`. */
+    public getExpressionPremiseId(expressionId: string): string | undefined {
+        return this.expressionIndex.get(expressionId)
+    }
 
-   /** Returns the PremiseEngine containing the given expression, or `undefined`. */
-   public findPremiseByExpressionId(
-       expressionId: string
-   ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
-       const premiseId = this.expressionIndex.get(expressionId)
-       if (premiseId === undefined) return undefined
-       return this.premises.get(premiseId)
-   }
+    /** Returns the PremiseEngine containing the given expression, or `undefined`. */
+    public findPremiseByExpressionId(
+        expressionId: string
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
+        const premiseId = this.expressionIndex.get(expressionId)
+        if (premiseId === undefined) return undefined
+        return this.premises.get(premiseId)
+    }
 
-   /** Returns all expressions across all premises, sorted by ID. */
-   public getAllExpressions(): TExpr[] {
-       const all: TExpr[] = []
-       for (const pe of this.listPremises()) {
-           all.push(...pe.getExpressions())
-       }
-       return all.sort((a, b) => a.id.localeCompare(b.id))
-   }
+    /** Returns all expressions across all premises, sorted by ID. */
+    public getAllExpressions(): TExpr[] {
+        const all: TExpr[] = []
+        for (const pe of this.listPremises()) {
+            all.push(...pe.getExpressions())
+        }
+        return all.sort((a, b) => a.id.localeCompare(b.id))
+    }
 
-   /**
-    * Returns all expressions that reference the given variable ID,
-    * across all premises.
-    */
-   public getExpressionsByVariableId(variableId: string): TExpr[] {
-       const result: TExpr[] = []
-       for (const pe of this.listPremises()) {
-           const refIds = pe.getReferencedVariableIds()
-           if (!refIds.has(variableId)) continue
-           for (const expr of pe.getExpressions()) {
-               if (expr.type === "variable" && expr.variableId === variableId) {
-                   result.push(expr)
-               }
-           }
-       }
-       return result
-   }
+    /**
+     * Returns all expressions that reference the given variable ID,
+     * across all premises.
+     */
+    public getExpressionsByVariableId(variableId: string): TExpr[] {
+        const result: TExpr[] = []
+        for (const pe of this.listPremises()) {
+            const refIds = pe.getReferencedVariableIds()
+            if (!refIds.has(variableId)) continue
+            for (const expr of pe.getExpressions()) {
+                if (expr.type === "variable" && expr.variableId === variableId) {
+                    result.push(expr)
+                }
+            }
+        }
+        return result
+    }
 
-   /** Returns the root expression from each premise that has one. */
-   public listRootExpressions(): TExpr[] {
-       const roots: TExpr[] = []
-       for (const pe of this.listPremises()) {
-           const root = pe.getRootExpression()
-           if (root) roots.push(root)
-       }
-       return roots
-   }
-   ```
+    /** Returns the root expression from each premise that has one. */
+    public listRootExpressions(): TExpr[] {
+        const roots: TExpr[] = []
+        for (const pe of this.listPremises()) {
+            const root = pe.getRootExpression()
+            if (root) roots.push(root)
+        }
+        return roots
+    }
+    ```
 
 **Step 4: Run test to verify it passes**
 
@@ -905,6 +940,7 @@ git commit -m "Add lookup methods to ArgumentEngine with shared expression index
 ### Task 4: Documentation sync
 
 **Files:**
+
 - Modify: `CLAUDE.md` — add new methods to the Architecture and Types sections
 - Modify: `README.md` — add lookup methods to the API reference
 - Delete: `docs/proposit-core-gaps.md`

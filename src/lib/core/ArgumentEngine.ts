@@ -170,7 +170,11 @@ export class ArgumentEngine<
         } as TOptionalChecksum<TPremise>
         const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             premiseData,
-            { argument: this.argument, variables: this.variables, expressionIndex: this.expressionIndex },
+            {
+                argument: this.argument,
+                variables: this.variables,
+                expressionIndex: this.expressionIndex,
+            },
             {
                 checksumConfig: this.checksumConfig,
                 positionConfig: this.positionConfig,
@@ -425,7 +429,10 @@ export class ArgumentEngine<
             const refIds = pe.getReferencedVariableIds()
             if (!refIds.has(variableId)) continue
             for (const expr of pe.getExpressions()) {
-                if (expr.type === "variable" && expr.variableId === variableId) {
+                if (
+                    expr.type === "variable" &&
+                    expr.variableId === variableId
+                ) {
                     result.push(expr)
                 }
             }

@@ -25,26 +25,26 @@ Maintenance uses the changeset each method already produces — after each mutat
 
 **Variable lookups:**
 
-| Method | Return type | Complexity | Notes |
-|--------|------------|------------|-------|
-| `getVariable(id)` | `TVar \| undefined` | O(1) | Delegates to VariableManager |
-| `hasVariable(id)` | `boolean` | O(1) | Delegates to VariableManager |
-| `getVariableBySymbol(symbol)` | `TVar \| undefined` | O(1) | Uses new symbol→id map |
-| `buildVariableIndex(keyFn)` | `Map<K, TVar>` | O(n) | Generic helper for extension-field lookups (e.g. statementId). Consumer caches the result. |
+| Method                        | Return type         | Complexity | Notes                                                                                      |
+| ----------------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------ |
+| `getVariable(id)`             | `TVar \| undefined` | O(1)       | Delegates to VariableManager                                                               |
+| `hasVariable(id)`             | `boolean`           | O(1)       | Delegates to VariableManager                                                               |
+| `getVariableBySymbol(symbol)` | `TVar \| undefined` | O(1)       | Uses new symbol→id map                                                                     |
+| `buildVariableIndex(keyFn)`   | `Map<K, TVar>`      | O(n)       | Generic helper for extension-field lookups (e.g. statementId). Consumer caches the result. |
 
 **Expression lookups:**
 
-| Method | Return type | Complexity | Notes |
-|--------|------------|------------|-------|
-| `getExpression(id)` | `TExpr \| undefined` | O(1) | Uses shared index to find premise, then delegates |
-| `hasExpression(id)` | `boolean` | O(1) | Checks shared index |
-| `getExpressionPremiseId(id)` | `string \| undefined` | O(1) | Direct read from shared index |
-| `findPremiseByExpressionId(id)` | `PremiseEngine \| undefined` | O(1) | Index → premise map |
-| `getAllExpressions()` | `TExpr[]` | O(total) | Aggregates across all premises |
-| `getExpressionsByVariableId(variableId)` | `TExpr[]` | O(p) | Iterates premises, uses each premise's existing per-premise `expressionsByVariableId` index |
+| Method                                   | Return type                  | Complexity | Notes                                                                                       |
+| ---------------------------------------- | ---------------------------- | ---------- | ------------------------------------------------------------------------------------------- |
+| `getExpression(id)`                      | `TExpr \| undefined`         | O(1)       | Uses shared index to find premise, then delegates                                           |
+| `hasExpression(id)`                      | `boolean`                    | O(1)       | Checks shared index                                                                         |
+| `getExpressionPremiseId(id)`             | `string \| undefined`        | O(1)       | Direct read from shared index                                                               |
+| `findPremiseByExpressionId(id)`          | `PremiseEngine \| undefined` | O(1)       | Index → premise map                                                                         |
+| `getAllExpressions()`                    | `TExpr[]`                    | O(total)   | Aggregates across all premises                                                              |
+| `getExpressionsByVariableId(variableId)` | `TExpr[]`                    | O(p)       | Iterates premises, uses each premise's existing per-premise `expressionsByVariableId` index |
 
 **Structure lookups:**
 
-| Method | Return type | Complexity | Notes |
-|--------|------------|------------|-------|
-| `listRootExpressions()` | `TExpr[]` | O(p) | Collects `getRootExpression()` from each premise |
+| Method                  | Return type | Complexity | Notes                                            |
+| ----------------------- | ----------- | ---------- | ------------------------------------------------ |
+| `listRootExpressions()` | `TExpr[]`   | O(p)       | Collects `getRootExpression()` from each premise |
