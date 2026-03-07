@@ -77,6 +77,7 @@ export class ArgumentEngine<
     private checksumDirty = true
     private cachedChecksum: string | undefined
     private expressionIndex: Map<string, string>
+    private listeners: Set<() => void> = new Set()
 
     constructor(
         argument: TOptionalChecksum<TArg>,
@@ -92,6 +93,21 @@ export class ArgumentEngine<
         this.conclusionPremiseId = undefined
         this.checksumConfig = options?.checksumConfig
         this.positionConfig = options?.positionConfig
+    }
+
+    /**
+     * Registers a listener that is called after every mutation.
+     * Returns an unsubscribe function.
+     */
+    public subscribe(listener: () => void): () => void {
+        this.listeners.add(listener)
+        return () => { this.listeners.delete(listener) }
+    }
+
+    private notifySubscribers(): void {
+        for (const listener of this.listeners) {
+            listener()
+        }
     }
 
     /** Returns a shallow copy of the argument metadata with checksum attached. */
@@ -180,6 +196,7 @@ export class ArgumentEngine<
             }
         )
         this.premises.set(id, pm)
+        pm.setOnMutate(() => { this.notifySubscribers() })
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         collector.addedPremise(pm.toPremiseData())
         this.markDirty()
@@ -189,6 +206,7 @@ export class ArgumentEngine<
             collector.setRoles(this.getRoleState())
         }
 
+        this.notifySubscribers()
         return {
             result: pm,
             changes: collector.toChangeset(),
@@ -217,6 +235,7 @@ export class ArgumentEngine<
             collector.setRoles(this.getRoleState())
         }
         this.markDirty()
+        this.notifySubscribers()
         return {
             result: data,
             changes: collector.toChangeset(),
@@ -278,6 +297,7 @@ export class ArgumentEngine<
         collector.addedVariable(withChecksum)
         this.markDirty()
         this.markAllPremisesDirty()
+        this.notifySubscribers()
         return {
             result: withChecksum,
             changes: collector.toChangeset(),
@@ -305,6 +325,7 @@ export class ArgumentEngine<
             collector.modifiedVariable(withChecksum)
             this.markDirty()
             this.markAllPremisesDirty()
+            this.notifySubscribers()
             return {
                 result: withChecksum,
                 changes: collector.toChangeset(),
@@ -344,6 +365,7 @@ export class ArgumentEngine<
         collector.removedVariable(variable)
         this.markDirty()
         this.markAllPremisesDirty()
+        this.notifySubscribers()
         return {
             result: variable,
             changes: collector.toChangeset(),
@@ -481,6 +503,7 @@ export class ArgumentEngine<
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         collector.setRoles(roles)
         this.markDirty()
+        this.notifySubscribers()
         return {
             result: roles,
             changes: collector.toChangeset(),
@@ -500,6 +523,7 @@ export class ArgumentEngine<
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
         collector.setRoles(roles)
         this.markDirty()
+        this.notifySubscribers()
         return {
             result: roles,
             changes: collector.toChangeset(),
@@ -574,6 +598,7 @@ export class ArgumentEngine<
                 engine.expressionIndex
             )
             engine.premises.set(pe.getId(), pe)
+            pe.setOnMutate(() => { engine.notifySubscribers() })
         }
         // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
         engine.conclusionPremiseId = snapshot.conclusionPremiseId
@@ -695,7 +720,11 @@ export class ArgumentEngine<
             this.premises.set(pe.getId(), pe)
         }
         this.conclusionPremiseId = snapshot.conclusionPremiseId
+        for (const pe of this.premises.values()) {
+            pe.setOnMutate(() => { this.notifySubscribers() })
+        }
         this.markDirty()
+        this.notifySubscribers()
     }
 
     /**

@@ -8535,3 +8535,139 @@ describe("PremiseEngine onMutate callback", () => {
         expect(callCount).toBe(0)
     })
 })
+
+describe("ArgumentEngine subscribe", () => {
+    it("notifies subscriber when a premise is created", () => {
+        const engine = new ArgumentEngine(ARG)
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.createPremise()
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when a premise is removed", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premise } = engine.createPremise()
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.removePremise(premise.getId())
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when a variable is added", () => {
+        const engine = new ArgumentEngine(ARG)
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when a variable is updated", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.updateVariable("v1", { symbol: "Q" })
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when a variable is removed", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.removeVariable("v1")
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when conclusion is set", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premise } = engine.createPremise()
+        engine.clearConclusionPremise()
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.setConclusionPremise(premise.getId())
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber when conclusion is cleared", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.createPremise()
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.clearConclusionPremise()
+        expect(notified).toBe(true)
+    })
+
+    it("notifies subscriber on rollback", () => {
+        const engine = new ArgumentEngine(ARG)
+        const snap = engine.snapshot()
+        engine.createPremise()
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.rollback(snap)
+        expect(notified).toBe(true)
+    })
+
+    it("unsubscribe stops notifications", () => {
+        const engine = new ArgumentEngine(ARG)
+        let count = 0
+        const unsub = engine.subscribe(() => { count++ })
+        engine.createPremise()
+        expect(count).toBe(1)
+        unsub()
+        engine.createPremise()
+        expect(count).toBe(1)
+    })
+
+    it("notifies subscriber when expression is mutated through PremiseEngine", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premise } = engine.createPremise()
+        let count = 0
+        engine.subscribe(() => { count++ })
+
+        premise.addExpression({
+            id: "expr-1",
+            type: "operator",
+            operator: "and",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: premise.getId(),
+            parentId: null,
+            position: 0,
+        })
+
+        expect(count).toBeGreaterThanOrEqual(1)
+    })
+
+    it("does not notify when removePremise finds nothing", () => {
+        const engine = new ArgumentEngine(ARG)
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.removePremise("nonexistent")
+        expect(notified).toBe(false)
+    })
+
+    it("does not notify when removeVariable finds nothing", () => {
+        const engine = new ArgumentEngine(ARG)
+        let notified = false
+        engine.subscribe(() => { notified = true })
+        engine.removeVariable("nonexistent")
+        expect(notified).toBe(false)
+    })
+})
