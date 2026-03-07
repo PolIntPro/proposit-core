@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ArgumentEngine, PremiseEngine } from "../src/lib/index"
+import type { TReactiveSnapshot } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
     CoreArgumentSchema,
@@ -8669,5 +8670,147 @@ describe("ArgumentEngine subscribe", () => {
         engine.subscribe(() => { notified = true })
         engine.removeVariable("nonexistent")
         expect(notified).toBe(false)
+    })
+})
+
+describe("ArgumentEngine getSnapshot", () => {
+    it("returns a snapshot with argument, variables, premises, and roles", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        const { result: premise } = engine.createPremise()
+        premise.addExpression({
+            id: "expr-1",
+            type: "operator",
+            operator: "and",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: premise.getId(),
+            parentId: null,
+            position: 0,
+        })
+
+        const snap = engine.getSnapshot()
+
+        expect(snap.argument.id).toBe(ARG.id)
+        expect(snap.variables["v1"]).toBeDefined()
+        expect(snap.variables["v1"].symbol).toBe("P")
+        expect(snap.premises[premise.getId()]).toBeDefined()
+        expect(snap.premises[premise.getId()].expressions["expr-1"]).toBeDefined()
+        expect(snap.premises[premise.getId()].rootExpressionId).toBe("expr-1")
+        expect(snap.roles).toBeDefined()
+    })
+
+    it("returns the same reference when nothing has changed", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.createPremise()
+        const snap1 = engine.getSnapshot()
+        const snap2 = engine.getSnapshot()
+        expect(snap1).toBe(snap2)
+    })
+
+    it("returns a new top-level reference after a mutation", () => {
+        const engine = new ArgumentEngine(ARG)
+        const snap1 = engine.getSnapshot()
+        engine.createPremise()
+        const snap2 = engine.getSnapshot()
+        expect(snap1).not.toBe(snap2)
+    })
+
+    it("preserves premise reference when a different premise is mutated", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premiseA } = engine.createPremiseWithId("pA")
+        engine.createPremiseWithId("pB")
+        const snap1 = engine.getSnapshot()
+
+        premiseA.addExpression({
+            id: "expr-1",
+            type: "operator",
+            operator: "and",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "pA",
+            parentId: null,
+            position: 0,
+        })
+
+        const snap2 = engine.getSnapshot()
+        expect(snap2.premises["pA"]).not.toBe(snap1.premises["pA"])
+        expect(snap2.premises["pB"]).toBe(snap1.premises["pB"])
+    })
+
+    it("returns new variables reference when a variable is added", () => {
+        const engine = new ArgumentEngine(ARG)
+        const snap1 = engine.getSnapshot()
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        const snap2 = engine.getSnapshot()
+        expect(snap2.variables).not.toBe(snap1.variables)
+    })
+
+    it("preserves variables reference when only a premise is mutated", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premise } = engine.createPremise()
+        const snap1 = engine.getSnapshot()
+
+        premise.addExpression({
+            id: "expr-1",
+            type: "operator",
+            operator: "and",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: premise.getId(),
+            parentId: null,
+            position: 0,
+        })
+
+        const snap2 = engine.getSnapshot()
+        expect(snap2.variables).toBe(snap1.variables)
+    })
+
+    it("returns new roles reference when conclusion changes", () => {
+        const engine = new ArgumentEngine(ARG)
+        const { result: premise } = engine.createPremise()
+        engine.clearConclusionPremise()
+        const snap1 = engine.getSnapshot()
+        engine.setConclusionPremise(premise.getId())
+        const snap2 = engine.getSnapshot()
+        expect(snap2.roles).not.toBe(snap1.roles)
+    })
+
+    it("preserves roles reference when only a variable changes", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.createPremise()
+        const snap1 = engine.getSnapshot()
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+        const snap2 = engine.getSnapshot()
+        expect(snap2.roles).toBe(snap1.roles)
+    })
+
+    it("rebuilds fully after rollback", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.createPremise()
+        const engineSnap = engine.snapshot()
+        const reactiveSnap1 = engine.getSnapshot()
+
+        engine.createPremise()
+        engine.rollback(engineSnap)
+
+        const reactiveSnap2 = engine.getSnapshot()
+        expect(reactiveSnap2).not.toBe(reactiveSnap1)
+        expect(Object.keys(reactiveSnap2.premises).length).toBe(1)
     })
 })
