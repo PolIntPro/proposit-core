@@ -113,7 +113,7 @@ export class ArgumentEngine<
         return () => { this.listeners.delete(listener) }
     }
 
-    private notifySubscribers(): void {
+    protected notifySubscribers(): void {
         for (const listener of this.listeners) {
             listener()
         }
