@@ -108,7 +108,7 @@ export class ArgumentEngine<
      * Registers a listener that is called after every mutation.
      * Returns an unsubscribe function.
      */
-    public subscribe(listener: () => void): () => void {
+    public subscribe = (listener: () => void): (() => void) => {
         this.listeners.add(listener)
         return () => { this.listeners.delete(listener) }
     }
@@ -119,7 +119,7 @@ export class ArgumentEngine<
         }
     }
 
-    public getSnapshot(): TReactiveSnapshot<TArg, TPremise, TExpr, TVar> {
+    public getSnapshot = (): TReactiveSnapshot<TArg, TPremise, TExpr, TVar> => {
         const dirty = this.reactiveDirty
         const prev = this.cachedReactiveSnapshot
 
