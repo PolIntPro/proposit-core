@@ -11,13 +11,13 @@ import {
     type TCorePropositionalVariable,
     type TCorePremise,
 } from "../src/lib/schemata"
-import { ChangeCollector } from "../src/lib/core/ChangeCollector"
-import { VariableManager } from "../src/lib/core/VariableManager"
-import { ExpressionManager } from "../src/lib/core/ExpressionManager"
+import { ChangeCollector } from "../src/lib/core/changeCollector"
+import { VariableManager } from "../src/lib/core/variableManager"
+import { ExpressionManager } from "../src/lib/core/expressionManager"
 import type {
     TExpressionInput,
     TExpressionWithoutPosition,
-} from "../src/lib/core/ExpressionManager"
+} from "../src/lib/core/expressionManager"
 import {
     DEFAULT_CHECKSUM_CONFIG,
     createChecksumConfig,

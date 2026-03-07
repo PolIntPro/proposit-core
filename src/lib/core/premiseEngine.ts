@@ -30,18 +30,18 @@ import {
     makeValidationResult,
 } from "./evaluation/validation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
-import type { TLogicEngineOptions } from "./ArgumentEngine.js"
+import type { TLogicEngineOptions } from "./argumentEngine.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
-import { ChangeCollector } from "./ChangeCollector.js"
+import { ChangeCollector } from "./changeCollector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import type {
     TExpressionInput,
     TExpressionManagerSnapshot,
     TExpressionWithoutPosition,
     TExpressionUpdate,
-} from "./ExpressionManager.js"
-import { ExpressionManager } from "./ExpressionManager.js"
-import { VariableManager } from "./VariableManager.js"
+} from "./expressionManager.js"
+import { ExpressionManager } from "./expressionManager.js"
+import { VariableManager } from "./variableManager.js"
 
 export type TPremiseEngineSnapshot<
     TPremise extends TCorePremise = TCorePremise,

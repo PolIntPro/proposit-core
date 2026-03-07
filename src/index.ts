@@ -42,7 +42,7 @@ export type {
     TExpressionInput,
     TExpressionWithoutPosition,
     TExpressionUpdate,
-} from "./lib/core/ExpressionManager.js"
+} from "./lib/core/expressionManager.js"
 export {
     POSITION_MIN,
     POSITION_MAX,

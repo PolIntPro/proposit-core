@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import { PremiseEngine } from "../../lib/core/PremiseEngine.js"
-import { VariableManager } from "../../lib/core/VariableManager.js"
+import { PremiseEngine } from "../../lib/core/premiseEngine.js"
+import { VariableManager } from "../../lib/core/variableManager.js"
 import type { TCoreArgument, TCorePremise } from "../../lib/schemata/index.js"
 import {
     errorExit,

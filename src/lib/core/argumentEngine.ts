@@ -24,18 +24,18 @@ import type { TCorePositionConfig } from "../utils/position.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult } from "../types/mutation.js"
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
-import { ChangeCollector } from "./ChangeCollector.js"
+import { ChangeCollector } from "./changeCollector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import { kleeneAnd, kleeneNot } from "./evaluation/kleene.js"
 import {
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/validation.js"
-import type { TExpressionInput } from "./ExpressionManager.js"
-import { PremiseEngine } from "./PremiseEngine.js"
-import type { TPremiseEngineSnapshot } from "./PremiseEngine.js"
-import { VariableManager } from "./VariableManager.js"
-import type { TVariableManagerSnapshot } from "./VariableManager.js"
+import type { TExpressionInput } from "./expressionManager.js"
+import { PremiseEngine } from "./premiseEngine.js"
+import type { TPremiseEngineSnapshot } from "./premiseEngine.js"
+import { VariableManager } from "./variableManager.js"
+import type { TVariableManagerSnapshot } from "./variableManager.js"
 
 export type TLogicEngineOptions = {
     checksumConfig?: TCoreChecksumConfig

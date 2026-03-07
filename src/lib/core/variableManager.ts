@@ -1,5 +1,5 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
-import type { TLogicEngineOptions } from "./ArgumentEngine.js"
+import type { TLogicEngineOptions } from "./argumentEngine.js"
 
 export type TVariableManagerSnapshot<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,

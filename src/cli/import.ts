@@ -4,10 +4,10 @@ import { Value } from "typebox/value"
 import { CoreYamlArgumentSchema } from "../lib/schemata/import.js"
 import type { TCoreYamlArgument } from "../lib/schemata/import.js"
 import type { TCorePropositionalVariable } from "../lib/schemata/index.js"
-import type { TExpressionInput } from "../lib/core/ExpressionManager.js"
+import type { TExpressionInput } from "../lib/core/expressionManager.js"
 import type { FormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
-import { ArgumentEngine } from "../lib/core/ArgumentEngine.js"
+import { ArgumentEngine } from "../lib/core/argumentEngine.js"
 import { POSITION_INITIAL } from "../lib/utils/position.js"
 
 /**

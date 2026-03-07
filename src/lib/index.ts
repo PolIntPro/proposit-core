@@ -2,15 +2,15 @@
  * Library barrel export. Re-exports core classes, evaluation types, diff
  * types, and the diff function.
  */
-export { ArgumentEngine } from "./core/ArgumentEngine.js"
+export { ArgumentEngine } from "./core/argumentEngine.js"
 export type {
     TLogicEngineOptions,
     TArgumentEngineSnapshot,
-} from "./core/ArgumentEngine.js"
-export { PremiseEngine } from "./core/PremiseEngine.js"
-export type { TPremiseEngineSnapshot } from "./core/PremiseEngine.js"
-export type { TExpressionManagerSnapshot } from "./core/ExpressionManager.js"
-export type { TVariableManagerSnapshot } from "./core/VariableManager.js"
+} from "./core/argumentEngine.js"
+export { PremiseEngine } from "./core/premiseEngine.js"
+export type { TPremiseEngineSnapshot } from "./core/premiseEngine.js"
+export type { TExpressionManagerSnapshot } from "./core/expressionManager.js"
+export type { TVariableManagerSnapshot } from "./core/variableManager.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
@@ -39,7 +39,7 @@ export type {
     TExpressionInput,
     TExpressionWithoutPosition,
     TExpressionUpdate,
-} from "./core/ExpressionManager.js"
+} from "./core/expressionManager.js"
 export {
     POSITION_MIN,
     POSITION_MAX,
