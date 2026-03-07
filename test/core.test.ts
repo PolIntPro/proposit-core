@@ -8444,3 +8444,94 @@ describe("ArgumentEngine — lookup methods", () => {
         })
     })
 })
+
+// ---------------------------------------------------------------------------
+// PremiseEngine onMutate callback
+// ---------------------------------------------------------------------------
+
+describe("PremiseEngine onMutate callback", () => {
+    it("fires onMutate when addExpression is called", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        premise.addExpression(makeOpExpr("op-1", "and", { premiseId: premise.getId() }))
+        expect(callCount).toBe(1)
+    })
+
+    it("fires onMutate when removeExpression is called", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        premise.addExpression(makeOpExpr("op-1", "and", { premiseId: premise.getId() }))
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        premise.removeExpression("op-1", true)
+        expect(callCount).toBe(1)
+    })
+
+    it("fires onMutate when updateExpression is called", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        premise.addExpression(makeOpExpr("op-1", "and", { premiseId: premise.getId() }))
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        premise.updateExpression("op-1", { operator: "or" })
+        expect(callCount).toBe(1)
+    })
+
+    it("fires onMutate when appendExpression is called", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        premise.appendExpression(null, {
+            id: "op-1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: premise.getId(),
+            type: "operator",
+            operator: "and",
+        } as TExpressionWithoutPosition)
+        expect(callCount).toBe(1)
+    })
+
+    it("fires onMutate when insertExpression is called", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        const pid = premise.getId()
+        // Build: root "and" with a variable child
+        premise.addExpression(makeOpExpr("op-root", "and", { premiseId: pid }))
+        premise.appendExpression("op-root", {
+            id: "var-child",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: pid,
+            type: "variable",
+            variableId: VAR_P.id,
+        } as TExpressionWithoutPosition)
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        // Insert an "or" between root and child
+        premise.insertExpression(
+            makeOpExpr("op-insert", "or", { premiseId: pid }),
+            "op-root",
+            "var-child"
+        )
+        expect(callCount).toBe(1)
+    })
+
+    it("does not fire onMutate when deleteExpressionsUsingVariable finds nothing", () => {
+        const engine = new ArgumentEngine(ARG)
+        engine.addVariable(VAR_P)
+        const { result: premise } = engine.createPremise()
+        let callCount = 0
+        premise.setOnMutate(() => { callCount++ })
+        premise.deleteExpressionsUsingVariable("nonexistent")
+        expect(callCount).toBe(0)
+    })
+})

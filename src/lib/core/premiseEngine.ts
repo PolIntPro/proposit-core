@@ -69,6 +69,7 @@ export class PremiseEngine<
     private checksumDirty = true
     private cachedChecksum: string | undefined
     private expressionIndex?: Map<string, string>
+    private onMutate?: () => void
 
     constructor(
         premise: TOptionalChecksum<TPremise>,
@@ -87,6 +88,10 @@ export class PremiseEngine<
         this.expressions = new ExpressionManager<TExpr>(config)
         this.expressionsByVariableId = new DefaultMap(() => new Set())
         this.expressionIndex = deps.expressionIndex
+    }
+
+    public setOnMutate(callback: (() => void) | undefined): void {
+        this.onMutate = callback
     }
 
     /**
@@ -124,6 +129,9 @@ export class PremiseEngine<
         // (from ExpressionManager which stores expressions with checksums).
         const changes = collector.toChangeset()
         this.syncExpressionIndex(changes)
+        if (removed.length > 0) {
+            this.onMutate?.()
+        }
         return {
             result: removed,
             changes,
@@ -195,6 +203,7 @@ export class PremiseEngine<
             this.markDirty()
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
+            this.onMutate?.()
             return {
                 result: this.expressions.getExpression(expression.id)!,
                 changes,
@@ -263,6 +272,7 @@ export class PremiseEngine<
             this.markDirty()
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
+            this.onMutate?.()
             return {
                 result: this.expressions.getExpression(expression.id)!,
                 changes,
@@ -323,6 +333,7 @@ export class PremiseEngine<
             this.markDirty()
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
+            this.onMutate?.()
             return {
                 result: this.expressions.getExpression(expression.id)!,
                 changes,
@@ -393,6 +404,7 @@ export class PremiseEngine<
             const changeset = collector.toChangeset()
             if (changeset.expressions !== undefined) {
                 this.markDirty()
+                this.onMutate?.()
             }
 
             this.syncExpressionIndex(changeset)
@@ -462,6 +474,7 @@ export class PremiseEngine<
             this.markDirty()
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
+            this.onMutate?.()
             return {
                 result: snapshot,
                 changes,
@@ -524,6 +537,7 @@ export class PremiseEngine<
 
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
+            this.onMutate?.()
             return {
                 result: this.expressions.getExpression(expression.id)!,
                 changes,
