@@ -8814,3 +8814,57 @@ describe("ArgumentEngine getSnapshot", () => {
         expect(Object.keys(reactiveSnap2.premises).length).toBe(1)
     })
 })
+
+describe("ArgumentEngine reactive store integration", () => {
+    it("works as a useSyncExternalStore-compatible store", () => {
+        const engine = new ArgumentEngine(ARG)
+
+        // Simulate useSyncExternalStore contract:
+        // 1. subscribe returns unsubscribe
+        // 2. getSnapshot returns stable reference when unchanged
+        // 3. getSnapshot returns new reference when changed
+
+        const snapshots: TReactiveSnapshot[] = []
+        const unsub = engine.subscribe(() => {
+            snapshots.push(engine.getSnapshot())
+        })
+
+        const snap0 = engine.getSnapshot()
+
+        // Mutation 1: add variable
+        engine.addVariable({
+            id: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+        })
+
+        // Mutation 2: create premise and add expression
+        const { result: premise } = engine.createPremise()
+        premise.appendExpression(null, {
+            id: "expr-root",
+            type: "variable",
+            variableId: "v1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: premise.getId(),
+            parentId: null,
+        })
+
+        // Should have been notified for each mutation
+        expect(snapshots.length).toBeGreaterThanOrEqual(3)
+
+        // Each snapshot should be a different reference
+        for (let i = 1; i < snapshots.length; i++) {
+            expect(snapshots[i]).not.toBe(snapshots[i - 1])
+        }
+
+        // Final snapshot should reflect current state
+        const final = engine.getSnapshot()
+        expect(final.variables["v1"]).toBeDefined()
+        expect(Object.keys(final.premises).length).toBe(1)
+        expect(final.premises[premise.getId()].expressions["expr-root"]).toBeDefined()
+
+        unsub()
+    })
+})
