@@ -23,13 +23,13 @@ Run `pnpm eslint . --fix` to auto-fix lint errors before checking manually.
 
 ```
 src/
-  index.ts              # Public library entry point — re-exports ArgumentEngine, PremiseEngine, and all schemata
+  index.ts              # Public library entry point — thin re-export of lib/index.ts
   cli.ts                # CLI entry point — routes to named commands or version-scoped subcommands
   lib/
-    index.ts            # Re-exports core classes and evaluation types
-    utils.ts            # DefaultMap utility (with optional LRU limit)
+    index.ts            # Complete library barrel — re-exports core classes, schemata, types, and utilities
     consts.ts            # DEFAULT_CHECKSUM_CONFIG, createChecksumConfig
     utils/
+      defaultMap.ts     # DefaultMap utility (Map subclass with auto-factory and optional LRU limit)
       collections.ts    # getOrCreate, sortedCopyById, sortedUnique
       position.ts       # POSITION_MIN, POSITION_MAX, POSITION_INITIAL, DEFAULT_POSITION_CONFIG, TCorePositionConfig, midpoint
     schemata/
@@ -48,17 +48,18 @@ src/
       relationships.ts  # Relationship types: TCorePremiseRelationshipAnalysis, TCorePremiseProfile,
                         #   TCoreVariableAppearance, TCorePremiseRelationResult, etc.
     core/
-      ArgumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity, checksum, snapshot, fromSnapshot, rollback, fromData, toDisplayString, lookup methods (getVariable, getExpression, findPremiseByExpressionId, etc.)
-      PremiseEngine.ts     # PremiseEngine — variables, expressions, evaluate, toDisplayString, toPremiseData, snapshot, isInference, isConstraint, checksum
-      ExpressionManager.ts # Low-level expression tree (addExpression, appendExpression, addExpressionRelative, updateExpression, removeExpression, insertExpression)
-      VariableManager.ts   # Low-level variable registry (with symbol→id reverse lookup via getVariableBySymbol)
-      ChangeCollector.ts   # Internal change collector (not exported) — accumulates entity changes during mutations
+      argumentEngine.ts    # ArgumentEngine — premise CRUD, role management, evaluate, checkValidity, checksum, snapshot, fromSnapshot, rollback, fromData, toDisplayString, lookup methods (getVariable, getExpression, findPremiseByExpressionId, etc.)
+      premiseEngine.ts     # PremiseEngine — variables, expressions, evaluate, toDisplayString, toPremiseData, snapshot, isInference, isConstraint, checksum
+      expressionManager.ts # Low-level expression tree (addExpression, appendExpression, addExpressionRelative, updateExpression, removeExpression, insertExpression)
+      variableManager.ts   # Low-level variable registry (with symbol→id reverse lookup via getVariableBySymbol)
+      changeCollector.ts   # Internal change collector (not exported) — accumulates entity changes during mutations
       checksum.ts          # computeHash, canonicalSerialize, entityChecksum (standalone utilities)
       diff.ts              # diffArguments + default comparators (standalone function, pluggable)
       relationships.ts     # analyzePremiseRelationships + buildPremiseProfile (standalone functions)
+      # All core/ files use camelCase naming
       evaluation/
-        shared.ts          # makeValidationResult, makeErrorIssue, implicationValue, buildDirectionalVacuity,
-                           #   kleeneNot, kleeneAnd, kleeneOr, kleeneImplies, kleeneIff
+        kleene.ts          # kleeneNot, kleeneAnd, kleeneOr, kleeneImplies, kleeneIff
+        validation.ts      # makeValidationResult, makeErrorIssue, implicationValue, buildDirectionalVacuity
       parser/
         formula.ts         # parseFormula — parses logical formula strings into FormulaAST
   cli/
@@ -87,7 +88,7 @@ src/
                           #   validate-assignments, delete, evaluate, check-validity, validate-argument, refs, export
 
 test/
-  ExpressionManager.test.ts   # Full test suite (538 tests, Vitest)
+  core.test.ts                # Full test suite (538 tests, Vitest)
 ```
 
 ## Class hierarchy
@@ -219,7 +220,7 @@ The evaluation system uses **Kleene three-valued logic** (`true`, `false`, `null
 - `variables: Record<string, boolean | null>` — variable ID → truth value (`null` = unset/unknown)
 - `rejectedExpressionIds: string[]` — expression IDs the user rejects (evaluate to `false`, children skipped)
 
-**Kleene propagation rules:** `false` dominates AND, `true` dominates OR, `null` propagates otherwise. Helper functions `kleeneNot`, `kleeneAnd`, `kleeneOr`, `kleeneImplies`, `kleeneIff` in `evaluation/shared.ts` implement these rules.
+**Kleene propagation rules:** `false` dominates AND, `true` dominates OR, `null` propagates otherwise. Helper functions `kleeneNot`, `kleeneAnd`, `kleeneOr`, `kleeneImplies`, `kleeneIff` in `evaluation/kleene.ts` implement these rules.
 
 `PremiseEngine.evaluate(assignment)` walks the expression tree recursively. Rejected expressions return `false` immediately. Missing variables default to `null`. `formula` nodes are transparent (propagate their child's value). For `implies`/`iff` roots an `inferenceDiagnostic` is computed with three-valued fields (unless the root is rejected).
 
@@ -363,7 +364,7 @@ Utility types:
 
 - `TOptionalChecksum<T>` — `Omit<T, "checksum"> & Partial<Pick<T, "checksum">>`. Makes the `checksum` field optional. Defined in `src/lib/schemata/shared.ts`. Used for constructor inputs and internal storage where checksums are attached lazily.
 
-Position and input types (in `src/lib/core/ExpressionManager.ts` and `src/lib/utils/position.ts`):
+Position and input types (in `src/lib/core/expressionManager.ts` and `src/lib/utils/position.ts`):
 
 - `TExpressionInput<TExpr>` — `TExpr` with `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `addExpression` and `insertExpression`.
 - `TExpressionWithoutPosition<TExpr>` — `TExpr` with both `position` and `checksum` omitted via distributive conditional type. Preserves discriminated-union narrowing. Generic with default. Used as input for `appendExpression` and `addExpressionRelative`.
@@ -382,7 +383,7 @@ Schemata use [Typebox](https://github.com/sinclairzx81/typebox) for runtime-vali
 
 ## Testing
 
-Tests live in `test/ExpressionManager.test.ts` and operate directly on `ArgumentEngine` and `PremiseEngine`. Each `describe` block corresponds to a method or logical grouping. All tests build their own fixtures inline — there is no shared `beforeEach` state.
+Tests live in `test/core.test.ts` and operate directly on `ArgumentEngine` and `PremiseEngine`. Each `describe` block corresponds to a method or logical grouping. All tests build their own fixtures inline — there is no shared `beforeEach` state.
 
 Current describe blocks (in order):
 
@@ -453,8 +454,6 @@ When adding a test for a new feature, add a new `describe` block at the bottom.
 The project uses `moduleResolution: "bundler"` in `tsconfig.json`, which allows extension-less relative imports in TypeScript. However, `src/cli.ts` is compiled and run directly by Node.js ESM, which requires explicit `.js` extensions on all relative imports.
 
 **Rule:** All relative imports in `src/cli/` and `src/lib/` must end in `.js`. Directory imports (e.g. `schemata/`) must use the explicit index path (`schemata/index.js`).
-
-This matters because `src/lib/utils/` (a directory) and `src/lib/utils.ts` (a file) both compile to `dist/lib/`, and Node.js ESM resolves the directory first if no extension is given.
 
 If you add a new file in `src/cli/` or `src/lib/`, ensure all its relative imports include `.js`.
 
