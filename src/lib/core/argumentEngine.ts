@@ -81,7 +81,7 @@ export class ArgumentEngine<
     private checksumDirty = true
     private cachedChecksum: string | undefined
     private expressionIndex: Map<string, string>
-    private listeners: Set<() => void> = new Set()
+    private listeners = new Set<() => void>()
     private reactiveDirty = {
         argument: true,
         variables: true,

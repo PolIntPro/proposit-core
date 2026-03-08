@@ -8739,8 +8739,8 @@ describe("ArgumentEngine getSnapshot", () => {
         const snap = engine.getSnapshot()
 
         expect(snap.argument.id).toBe(ARG.id)
-        expect(snap.variables["v1"]).toBeDefined()
-        expect(snap.variables["v1"].symbol).toBe("P")
+        expect(snap.variables.v1).toBeDefined()
+        expect(snap.variables.v1.symbol).toBe("P")
         expect(snap.premises[premise.getId()]).toBeDefined()
         expect(
             snap.premises[premise.getId()].expressions["expr-1"]
@@ -8783,8 +8783,8 @@ describe("ArgumentEngine getSnapshot", () => {
         })
 
         const snap2 = engine.getSnapshot()
-        expect(snap2.premises["pA"]).not.toBe(snap1.premises["pA"])
-        expect(snap2.premises["pB"]).toBe(snap1.premises["pB"])
+        expect(snap2.premises.pA).not.toBe(snap1.premises.pA)
+        expect(snap2.premises.pB).toBe(snap1.premises.pB)
     })
 
     it("returns new variables reference when a variable is added", () => {
@@ -8873,7 +8873,7 @@ describe("ArgumentEngine reactive store integration", () => {
             snapshots.push(engine.getSnapshot())
         })
 
-        const snap0 = engine.getSnapshot()
+        const _snap0 = engine.getSnapshot()
 
         // Mutation 1: add variable
         engine.addVariable({
@@ -8905,7 +8905,7 @@ describe("ArgumentEngine reactive store integration", () => {
 
         // Final snapshot should reflect current state
         const final = engine.getSnapshot()
-        expect(final.variables["v1"]).toBeDefined()
+        expect(final.variables.v1).toBeDefined()
         expect(Object.keys(final.premises).length).toBe(1)
         expect(
             final.premises[premise.getId()].expressions["expr-root"]
