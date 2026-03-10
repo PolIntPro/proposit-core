@@ -50,6 +50,7 @@
         "@types/js-yaml": "^4.0.9",
         "@types/node": "^25.2.3",
         "eslint": "^9.39.2",
+        "eslint-plugin-check-file": "^3.3.1",
         "globals": "^16.5.0",
         "peggy": "^5.0.6",
         "prettier": "^3.8.1",
