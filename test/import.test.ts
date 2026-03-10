@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseFormula } from "../src/lib/core/parser/formula"
-import type { FormulaAST } from "../src/lib/core/parser/formula"
+import type { TFormulaAST } from "../src/lib/core/parser/formula"
 import { importArgumentFromYaml } from "../src/cli/import"
 
 // ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ describe("parseFormula", () => {
         expect(parseFormula("P")).toEqual({
             type: "variable",
             name: "P",
-        } satisfies FormulaAST)
+        } satisfies TFormulaAST)
     })
 
     it("parses multi-character variable names", () => {

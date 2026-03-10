@@ -926,7 +926,7 @@ describe("toArray behaviour (via toData().expressions)", () => {
 // ---------------------------------------------------------------------------
 
 describe("stress test", () => {
-    interface StressConfig {
+    interface TStressConfig {
         numVars?: number
         numPremises?: number
         minTerms?: number
@@ -938,7 +938,7 @@ describe("stress test", () => {
         numPremises: 20,
         minTerms: 3,
         maxTerms: 8,
-    } satisfies Required<StressConfig>
+    } satisfies Required<TStressConfig>
 
     /**
      * Mulberry32 PRNG — deterministic, uniform output in [0, 1).
@@ -953,7 +953,7 @@ describe("stress test", () => {
         }
     }
 
-    function buildStress(cfg: StressConfig = {}, seed = 42) {
+    function buildStress(cfg: TStressConfig = {}, seed = 42) {
         const { numVars, numPremises, minTerms, maxTerms } = {
             ...DEFAULTS,
             ...cfg,
@@ -6591,9 +6591,9 @@ describe("removeExpression — deleteSubtree parameter", () => {
 
 describe("VariableManager — generic type parameter", () => {
     it("accepts and returns an extended variable type", () => {
-        type ExtendedVar = TCorePropositionalVariable & { color: string }
-        const vm = new VariableManager<ExtendedVar>()
-        const v: ExtendedVar = {
+        type TExtendedVar = TCorePropositionalVariable & { color: string }
+        const vm = new VariableManager<TExtendedVar>()
+        const v: TExtendedVar = {
             id: "v1",
             argumentId: "a1",
             argumentVersion: 0,
@@ -6624,9 +6624,9 @@ describe("VariableManager — generic type parameter", () => {
 
 describe("mutation types — generic changesets", () => {
     it("TCoreChangeset accepts extended entity types", () => {
-        type ExtVar = TCorePropositionalVariable & { color: string }
+        type TExtVar = TCorePropositionalVariable & { color: string }
 
-        const changeset: TCoreChangeset<TCorePropositionalExpression, ExtVar> =
+        const changeset: TCoreChangeset<TCorePropositionalExpression, TExtVar> =
             {
                 variables: {
                     added: [
@@ -6653,10 +6653,10 @@ describe("mutation types — generic changesets", () => {
 
 describe("ExpressionManager — generic type parameter", () => {
     it("stores and returns extended expression types", () => {
-        type ExtExpr = TCorePropositionalExpression & { tag: string }
-        const em = new ExpressionManager<ExtExpr>()
+        type TExtExpr = TCorePropositionalExpression & { tag: string }
+        const em = new ExpressionManager<TExtExpr>()
 
-        const expr: TExpressionInput<ExtExpr> = {
+        const expr: TExpressionInput<TExtExpr> = {
             id: "e1",
             argumentId: "a1",
             argumentVersion: 0,
@@ -6679,16 +6679,16 @@ describe("ExpressionManager — generic type parameter", () => {
 
 describe("PremiseEngine — generic type parameters", () => {
     it("preserves extended premise type in toData()", () => {
-        type ExtPremise = TCorePremise & { color: string }
+        type TExtPremise = TCorePremise & { color: string }
         const arg: TCoreArgument = { id: "a1", version: 0, checksum: "x" }
         const vm = new VariableManager()
-        const pm = new PremiseEngine<TCoreArgument, ExtPremise>(
+        const pm = new PremiseEngine<TCoreArgument, TExtPremise>(
             {
                 id: "p1",
                 argumentId: arg.id,
                 argumentVersion: arg.version,
                 color: "blue",
-            } as ExtPremise,
+            } as TExtPremise,
             { argument: arg, variables: vm }
         )
         const data = pm.toPremiseData()
@@ -6698,25 +6698,25 @@ describe("PremiseEngine — generic type parameters", () => {
 
 describe("ArgumentEngine — generic type parameters", () => {
     it("preserves extended argument type", () => {
-        type ExtArg = TCoreArgument & { projectId: string }
-        const arg: Omit<ExtArg, "checksum"> = {
+        type TExtArg = TCoreArgument & { projectId: string }
+        const arg: Omit<TExtArg, "checksum"> = {
             id: "a1",
             version: 0,
             projectId: "proj-1",
         }
-        const engine = new ArgumentEngine<ExtArg>(arg)
+        const engine = new ArgumentEngine<TExtArg>(arg)
         const retrieved = engine.getArgument()
         expect(retrieved.projectId).toBe("proj-1")
         expect(typeof retrieved.checksum).toBe("string")
     })
 
     it("preserves extended variable type through addVariable", () => {
-        type ExtVar = TCorePropositionalVariable & { color: string }
+        type TExtVar = TCorePropositionalVariable & { color: string }
         const engine = new ArgumentEngine<
             TCoreArgument,
             TCorePremise,
             TCorePropositionalExpression,
-            ExtVar
+            TExtVar
         >({ id: "a1", version: 0 })
         const { result } = engine.addVariable({
             id: "v1",
@@ -6732,19 +6732,19 @@ describe("ArgumentEngine — generic type parameters", () => {
 
 describe("diffArguments — generic type parameters", () => {
     it("accepts and returns extended types", () => {
-        type ExtArg = TCoreArgument & { projectId: string }
-        const argA: Omit<ExtArg, "checksum"> = {
+        type TExtArg = TCoreArgument & { projectId: string }
+        const argA: Omit<TExtArg, "checksum"> = {
             id: "a1",
             version: 0,
             projectId: "proj-1",
         }
-        const argB: Omit<ExtArg, "checksum"> = {
+        const argB: Omit<TExtArg, "checksum"> = {
             id: "a1",
             version: 1,
             projectId: "proj-1",
         }
-        const engineA = new ArgumentEngine<ExtArg>(argA)
-        const engineB = new ArgumentEngine<ExtArg>(argB)
+        const engineA = new ArgumentEngine<TExtArg>(argA)
+        const engineB = new ArgumentEngine<TExtArg>(argB)
 
         const diff = diffArguments(engineA, engineB)
         expect(diff.argument.before.projectId).toBe("proj-1")
@@ -7733,14 +7733,14 @@ describe("ArgumentEngine — fromData bulk loading", () => {
     })
 
     it("infers generic types from parameters", () => {
-        type MyArg = TCoreArgument & { customField: string }
-        const arg: MyArg = {
+        type TMyArg = TCoreArgument & { customField: string }
+        const arg: TMyArg = {
             id: "arg-1",
             version: 1,
             checksum: "x",
             customField: "hello",
         }
-        const engine = ArgumentEngine.fromData<MyArg>(arg, [], [], [], {})
+        const engine = ArgumentEngine.fromData<TMyArg>(arg, [], [], [], {})
         const result = engine.getArgument()
         expect(result.customField).toBe("hello")
     })

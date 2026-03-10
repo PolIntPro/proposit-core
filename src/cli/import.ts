@@ -5,7 +5,7 @@ import { CoreYamlArgumentSchema } from "../lib/schemata/import.js"
 import type { TCoreYamlArgument } from "../lib/schemata/import.js"
 import type { TCorePropositionalVariable } from "../lib/schemata/index.js"
 import type { TExpressionInput } from "../lib/core/expressionManager.js"
-import type { FormulaAST } from "../lib/core/parser/formula.js"
+import type { TFormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
 import { ArgumentEngine } from "../lib/core/argumentEngine.js"
 import { POSITION_INITIAL } from "../lib/utils/position.js"
@@ -15,7 +15,7 @@ import { POSITION_INITIAL } from "../lib/utils/position.js"
  * Throws if an implication/biconditional is nested inside another operator.
  */
 function validateRootOnly(
-    ast: FormulaAST,
+    ast: TFormulaAST,
     isRoot: boolean,
     premiseIndex: number,
     premiseTitle: string | undefined
@@ -49,7 +49,7 @@ function validateRootOnly(
 }
 
 /** Recursively collects all variable names from a formula AST. */
-function collectVariableNames(ast: FormulaAST, names: Set<string>): void {
+function collectVariableNames(ast: TFormulaAST, names: Set<string>): void {
     switch (ast.type) {
         case "variable":
             names.add(ast.name)
@@ -76,7 +76,7 @@ function collectVariableNames(ast: FormulaAST, names: Set<string>): void {
  * to the premise manager. Returns the root expression ID.
  */
 function buildExpressions(
-    ast: FormulaAST,
+    ast: TFormulaAST,
     parentId: string | null,
     position: number,
     argumentId: string,
@@ -204,10 +204,10 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const input: TCoreYamlArgument = Value.Parse(CoreYamlArgumentSchema, raw)
 
     // Parse all formulas and validate root-only constraint
-    const parsedFormulas: FormulaAST[] = []
+    const parsedFormulas: TFormulaAST[] = []
     for (let i = 0; i < input.premises.length; i++) {
         const premise = input.premises[i]
-        let ast: FormulaAST
+        let ast: TFormulaAST
         try {
             ast = parseFormula(premise.formula)
         } catch (error) {

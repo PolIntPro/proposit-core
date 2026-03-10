@@ -25,10 +25,10 @@ export class TDateType extends Type.Base<Date> {
         return new TDateType()
     }
 }
-export function DateType(): TDateType {
+export function dateType(): TDateType {
     return new TDateType()
 }
-export const EncodableDate = DateType()
+export const EncodableDate = dateType()
 
 // ---------------------------------------------------------------------------
 // JSON value schemata
@@ -40,7 +40,7 @@ export const JsonPrimitiveSchema = Type.Union([
     Type.Null(),
     EncodableDate,
 ])
-export type JsonPrimitive = Static<typeof JsonPrimitiveSchema>
+export type TJsonPrimitive = Static<typeof JsonPrimitiveSchema>
 
 export const JsonValueSchema = Type.Cyclic(
     {
@@ -63,24 +63,24 @@ export const JsonArraySchema = Type.Array(JsonValueSchema)
 
 // Manual implementation workaround for TypeBox cyclic Static issue
 // see: https://github.com/sinclairzx81/typebox/issues/1356
-export type JsonValue =
-    | JsonPrimitive
-    | { [key: string]: JsonValue }
-    | JsonValue[]
-export type JsonObject = Record<string, JsonValue>
-export type JsonArray = JsonValue[]
+export type TJsonValue =
+    | TJsonPrimitive
+    | { [key: string]: TJsonValue }
+    | TJsonValue[]
+export type TJsonObject = Record<string, TJsonValue>
+export type TJsonArray = TJsonValue[]
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 export const Nullable = <T extends TSchema>(
-    T: T,
+    schema: T,
     options?: Omit<TSchemaOptions, "default">
 ) => {
-    return Type.Union([T, Type.Null()], { ...options, default: null })
+    return Type.Union([schema, Type.Null()], { ...options, default: null })
 }
 export const UUID = Type.String() // `${string}-${string}-${string}-${string}-${string}`
-export type UUID = Static<typeof UUID>
+export type TUUID = Static<typeof UUID>
 
 /** Makes the `checksum` field optional on a type that has one. */
 export type TOptionalChecksum<T extends { checksum?: unknown }> = Omit<

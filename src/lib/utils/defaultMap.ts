@@ -1,4 +1,4 @@
-type DefaultValueFactory<K, V> = (key?: K) => V
+type TDefaultValueFactory<K, V> = (key?: K) => V
 
 /**
  * A `Map` subclass that auto-creates values for missing keys using a
@@ -6,11 +6,11 @@ type DefaultValueFactory<K, V> = (key?: K) => V
  * evicting the oldest entry when the limit is reached.
  */
 export class DefaultMap<K, V> extends Map<K, V> {
-    private mkDefault: DefaultValueFactory<K, V>
+    private mkDefault: TDefaultValueFactory<K, V>
     private limit: number
 
     constructor(
-        mkDefault: DefaultValueFactory<K, V>,
+        mkDefault: TDefaultValueFactory<K, V>,
         entries?: Iterable<[K, V]>,
         limit = -1
     ) {

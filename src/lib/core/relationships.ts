@@ -81,26 +81,26 @@ export function buildPremiseProfile(
 
 // ── Graph edge types ────────────────────────────────────────────────────
 
-type VariableEdge = {
+type TVariableEdge = {
     variableId: string
     polarityMatch: boolean
 }
 
-type PremiseEdge = {
+type TPremiseEdge = {
     targetPremiseId: string
-    variables: VariableEdge[]
+    variables: TVariableEdge[]
 }
 
 // ── Graph construction ──────────────────────────────────────────────────
 
 function buildVariableFlowGraph(
     profiles: Map<string, TCorePremiseProfile>
-): Map<string, PremiseEdge[]> {
-    const graph = new Map<string, PremiseEdge[]>()
+): Map<string, TPremiseEdge[]> {
+    const graph = new Map<string, TPremiseEdge[]>()
 
     for (const [sourceId, sourceProfile] of profiles) {
         if (!sourceProfile.isInference) continue
-        const edges: PremiseEdge[] = []
+        const edges: TPremiseEdge[] = []
 
         const conseqVars = sourceProfile.appearances.filter(
             (a) => a.side === "consequent"
@@ -113,7 +113,7 @@ function buildVariableFlowGraph(
                 (a) => a.side === "antecedent"
             )
 
-            const variables: VariableEdge[] = []
+            const variables: TVariableEdge[] = []
             for (const cv of conseqVars) {
                 for (const av of anteVars) {
                     if (cv.variableId === av.variableId) {
@@ -138,7 +138,7 @@ function buildVariableFlowGraph(
 
 // ── BFS reachability ────────────────────────────────────────────────────
 
-type ReachResult = {
+type TReachResult = {
     reachable: boolean
     polarityMatch: boolean
     variableDetails: TCoreVariableRelationship[]
@@ -146,17 +146,17 @@ type ReachResult = {
 }
 
 function bfsToTarget(
-    graph: Map<string, PremiseEdge[]>,
+    graph: Map<string, TPremiseEdge[]>,
     sourceId: string,
     targetId: string
-): ReachResult {
+): TReachResult {
     const visited = new Set<string>()
     visited.add(sourceId)
 
     const queue: {
         premiseId: string
         polarityMatch: boolean
-        entryVariables: VariableEdge[]
+        entryVariables: TVariableEdge[]
     }[] = []
 
     // Seed with direct edges from source

@@ -35,7 +35,7 @@ export {
 } from "./core/relationships.js"
 export { DEFAULT_CHECKSUM_CONFIG, createChecksumConfig } from "./consts.js"
 export { parseFormula } from "./core/parser/formula.js"
-export type { FormulaAST } from "./core/parser/formula.js"
+export type { TFormulaAST } from "./core/parser/formula.js"
 export type {
     TExpressionInput,
     TExpressionWithoutPosition,
