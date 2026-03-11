@@ -67,10 +67,10 @@ interface TPremiseCrud<TArg, TPremise, TExpr, TVar> {
 }
 ```
 
-### `TVariableManagement<TVar>`
+### `TVariableManagement<TArg, TPremise, TExpr, TVar>`
 
 ```typescript
-interface TVariableManagement<TVar> {
+interface TVariableManagement<TArg, TPremise, TExpr, TVar> {
   addVariable(variable: TOptionalChecksum<TVar>): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg>;
   updateVariable(variableId: string, updates: { symbol?: string }): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>;
   removeVariable(variableId: string): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>;
@@ -114,10 +114,10 @@ interface TArgumentRoleState<TArg, TPremise, TExpr, TVar> {
 }
 ```
 
-### `TArgumentEvaluation<TArg, TPremise, TExpr, TVar>`
+### `TArgumentEvaluation`
 
 ```typescript
-interface TArgumentEvaluation<TArg, TPremise, TExpr, TVar> {
+interface TArgumentEvaluation {
   validateEvaluability(): TCoreValidationResult;
   evaluate(assignment: TCoreExpressionAssignment, options?: TCoreArgumentEvaluationOptions): TCoreArgumentEvaluationResult;
   checkValidity(options?: TCoreValidityCheckOptions): TCoreValidityCheckResult;
@@ -147,12 +147,12 @@ interface TArgumentIdentity<TArg> {
 
 ## PremiseEngine Interfaces (`premise-engine.interfaces.ts`)
 
-### `TExpressionMutations<TExpr, TVar, TPremise, TArg>`
+### `TExpressionMutations<TArg, TPremise, TExpr, TVar>`
 
 Single-premise expression writes.
 
 ```typescript
-interface TExpressionMutations<TExpr, TVar, TPremise, TArg> {
+interface TExpressionMutations<TArg, TPremise, TExpr, TVar> {
   addExpression(expression: TExpressionInput<TExpr>): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg>;
   appendExpression(parentId: string | null, expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg>;
   addExpressionRelative(siblingId: string, relativePosition: "before" | "after", expression: TExpressionWithoutPosition<TExpr>): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg>;
@@ -177,10 +177,10 @@ interface TExpressionQueries<TExpr> {
 }
 ```
 
-### `TVariableReferences<TVar, TExpr, TPremise, TArg>`
+### `TVariableReferences<TArg, TPremise, TExpr, TVar>`
 
 ```typescript
-interface TVariableReferences<TVar, TExpr, TPremise, TArg> {
+interface TVariableReferences<TArg, TPremise, TExpr, TVar> {
   getVariables(): TVar[];
   getReferencedVariableIds(): Set<string>;
   deleteExpressionsUsingVariable(variableId: string): TCoreMutationResult<TExpr[], TExpr, TVar, TPremise, TArg>;
@@ -220,10 +220,10 @@ interface TPremiseLifecycle<TPremise, TExpr> {
 }
 ```
 
-### `TPremiseIdentity<TPremise, TExpr, TVar, TArg>`
+### `TPremiseIdentity<TArg, TPremise, TExpr, TVar>`
 
 ```typescript
-interface TPremiseIdentity<TPremise, TExpr, TVar, TArg> {
+interface TPremiseIdentity<TArg, TPremise, TExpr, TVar> {
   getId(): string;
   toPremiseData(): TPremise;
   getExtras(): Record<string, unknown>;
@@ -239,10 +239,10 @@ interface TPremiseIdentity<TPremise, TExpr, TVar, TArg> {
 export class ArgumentEngine<TArg, TPremise, TExpr, TVar>
   implements
     TPremiseCrud<TArg, TPremise, TExpr, TVar>,
-    TVariableManagement<TVar>,
+    TVariableManagement<TArg, TPremise, TExpr, TVar>,
     TArgumentExpressionQueries<TExpr>,
     TArgumentRoleState<TArg, TPremise, TExpr, TVar>,
-    TArgumentEvaluation<TArg, TPremise, TExpr, TVar>,
+    TArgumentEvaluation,
     TArgumentLifecycle<TArg, TPremise, TExpr, TVar>,
     TArgumentIdentity<TArg>,
     TDisplayable,
@@ -251,13 +251,13 @@ export class ArgumentEngine<TArg, TPremise, TExpr, TVar>
 
 export class PremiseEngine<TArg, TPremise, TExpr, TVar>
   implements
-    TExpressionMutations<TExpr, TVar, TPremise, TArg>,
+    TExpressionMutations<TArg, TPremise, TExpr, TVar>,
     TExpressionQueries<TExpr>,
-    TVariableReferences<TVar, TExpr, TPremise, TArg>,
+    TVariableReferences<TArg, TPremise, TExpr, TVar>,
     TPremiseClassification,
     TPremiseEvaluation,
     TPremiseLifecycle<TPremise, TExpr>,
-    TPremiseIdentity<TPremise, TExpr, TVar, TArg>,
+    TPremiseIdentity<TArg, TPremise, TExpr, TVar>,
     TDisplayable,
     TChecksummable
 { ... }
