@@ -131,10 +131,6 @@ export class ArgumentEngine<
         this.positionConfig = options?.positionConfig
     }
 
-    /**
-     * Registers a listener that is called after every mutation.
-     * Returns an unsubscribe function.
-     */
     public subscribe = (listener: () => void): (() => void) => {
         this.listeners.add(listener)
         return () => {
@@ -301,12 +297,10 @@ export class ArgumentEngine<
         }
     }
 
-    /** Returns a shallow copy of the argument metadata with checksum attached. */
     public getArgument(): TArg {
         return { ...this.argument, checksum: this.checksum() } as TArg
     }
 
-    /** Renders the argument as a multi-line string with role labels for each premise. */
     public toDisplayString(): string {
         const lines: string[] = []
         const arg = this.getArgument()
@@ -333,10 +327,6 @@ export class ArgumentEngine<
         return lines.join("\n")
     }
 
-    /**
-     * Creates a new premise with an auto-generated UUID and registers it
-     * with this engine.
-     */
     public createPremise(
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
@@ -349,12 +339,6 @@ export class ArgumentEngine<
         return this.createPremiseWithId(randomUUID(), extras)
     }
 
-    /**
-     * Creates a premise with a caller-supplied ID and registers it with
-     * this engine.
-     *
-     * @throws If a premise with the given ID already exists.
-     */
     public createPremiseWithId(
         id: string,
         extras?: Record<string, unknown>
@@ -409,10 +393,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Removes a premise and clears any role assignments that reference it.
-     * Returns the removed premise data, or `undefined` if not found.
-     */
     public removePremise(
         premiseId: string
     ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg> {
@@ -440,26 +420,22 @@ export class ArgumentEngine<
         }
     }
 
-    /** Returns the premise with the given ID, or `undefined` if not found. */
     public getPremise(
         premiseId: string
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
         return this.premises.get(premiseId)
     }
 
-    /** Returns `true` if a premise with the given ID exists. */
     public hasPremise(premiseId: string): boolean {
         return this.premises.has(premiseId)
     }
 
-    /** Returns all premise IDs in lexicographic order. */
     public listPremiseIds(): string[] {
         return Array.from(this.premises.keys()).sort((a, b) =>
             a.localeCompare(b)
         )
     }
 
-    /** Returns all premises in lexicographic ID order. */
     public listPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar>[] {
         return this.listPremiseIds()
             .map((id) => this.premises.get(id))
@@ -469,13 +445,6 @@ export class ArgumentEngine<
             )
     }
 
-    /**
-     * Registers a propositional variable for use across all premises.
-     *
-     * @throws If `variable.symbol` is already in use.
-     * @throws If `variable.id` already exists.
-     * @throws If the variable does not belong to this argument.
-     */
     public addVariable(
         variable: TOptionalChecksum<TVar>
     ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
@@ -504,12 +473,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Updates fields on an existing variable. Since all premises share the
-     * same VariableManager, the update is immediately visible everywhere.
-     *
-     * @throws If the new symbol is already in use by a different variable.
-     */
     public updateVariable(
         variableId: string,
         updates: { symbol?: string }
@@ -539,10 +502,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Removes a variable and cascade-deletes all expressions referencing it
-     * across every premise (including subtrees and operator collapse).
-     */
     public removeVariable(
         variableId: string
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg> {
@@ -576,31 +535,22 @@ export class ArgumentEngine<
         }
     }
 
-    /** Returns all registered variables sorted by ID. */
     public getVariables(): TVar[] {
         return this.variables.toArray()
     }
 
-    /** Returns the variable with the given ID, or `undefined` if not found. */
     public getVariable(variableId: string): TVar | undefined {
         return this.variables.getVariable(variableId)
     }
 
-    /** Returns `true` if a variable with the given ID exists. */
     public hasVariable(variableId: string): boolean {
         return this.variables.hasVariable(variableId)
     }
 
-    /** Returns the variable with the given symbol, or `undefined` if not found. */
     public getVariableBySymbol(symbol: string): TVar | undefined {
         return this.variables.getVariableBySymbol(symbol)
     }
 
-    /**
-     * Builds a Map keyed by a caller-supplied function over all variables.
-     * Useful for indexing by extension fields (e.g. statementId).
-     * The caller should cache the result — this is O(n) per call.
-     */
     public buildVariableIndex<K>(keyFn: (v: TVar) => K): Map<K, TVar> {
         const map = new Map<K, TVar>()
         for (const v of this.variables.toArray()) {
@@ -609,24 +559,20 @@ export class ArgumentEngine<
         return map
     }
 
-    /** Returns an expression by ID from any premise, or `undefined` if not found. */
     public getExpression(expressionId: string): TExpr | undefined {
         const premiseId = this.expressionIndex.get(expressionId)
         if (premiseId === undefined) return undefined
         return this.premises.get(premiseId)?.getExpression(expressionId)
     }
 
-    /** Returns `true` if an expression with the given ID exists in any premise. */
     public hasExpression(expressionId: string): boolean {
         return this.expressionIndex.has(expressionId)
     }
 
-    /** Returns the premise ID that contains the given expression, or `undefined`. */
     public getExpressionPremiseId(expressionId: string): string | undefined {
         return this.expressionIndex.get(expressionId)
     }
 
-    /** Returns the PremiseEngine containing the given expression, or `undefined`. */
     public findPremiseByExpressionId(
         expressionId: string
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined {
@@ -635,7 +581,6 @@ export class ArgumentEngine<
         return this.premises.get(premiseId)
     }
 
-    /** Returns all expressions across all premises, sorted by ID. */
     public getAllExpressions(): TExpr[] {
         const all: TExpr[] = []
         for (const pe of this.listPremises()) {
@@ -644,10 +589,6 @@ export class ArgumentEngine<
         return all.sort((a, b) => a.id.localeCompare(b.id))
     }
 
-    /**
-     * Returns all expressions that reference the given variable ID,
-     * across all premises.
-     */
     public getExpressionsByVariableId(variableId: string): TExpr[] {
         const result: TExpr[] = []
         for (const pe of this.listPremises()) {
@@ -665,7 +606,6 @@ export class ArgumentEngine<
         return result
     }
 
-    /** Returns the root expression from each premise that has one. */
     public listRootExpressions(): TExpr[] {
         const roots: TExpr[] = []
         for (const pe of this.listPremises()) {
@@ -675,7 +615,6 @@ export class ArgumentEngine<
         return roots
     }
 
-    /** Returns the current role assignments (conclusion premise ID only; supporting is derived). */
     public getRoleState(): TCoreArgumentRoleState {
         return {
             ...(this.conclusionPremiseId !== undefined
@@ -684,11 +623,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Designates a premise as the argument's conclusion.
-     *
-     * @throws If the premise does not exist.
-     */
     public setConclusionPremise(
         premiseId: string
     ): TCoreMutationResult<
@@ -716,7 +650,6 @@ export class ArgumentEngine<
         }
     }
 
-    /** Clears the conclusion designation. */
     public clearConclusionPremise(): TCoreMutationResult<
         TCoreArgumentRoleState,
         TExpr,
@@ -738,7 +671,6 @@ export class ArgumentEngine<
         }
     }
 
-    /** Returns the conclusion premise, or `undefined` if none is set. */
     public getConclusionPremise():
         | PremiseEngine<TArg, TPremise, TExpr, TVar>
         | undefined {
@@ -748,10 +680,6 @@ export class ArgumentEngine<
         return this.premises.get(this.conclusionPremiseId)
     }
 
-    /**
-     * Returns all supporting premises (derived: inference premises that are
-     * not the conclusion) in lexicographic ID order.
-     */
     public listSupportingPremises(): PremiseEngine<
         TArg,
         TPremise,
@@ -763,7 +691,6 @@ export class ArgumentEngine<
         )
     }
 
-    /** Returns a serializable snapshot of the full engine state. */
     public snapshot(): TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar> {
         return {
             argument: { ...this.argument },
@@ -912,7 +839,6 @@ export class ArgumentEngine<
         return engine
     }
 
-    /** Restores the engine to a previously captured snapshot state. */
     public rollback(
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
     ): void {
@@ -950,11 +876,6 @@ export class ArgumentEngine<
         this.notifySubscribers()
     }
 
-    /**
-     * Returns an argument-level checksum combining argument metadata, role
-     * state, and all premise checksums. Computed lazily -- only recalculated
-     * when the engine's own state has changed.
-     */
     public checksum(): string {
         if (this.checksumDirty || this.cachedChecksum === undefined) {
             this.cachedChecksum = this.computeChecksum()
@@ -1016,10 +937,6 @@ export class ArgumentEngine<
         } as TVar
     }
 
-    /**
-     * Collects all variables referenced by expressions across all premises,
-     * indexed both by variable ID and by symbol.
-     */
     public collectReferencedVariables(): {
         variableIds: string[]
         byId: Record<string, { symbol: string; premiseIds: string[] }>
@@ -1098,12 +1015,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Validates that this argument is structurally ready for evaluation:
-     * a conclusion must be set, all role references must point to existing
-     * premises, variable ID/symbol mappings must be consistent, and every
-     * premise must be individually evaluable.
-     */
     public validateEvaluability(): TCoreValidationResult {
         const issues: TCoreValidationIssue[] = []
 
@@ -1174,19 +1085,6 @@ export class ArgumentEngine<
         return makeValidationResult(issues)
     }
 
-    /**
-     * Evaluates the argument under a three-valued expression assignment.
-     *
-     * Variables may be `true`, `false`, or `null` (unknown). Expressions
-     * listed in `rejectedExpressionIds` evaluate to `false` (children
-     * skipped). All result flags (`isAdmissibleAssignment`,
-     * `allSupportingPremisesTrue`, `conclusionTrue`, `isCounterexample`,
-     * `preservesTruthUnderAssignment`) are three-valued: `null` means
-     * the result is indeterminate due to unknown variable values.
-     *
-     * Returns `{ ok: false }` with validation details if the argument is
-     * not structurally evaluable.
-     */
     public evaluate(
         assignment: TCoreExpressionAssignment,
         options?: TCoreArgumentEvaluationOptions
@@ -1329,16 +1227,6 @@ export class ArgumentEngine<
         }
     }
 
-    /**
-     * Enumerates all 2^n variable assignments and checks for counterexamples.
-     *
-     * A counterexample is an admissible assignment where all supporting
-     * premises are true but the conclusion is false. The argument is valid
-     * if no counterexamples exist.
-     *
-     * Supports early termination (`firstCounterexample` mode) and
-     * configurable limits on variables and assignments checked.
-     */
     public checkValidity(
         options?: TCoreValidityCheckOptions
     ): TCoreValidityCheckResult {

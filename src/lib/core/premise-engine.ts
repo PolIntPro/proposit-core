@@ -116,11 +116,6 @@ export class PremiseEngine<
         this.onMutate = callback
     }
 
-    /**
-     * Deletes all expressions that reference the given variable ID,
-     * including their subtrees. Operator collapse runs after each removal.
-     * Returns all removed expressions in the changeset.
-     */
     public deleteExpressionsUsingVariable(
         variableId: string
     ): TCoreMutationResult<TExpr[], TExpr, TVar, TPremise, TArg> {
@@ -172,21 +167,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Adds an expression to this premise's tree.
-     *
-     * If the expression has `parentId: null` it becomes the root; only one
-     * root is permitted per premise.  If `parentId` is non-null the parent
-     * must already exist within this premise.
-     *
-     * All other structural rules (`implies`/`iff` root-only, child limits,
-     * position uniqueness) are enforced by the underlying `ExpressionManager`.
-     *
-     * @throws If the premise already has a root expression and this one is also a root.
-     * @throws If the expression's parent does not exist in this premise.
-     * @throws If the expression is a variable reference and the variable has not been registered.
-     * @throws If the expression does not belong to this argument.
-     */
     public addExpression(
         expression: TExpressionInput<TExpr>
     ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
@@ -247,16 +227,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Adds an expression as the last child of the given parent, with
-     * position computed automatically.
-     *
-     * If `parentId` is `null`, the expression becomes the root.
-     *
-     * @throws If the premise already has a root and parentId is null.
-     * @throws If the expression does not belong to this argument.
-     * @throws If the expression is a variable reference and the variable has not been registered.
-     */
     public appendExpression(
         parentId: string | null,
         expression: TExpressionWithoutPosition<TExpr>
@@ -316,14 +286,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Adds an expression immediately before or after an existing sibling,
-     * with position computed automatically.
-     *
-     * @throws If the sibling does not exist in this premise.
-     * @throws If the expression does not belong to this argument.
-     * @throws If the expression is a variable reference and the variable has not been registered.
-     */
     public addExpressionRelative(
         siblingId: string,
         relativePosition: "before" | "after",
@@ -377,21 +339,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Updates mutable fields of an existing expression in this premise.
-     *
-     * Only `position`, `variableId`, and `operator` may be updated. Structural
-     * fields (`id`, `parentId`, `type`, `argumentId`, `argumentVersion`,
-     * `checksum`) are forbidden — enforced by the underlying
-     * `ExpressionManager`.
-     *
-     * If `variableId` changes, the internal `expressionsByVariableId` index is
-     * updated so that cascade deletion (`deleteExpressionsUsingVariable`) stays
-     * correct.
-     *
-     * @throws If the expression does not exist in this premise.
-     * @throws If `variableId` references a non-existent variable.
-     */
     public updateExpression(
         expressionId: string,
         updates: TExpressionUpdate
@@ -451,15 +398,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Removes an expression and its entire descendant subtree, then collapses
-     * any ancestor operators with fewer than two children (same semantics as
-     * before).  Returns the removed root expression, or `undefined` if not
-     * found.
-     *
-     * `rootExpressionId` is recomputed after every removal because operator
-     * collapse can silently promote a new expression into the root slot.
-     */
     public removeExpression(
         expressionId: string,
         deleteSubtree: boolean
@@ -518,20 +456,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Splices a new expression between existing nodes in the tree.  The new
-     * expression inherits the tree slot of the anchor node
-     * (`leftNodeId ?? rightNodeId`).
-     *
-     * `rootExpressionId` is recomputed after every insertion because the
-     * anchor may have been the root.
-     *
-     * See `ArgumentEngine.insertExpression` for the full contract; the same
-     * rules apply here.
-     *
-     * @throws If the expression does not belong to this argument.
-     * @throws If the expression is a variable reference and the variable has not been registered.
-     */
     public insertExpression(
         expression: TExpressionInput<TExpr>,
         leftNodeId?: string,
@@ -581,20 +505,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Wraps an existing expression with a new operator and a new sibling
-     * expression in a single atomic operation.
-     *
-     * The operator takes the existing node's slot in the tree. Both the
-     * existing node and the new sibling become children of the operator.
-     *
-     * Exactly one of `leftNodeId` / `rightNodeId` must be provided — it
-     * identifies the existing node and which child slot it occupies.
-     * The new sibling fills the other slot.
-     *
-     * @throws If the expression does not belong to this argument.
-     * @throws If the new sibling is a variable reference and the variable has not been registered.
-     */
     public wrapExpression(
         operator: TExpressionWithoutPosition<TExpr>,
         newSibling: TExpressionWithoutPosition<TExpr>,
@@ -650,10 +560,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Returns an expression by ID, or `undefined` if not found in this
-     * premise.
-     */
     public getExpression(id: string): TExpr | undefined {
         return this.expressions.getExpression(id)
     }
@@ -708,12 +614,6 @@ export class PremiseEngine<
         return this.expressions.getExpression(this.rootExpressionId)
     }
 
-    /**
-     * Returns all argument-level variables (from the shared VariableManager)
-     * sorted by ID. Since the VariableManager is shared across all premises,
-     * this returns every registered variable — not just those referenced by
-     * expressions in this premise.
-     */
     public getVariables(): TVar[] {
         return sortedCopyById(this.variables.toArray())
     }
@@ -726,10 +626,6 @@ export class PremiseEngine<
         return this.expressions.getChildExpressions(parentId)
     }
 
-    /**
-     * Returns `true` if the root expression is an `implies` or `iff` operator,
-     * meaning this premise expresses a logical inference relationship.
-     */
     public isInference(): boolean {
         const root = this.getRootExpression()
         return (
@@ -738,10 +634,6 @@ export class PremiseEngine<
         )
     }
 
-    /**
-     * Returns `true` if this premise does not have an inference operator at its
-     * root (i.e. it is a constraint premise).  Equivalent to `!isInference()`.
-     */
     public isConstraint(): boolean {
         return !this.isInference()
     }
@@ -894,17 +786,6 @@ export class PremiseEngine<
         return makeValidationResult(issues)
     }
 
-    /**
-     * Evaluates the premise under a three-valued expression assignment.
-     *
-     * Variable values are looked up in `assignment.variables` using Kleene
-     * three-valued logic (`null` = unknown). Missing variables default to `null`.
-     * Expressions listed in `assignment.rejectedExpressionIds` evaluate to
-     * `false` and their children are not evaluated.
-     *
-     * For inference premises (`implies`/`iff`), an `inferenceDiagnostic` is
-     * computed with three-valued fields unless the root is rejected.
-     */
     public evaluate(
         assignment: TCoreExpressionAssignment,
         options?: {
@@ -1094,11 +975,6 @@ export class PremiseEngine<
         }
     }
 
-    /**
-     * Returns a human-readable string of this premise's expression tree using
-     * standard logical notation (∧ ∨ ¬ → ↔).  Missing operands are rendered
-     * as `(?)`.  Returns an empty string when the premise has no expressions.
-     */
     public toDisplayString(): string {
         if (this.rootExpressionId === undefined) {
             return ""
@@ -1106,11 +982,6 @@ export class PremiseEngine<
         return this.renderExpression(this.rootExpressionId)
     }
 
-    /**
-     * Returns the set of variable IDs referenced by expressions in this premise.
-     * Only variables that appear in `type: "variable"` expression nodes are
-     * included — not all variables in the shared VariableManager.
-     */
     public getReferencedVariableIds(): Set<string> {
         const ids = new Set<string>()
         for (const expr of this.expressions.toArray()) {
@@ -1121,12 +992,6 @@ export class PremiseEngine<
         return ids
     }
 
-    /**
-     * Returns a serializable TPremise representation of this premise.
-     * Contains only premise identity/metadata and checksum — use
-     * getRootExpressionId(), getExpressions(), getReferencedVariableIds()
-     * for runtime state.
-     */
     public toPremiseData(): TPremise {
         return {
             ...this.premise,
@@ -1134,10 +999,6 @@ export class PremiseEngine<
         } as TPremise
     }
 
-    /**
-     * Returns a premise-level checksum combining all entity checksums.
-     * Computed lazily -- only recalculated when state has changed.
-     */
     public checksum(): string {
         if (this.checksumDirty || this.cachedChecksum === undefined) {
             this.cachedChecksum = this.computeChecksum()
@@ -1170,7 +1031,6 @@ export class PremiseEngine<
         return computeHash(canonicalSerialize(checksumMap))
     }
 
-    /** Invalidate the cached checksum so the next call recomputes it. */
     public markDirty(): void {
         this.checksumDirty = true
     }
@@ -1272,7 +1132,6 @@ export class PremiseEngine<
         }
     }
 
-    /** Returns a serializable snapshot of the premise's owned state. */
     public snapshot(): TPremiseEngineSnapshot<TPremise, TExpr> {
         const exprSnapshot = this.expressions.snapshot()
         return {
