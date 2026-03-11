@@ -10,6 +10,7 @@ export type {
 } from "./core/argument-engine.js"
 export { PremiseEngine } from "./core/premise-engine.js"
 export type { TPremiseEngineSnapshot } from "./core/premise-engine.js"
+export type * from "./core/interfaces/index.js"
 export type { TExpressionManagerSnapshot } from "./core/expression-manager.js"
 export type { TVariableManagerSnapshot } from "./core/variable-manager.js"
 export * from "./types/evaluation.js"
