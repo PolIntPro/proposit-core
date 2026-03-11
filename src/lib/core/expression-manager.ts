@@ -933,6 +933,173 @@ export class ExpressionManager<
         ).add(anchorPosition)
     }
 
+    /**
+     * Wraps an existing expression with a new operator and a new sibling.
+     *
+     * The operator takes the existing node's slot in the tree. Both the
+     * existing node and the new sibling become children of the operator.
+     *
+     * Exactly one of `leftNodeId` / `rightNodeId` must be provided — it
+     * identifies the existing node and which child slot (position 0 or 1)
+     * it occupies. The new sibling fills the other slot.
+     *
+     * @throws If neither or both of leftNodeId/rightNodeId are provided.
+     * @throws If the operator or sibling expression ID already exists.
+     * @throws If operator and sibling IDs are the same.
+     * @throws If the existing node does not exist.
+     * @throws If the operator is not of type `"operator"`.
+     * @throws If the operator is unary (`not`).
+     * @throws If the operator is `implies`/`iff` and the existing node is not at root.
+     * @throws If the existing node is an `implies`/`iff` operator (cannot be subordinated).
+     * @throws If the new sibling is an `implies`/`iff` operator (cannot be subordinated).
+     */
+    public wrapExpression(
+        operator: TExpressionWithoutPosition<TExpr>,
+        newSibling: TExpressionWithoutPosition<TExpr>,
+        leftNodeId?: string,
+        rightNodeId?: string
+    ): void {
+        // 1. Exactly one of leftNodeId / rightNodeId must be provided.
+        if (leftNodeId === undefined && rightNodeId === undefined) {
+            throw new Error(
+                `wrapExpression requires exactly one of leftNodeId or rightNodeId.`
+            )
+        }
+        if (leftNodeId !== undefined && rightNodeId !== undefined) {
+            throw new Error(
+                `wrapExpression requires exactly one of leftNodeId or rightNodeId, not both.`
+            )
+        }
+
+        // 2. Operator expression ID must not already exist.
+        if (this.expressions.has(operator.id)) {
+            throw new Error(
+                `Expression with ID "${operator.id}" already exists.`
+            )
+        }
+
+        // 3. New sibling expression ID must not already exist.
+        if (this.expressions.has(newSibling.id)) {
+            throw new Error(
+                `Expression with ID "${newSibling.id}" already exists.`
+            )
+        }
+
+        // 4. Operator and sibling IDs must be different.
+        if (operator.id === newSibling.id) {
+            throw new Error(
+                `Operator and sibling expression IDs must be different.`
+            )
+        }
+
+        // 5. The existing node must exist.
+        const existingNodeId = (leftNodeId ?? rightNodeId)!
+        const existingNode: TExpressionInput | undefined = this.expressions.get(
+            existingNodeId
+        ) as TExpressionInput | undefined
+        if (!existingNode) {
+            throw new Error(`Expression "${existingNodeId}" does not exist.`)
+        }
+
+        // 6. Operator expression must have type "operator".
+        if (operator.type !== "operator") {
+            throw new Error(
+                `Wrap operator expression "${operator.id}" must have type "operator", got "${operator.type}".`
+            )
+        }
+
+        // 7. Operator must not be unary ("not").
+        if (operator.operator === "not") {
+            throw new Error(
+                `Operator expression "${operator.id}" with "not" cannot wrap (it is unary and wrapping always produces two children).`
+            )
+        }
+
+        // 8. implies/iff operator only allowed if existing node is at root.
+        if (
+            (operator.operator === "implies" || operator.operator === "iff") &&
+            existingNode.parentId !== null
+        ) {
+            throw new Error(
+                `Operator expression "${operator.id}" with "${operator.operator}" must be a root expression (parentId must be null).`
+            )
+        }
+
+        // 9. Existing node must not be implies/iff (cannot be subordinated).
+        if (
+            existingNode.type === "operator" &&
+            (existingNode.operator === "implies" ||
+                existingNode.operator === "iff")
+        ) {
+            throw new Error(
+                `Expression "${existingNodeId}" with "${existingNode.operator}" cannot be subordinated (it must remain a root expression).`
+            )
+        }
+
+        // 10. New sibling must not be implies/iff (cannot be subordinated).
+        if (
+            newSibling.type === "operator" &&
+            (newSibling.operator === "implies" || newSibling.operator === "iff")
+        ) {
+            throw new Error(
+                `Sibling expression "${newSibling.id}" with "${newSibling.operator}" cannot be subordinated (it must remain a root expression).`
+            )
+        }
+
+        // Save the existing node's slot (the operator will inherit it).
+        const anchorParentId = existingNode.parentId
+        const anchorPosition = existingNode.position
+
+        // Determine child positions.
+        const existingPosition = leftNodeId !== undefined ? 0 : 1
+        const siblingPosition = leftNodeId !== undefined ? 1 : 0
+
+        // Reparent existing node under operator.
+        this.reparent(existingNodeId, operator.id, existingPosition)
+
+        // Store new sibling under operator.
+        const storedSibling = this.attachChecksum({
+            ...newSibling,
+            parentId: operator.id,
+            position: siblingPosition,
+        } as TExpressionInput<TExpr>)
+        this.expressions.set(newSibling.id, storedSibling)
+        this.collector?.addedExpression({
+            ...storedSibling,
+        } as unknown as TCorePropositionalExpression)
+        getOrCreate(
+            this.childExpressionIdsByParentId,
+            operator.id,
+            () => new Set()
+        ).add(newSibling.id)
+        getOrCreate(
+            this.childPositionsByParentId,
+            operator.id,
+            () => new Set()
+        ).add(siblingPosition)
+
+        // Store operator in the existing node's former slot.
+        const storedOperator = this.attachChecksum({
+            ...operator,
+            parentId: anchorParentId,
+            position: anchorPosition,
+        } as TExpressionInput<TExpr>)
+        this.expressions.set(operator.id, storedOperator)
+        this.collector?.addedExpression({
+            ...storedOperator,
+        } as unknown as TCorePropositionalExpression)
+        getOrCreate(
+            this.childExpressionIdsByParentId,
+            anchorParentId,
+            () => new Set()
+        ).add(operator.id)
+        getOrCreate(
+            this.childPositionsByParentId,
+            anchorParentId,
+            () => new Set()
+        ).add(anchorPosition)
+    }
+
     /** Returns a serializable snapshot of the current state. */
     public snapshot(): TExpressionManagerSnapshot<TExpr> {
         return {

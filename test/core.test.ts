@@ -8914,3 +8914,480 @@ describe("ArgumentEngine reactive store integration", () => {
         unsub()
     })
 })
+
+// ---------------------------------------------------------------------------
+// wrapExpression
+// ---------------------------------------------------------------------------
+
+describe("wrapExpression", () => {
+    // Helper: create a TExpressionWithoutPosition operator
+    function wrapOp(
+        id: string,
+        operator: "not" | "and" | "or" | "implies" | "iff"
+    ): TExpressionWithoutPosition {
+        return {
+            id,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
+            type: "operator",
+            operator,
+            parentId: null,
+        }
+    }
+
+    // Helper: create a TExpressionWithoutPosition variable
+    function wrapVar(
+        id: string,
+        variableId: string
+    ): TExpressionWithoutPosition {
+        return {
+            id,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId,
+            parentId: null,
+        }
+    }
+
+    // Helper: create a TExpressionWithoutPosition formula
+    function wrapFormula(id: string): TExpressionWithoutPosition {
+        return {
+            id,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
+            type: "formula",
+            parentId: null,
+        }
+    }
+
+    // --- Happy paths ---
+
+    it("wraps root variable with 'and' operator, existing as left child", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p" // existing goes to position 0 (left)
+        )
+        // op-and → [expr-p(0), expr-q(1)]
+        expect(pm.toDisplayString()).toBe("(P ∧ Q)")
+    })
+
+    it("wraps root variable with 'or' operator, existing as right child", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-or", "or"),
+            wrapVar("expr-q", VAR_Q.id),
+            undefined,
+            "expr-p" // existing goes to position 1 (right)
+        )
+        // op-or → [expr-q(0), expr-p(1)]
+        expect(pm.toDisplayString()).toBe("(Q ∨ P)")
+    })
+
+    it("wraps root variable with 'implies', existing as right (consequent)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-implies", "implies"),
+            wrapVar("expr-f", VAR_Q.id),
+            undefined,
+            "expr-p" // P becomes consequent (position 1)
+        )
+        // op-implies → [expr-f(0), expr-p(1)] → "Q → P"
+        expect(pm.toDisplayString()).toBe("(Q → P)")
+    })
+
+    it("wraps root variable with 'iff'", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-iff", "iff"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p" // existing as left
+        )
+        expect(pm.toDisplayString()).toBe("(P ↔ Q)")
+    })
+
+    it("wraps non-root node (child of an 'and')", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        // Wrap expr-p with an 'or' and a new sibling R
+        pm.wrapExpression(
+            wrapOp("op-or", "or"),
+            wrapVar("expr-r", VAR_R.id),
+            "expr-p" // P goes left under op-or
+        )
+        // op-and → [op-or(0) → [expr-p(0), expr-r(1)], expr-q(1)]
+        expect(pm.toDisplayString()).toBe("((P ∨ R) ∧ Q)")
+    })
+
+    it("new sibling can be an operator expression", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        // Wrap P with 'implies', sibling is an 'and' operator (no children yet — will be leaf)
+        // Actually, an operator with no children will collapse. Let me use insertExpression pattern.
+        // Instead: create a tree, then wrap a node with a new operator sibling.
+        // Let's create: P, then wrap P → (Q and R) implies P
+        // Step 1: P is root
+        // Step 2: wrapExpression with implies operator, and a new 'and' operator as sibling, P as right
+        pm.wrapExpression(
+            wrapOp("op-implies", "implies"),
+            wrapOp("op-and", "and"),
+            undefined,
+            "expr-p" // P is right (consequent)
+        )
+        // Now add children to the 'and' operator
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, { parentId: "op-and", position: 1 })
+        )
+        // op-implies → [op-and(0) → [Q(0), R(1)], P(1)]
+        expect(pm.toDisplayString()).toBe("((Q ∧ R) → P)")
+    })
+
+    it("new sibling can be a formula expression", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(wrapOp("op-and", "and"), wrapFormula("f1"), "expr-p")
+        // Add a variable inside the formula
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "f1", position: 0 })
+        )
+        // op-and → [expr-p(0), f1(1) → [expr-q(0)]]
+        expect(pm.toDisplayString()).toBe("(P ∧ (Q))")
+    })
+
+    it("returns the stored operator as result", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const { result } = pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p"
+        )
+        expect(result.id).toBe("op-and")
+        expect(result.type).toBe("operator")
+        expect(result.parentId).toBeNull()
+        expect(result.position).toBe(POSITION_INITIAL)
+    })
+
+    it("updates rootExpressionId when wrapping a root node", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(pm.getRootExpressionId()).toBe("expr-p")
+        pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p"
+        )
+        expect(pm.getRootExpressionId()).toBe("op-and")
+    })
+
+    // --- Changeset correctness ---
+
+    it("changeset contains added operator, added sibling, and modified existing node", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const { changes } = pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p"
+        )
+        const added = changes.expressions?.added ?? []
+        const modified = changes.expressions?.modified ?? []
+        expect(added.map((e) => e.id).sort()).toEqual(["expr-q", "op-and"])
+        expect(modified.map((e) => e.id)).toEqual(["expr-p"])
+    })
+
+    // --- Validation errors ---
+
+    it("throws when neither leftNodeId nor rightNodeId is provided", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-q", VAR_Q.id)
+            )
+        ).toThrowError(/exactly one/)
+    })
+
+    it("throws when both leftNodeId and rightNodeId are provided", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-or", "or"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-or", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-r", VAR_R.id),
+                "expr-p",
+                "expr-q"
+            )
+        ).toThrowError(/exactly one.*not both/)
+    })
+
+    it("throws when operator expression ID already exists", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("expr-p", "and"), // same ID as existing
+                wrapVar("expr-q", VAR_Q.id),
+                "expr-p"
+            )
+        ).toThrowError(/already exists/)
+    })
+
+    it("throws when sibling expression ID already exists", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-p", VAR_Q.id), // same ID as existing
+                "expr-p"
+            )
+        ).toThrowError(/already exists/)
+    })
+
+    it("throws when operator and sibling IDs are the same", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("same-id", "and"),
+                wrapVar("same-id", VAR_Q.id),
+                "expr-p"
+            )
+        ).toThrowError(/must be different/)
+    })
+
+    it("throws when existing node does not exist", () => {
+        const pm = premiseWithVars()
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-q", VAR_Q.id),
+                "nonexistent"
+            )
+        ).toThrowError(/does not exist/)
+    })
+
+    it("throws when operator is 'not' (unary)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-not", "not"),
+                wrapVar("expr-q", VAR_Q.id),
+                "expr-p"
+            )
+        ).toThrowError(/unary/)
+    })
+
+    it("throws when operator type is not 'operator' (variable passed as operator)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapVar("bad-op", VAR_Q.id),
+                wrapVar("expr-q", VAR_R.id),
+                "expr-p"
+            )
+        ).toThrowError(/must have type "operator"/)
+    })
+
+    it("throws when operator type is not 'operator' (formula passed as operator)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapFormula("bad-op"),
+                wrapVar("expr-q", VAR_Q.id),
+                "expr-p"
+            )
+        ).toThrowError(/must have type "operator"/)
+    })
+
+    it("throws when implies operator wraps a non-root node", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-implies", "implies"),
+                wrapVar("expr-r", VAR_R.id),
+                "expr-p" // expr-p is not a root
+            )
+        ).toThrowError(/must be a root expression/)
+    })
+
+    it("throws when iff operator wraps a non-root node", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, { parentId: "op-and", position: 1 })
+        )
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-iff", "iff"),
+                wrapVar("expr-r", VAR_R.id),
+                "expr-p"
+            )
+        ).toThrowError(/must be a root expression/)
+    })
+
+    it("throws when existing node is an implies operator (cannot be subordinated)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-implies", "implies"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-implies",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-implies",
+                position: 1,
+            })
+        )
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-r", VAR_R.id),
+                "op-implies"
+            )
+        ).toThrowError(/cannot be subordinated/)
+    })
+
+    it("throws when existing node is an iff operator (cannot be subordinated)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-iff", "iff"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-iff",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-iff",
+                position: 1,
+            })
+        )
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-r", VAR_R.id),
+                "op-iff"
+            )
+        ).toThrowError(/cannot be subordinated/)
+    })
+
+    it("throws when new sibling is an implies operator (cannot be subordinated)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapOp("op-implies", "implies"),
+                "expr-p"
+            )
+        ).toThrowError(/cannot be subordinated/)
+    })
+
+    it("throws when new sibling is an iff operator (cannot be subordinated)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapOp("op-iff", "iff"),
+                "expr-p"
+            )
+        ).toThrowError(/cannot be subordinated/)
+    })
+
+    it("throws when new sibling references a non-existent variable", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() =>
+            pm.wrapExpression(
+                wrapOp("op-and", "and"),
+                wrapVar("expr-x", "nonexistent-var"),
+                "expr-p"
+            )
+        ).toThrowError(/non-existent variable/)
+    })
+
+    // --- Integration ---
+
+    it("wrap then evaluate produces correct truth table", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        // P is root. Wrap to get "Q → P" (Q implies P)
+        pm.wrapExpression(
+            wrapOp("op-implies", "implies"),
+            wrapVar("expr-q", VAR_Q.id),
+            undefined,
+            "expr-p" // P is right (consequent)
+        )
+        // Q=true, P=false → false (only false case for implies)
+        const result = pm.evaluate({
+            variables: { [VAR_Q.id]: true, [VAR_P.id]: false },
+            rejectedExpressionIds: [],
+        })
+        expect(result.rootValue).toBe(false)
+        // Q=false, P=false → true
+        const result2 = pm.evaluate({
+            variables: { [VAR_Q.id]: false, [VAR_P.id]: false },
+            rejectedExpressionIds: [],
+        })
+        expect(result2.rootValue).toBe(true)
+    })
+
+    it("wrap then remove operator triggers collapse", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p"
+        )
+        expect(pm.toDisplayString()).toBe("(P ∧ Q)")
+        // Remove one child — collapse should reduce the 'and' to just the surviving child
+        pm.removeExpression("expr-q", true)
+        // After removing Q, and-operator has 1 child (P) → collapses, P promoted to root
+        expect(pm.toDisplayString()).toBe("P")
+        expect(pm.getRootExpressionId()).toBe("expr-p")
+    })
+})

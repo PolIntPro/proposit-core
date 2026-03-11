@@ -560,6 +560,75 @@ export class PremiseEngine<
     }
 
     /**
+     * Wraps an existing expression with a new operator and a new sibling
+     * expression in a single atomic operation.
+     *
+     * The operator takes the existing node's slot in the tree. Both the
+     * existing node and the new sibling become children of the operator.
+     *
+     * Exactly one of `leftNodeId` / `rightNodeId` must be provided — it
+     * identifies the existing node and which child slot it occupies.
+     * The new sibling fills the other slot.
+     *
+     * @throws If the expression does not belong to this argument.
+     * @throws If the new sibling is a variable reference and the variable has not been registered.
+     */
+    public wrapExpression(
+        operator: TExpressionWithoutPosition<TExpr>,
+        newSibling: TExpressionWithoutPosition<TExpr>,
+        leftNodeId?: string,
+        rightNodeId?: string
+    ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg> {
+        this.assertBelongsToArgument(
+            operator.argumentId,
+            operator.argumentVersion
+        )
+        this.assertBelongsToArgument(
+            newSibling.argumentId,
+            newSibling.argumentVersion
+        )
+
+        if (
+            newSibling.type === "variable" &&
+            !this.variables.hasVariable(newSibling.variableId)
+        ) {
+            throw new Error(
+                `Variable expression "${newSibling.id}" references non-existent variable "${newSibling.variableId}".`
+            )
+        }
+
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+        this.expressions.setCollector(collector)
+        try {
+            this.expressions.wrapExpression(
+                operator,
+                newSibling,
+                leftNodeId,
+                rightNodeId
+            )
+
+            if (newSibling.type === "variable") {
+                this.expressionsByVariableId
+                    .get(newSibling.variableId)
+                    .add(newSibling.id)
+            }
+
+            this.syncRootExpressionId()
+            this.markDirty()
+
+            const changes = collector.toChangeset()
+            this.syncExpressionIndex(changes)
+            this.onMutate?.()
+            return {
+                result: this.expressions.getExpression(operator.id)!,
+                changes,
+            }
+        } finally {
+            this.expressions.setCollector(null)
+        }
+    }
+
+    /**
      * Returns an expression by ID, or `undefined` if not found in this
      * premise.
      */
