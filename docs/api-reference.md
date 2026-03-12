@@ -177,7 +177,7 @@ Returns a cross-premise summary of every variable referenced by expressions, key
 
 ### `validateEvaluability()` → `TValidationResult`
 
-Checks whether the argument is structurally ready to evaluate. Returns `{ ok, issues }`.
+Checks whether the argument is structurally ready to evaluate. Returns `{ ok, issues }`. Source validation checks include: `SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE`, `SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE`, `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION` (errors), and `SOURCE_ORPHANED` (warning).
 
 ---
 
@@ -247,6 +247,86 @@ Bulk-loads an engine from flat arrays (as returned by DB queries). Groups expres
 ### `toDisplayString()` → `string`
 
 Renders the full argument as a multi-line string. Each premise is prefixed with its role label (`[Conclusion]`, `[Supporting]`, or `[Constraint]`) followed by the premise's `toDisplayString()` output.
+
+---
+
+### Source Management
+
+#### `addSource(source)` → `TCoreMutationResult<TSource>`
+
+Registers a new source entity with this argument. The `source` parameter is `TOptionalChecksum<TSource>` — the checksum is computed lazily. Throws if a source with the given ID already exists.
+
+---
+
+#### `removeSource(sourceId)` → `TCoreMutationResult<TSource | undefined>`
+
+Removes a source and cascades to delete all its variable and expression associations. Returns the removed source, or `undefined` if not found.
+
+---
+
+#### `addVariableSourceAssociation(sourceId, variableId)` → `TCoreMutationResult<TCoreVariableSourceAssociation>`
+
+Creates an association between a source and a variable. Throws if either doesn't exist or if the association already exists.
+
+---
+
+#### `removeVariableSourceAssociation(associationId)` → `TCoreMutationResult<TCoreVariableSourceAssociation | undefined>`
+
+Removes a variable–source association by ID. Returns the removed association, or `undefined` if not found.
+
+---
+
+#### `addExpressionSourceAssociation(sourceId, expressionId, premiseId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
+
+Creates an association between a source and an expression within a specific premise. Throws if the source, premise, or expression doesn't exist, or if the association already exists.
+
+---
+
+#### `removeExpressionSourceAssociation(associationId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation | undefined>`
+
+Removes an expression–source association by ID. Returns the removed association, or `undefined` if not found.
+
+---
+
+#### `getSources()` → `TSource[]`
+
+Returns all registered sources sorted by ID.
+
+---
+
+#### `getSource(sourceId)` → `TSource | undefined`
+
+Returns a source by ID, or `undefined`.
+
+---
+
+#### `getAssociationsForSource(sourceId)` → `{ variable, expression }`
+
+Returns all variable and expression associations for a given source.
+
+---
+
+#### `getAssociationsForVariable(variableId)` → `TCoreVariableSourceAssociation[]`
+
+Returns all source associations for a given variable.
+
+---
+
+#### `getAssociationsForExpression(expressionId)` → `TCoreExpressionSourceAssociation[]`
+
+Returns all source associations for a given expression.
+
+---
+
+#### `getAllVariableSourceAssociations()` → `TCoreVariableSourceAssociation[]`
+
+Returns all variable–source associations across the argument.
+
+---
+
+#### `getAllExpressionSourceAssociations()` → `TCoreExpressionSourceAssociation[]`
+
+Returns all expression–source associations across the argument.
 
 ---
 
@@ -384,6 +464,26 @@ Reconstructs a `PremiseEngine` from a snapshot, with the argument and `VariableM
 
 ---
 
+### Source Convenience Methods
+
+#### `addExpressionSourceAssociation(sourceId, expressionId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
+
+Creates an expression–source association, automatically filling in this premise's ID. Throws if the expression doesn't exist in this premise.
+
+---
+
+#### `removeExpressionSourceAssociation(associationId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation | undefined>`
+
+Removes an expression–source association by ID.
+
+---
+
+#### `getSourceAssociationsForExpression(expressionId)` → `TCoreExpressionSourceAssociation[]`
+
+Returns source associations for a specific expression in this premise.
+
+---
+
 ## Standalone Functions
 
 ### `diffArguments(engineA, engineB, options?)` → `TCoreArgumentDiff`
@@ -403,7 +503,9 @@ const diff = diffArguments(engineA, engineB, {
 })
 ```
 
-Default comparators are also exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`.
+Default comparators are also exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`. Source-related default comparators are also exported: `defaultCompareSource`, `defaultCompareVariableSourceAssociation`, `defaultCompareExpressionSourceAssociation`.
+
+The diff result includes `sources`, `variableSourceAssociations`, and `expressionSourceAssociations` fields with the same add/remove/modify structure.
 
 ---
 
@@ -511,15 +613,34 @@ A version of `TPropositionalExpression` with both the `position` and `checksum` 
 
 Hierarchical snapshot types for capturing and restoring engine state:
 
-| Type                         | Contains                                                                                    |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                    |
-| `TVariableManagerSnapshot`   | `variables`, `config`                                                                       |
-| `TPremiseEngineSnapshot`     | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                    |
-| `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `conclusionPremiseId`, `config`     |
-| `TReactiveSnapshot`          | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles` |
-| `TReactivePremiseSnapshot`   | `premise`, `expressions` (Record by ID), `rootExpressionId`                                 |
+| Type                         | Contains                                                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                                                                                                     |
+| `TVariableManagerSnapshot`   | `variables`, `config`                                                                                                                                                        |
+| `TPremiseEngineSnapshot`     | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                                                                                                     |
+| `TSourceManagerSnapshot`     | `sources`, `variableAssociations`, `expressionAssociations`, `config`                                                                                                        |
+| `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `sources` snapshot, `conclusionPremiseId`, `config`                                                                  |
+| `TReactiveSnapshot`          | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles`, `sources`, `variableSourceAssociations`, `expressionSourceAssociations` Records |
+| `TReactivePremiseSnapshot`   | `premise`, `expressions` (Record by ID), `rootExpressionId`                                                                                                                  |
 
 `TReactiveSnapshot` is the type returned by `getSnapshot()` — optimized for React with Record-based lookups and structural sharing. The other snapshot types are for serialization and restoration.
 
 Each snapshot captures only what the class **owns**. Dependencies (e.g., variables for a premise) are excluded and must be passed separately during restoration via `fromSnapshot()`.
+
+---
+
+### `SourceManager`
+
+Internal manager class for source entities and associations. Shared across `ArgumentEngine` and `PremiseEngine` instances (similar to `VariableManager`). Handles storage, indices, mutations, queries, snapshot/restore, and orphan cleanup. Exported from the library barrel for advanced use cases.
+
+---
+
+### Source Types
+
+| Type                               | Description                                                          |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `TCoreSource`                      | Base source entity (`{ id, argumentId, argumentVersion, checksum }`) |
+| `TCoreVariableSourceAssociation`   | Links a source to a variable                                         |
+| `TCoreExpressionSourceAssociation` | Links a source to an expression within a premise                     |
+| `TSourceManagement`                | Interface contract for source management methods on `ArgumentEngine` |
+| `TSourceManagerSnapshot`           | Snapshot type for `SourceManager` state                              |

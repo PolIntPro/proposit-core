@@ -35,6 +35,10 @@ Non-obvious constraints enforced by the code that are easy to violate:
 - **Kleene three-valued evaluation:** `true`, `false`, `null`/unknown. All summary flags (`isAdmissibleAssignment`, `isCounterexample`, `preservesTruthUnderAssignment`) are three-valued.
 - **`updateExpression` restricted swaps:** Only `and↔or` and `implies↔iff`. `not` cannot be changed (delete and re-create).
 - **Publish semantics:** Publishing marks the current version as published and copies it to a new unpublished version. All mutating CLI commands reject published versions.
+- **Sources are argument-scoped:** Like variables, sources belong to the argument level (not premise-scoped). Managed by a shared `SourceManager` instance.
+- **Association immutability:** Source associations (variable–source and expression–source) are create-or-delete only — no update path.
+- **Orphan cleanup:** Removing all associations for a source automatically deletes the source via `SourceManager.removeOrphans()`.
+- **Source cascade order:** Target removal → association removal → orphan source removal. `removeVariable` cascades variable–source associations; `removeExpression` cascades expression–source associations; `removePremise` cascades all expression–source associations for that premise's expressions.
 
 ## Testing
 
@@ -64,3 +68,4 @@ Defined in the `brain-style` skill. Enforced by ESLint (`@typescript-eslint/nami
 - `src/lib/core/interfaces/argument-engine.interfaces.ts` [Public-Engine-API] — JSDoc for ArgumentEngine interface methods; update when ArgumentEngine public method signatures, parameters, return types, or thrown errors change
 - `src/lib/core/interfaces/premise-engine.interfaces.ts` [Public-Engine-API] — JSDoc for PremiseEngine interface methods; update when PremiseEngine public method signatures, parameters, return types, or thrown errors change
 - `src/lib/core/interfaces/shared.interfaces.ts` [Public-Engine-API] — JSDoc for shared engine interfaces (TDisplayable, TChecksummable); update when shared method signatures change
+- `src/lib/core/interfaces/source-management.interfaces.ts` [Public-Engine-API] — JSDoc for TSourceManagement interface methods; update when source management method signatures, parameters, return types, or thrown errors change
