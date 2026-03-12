@@ -1,8 +1,12 @@
 import fs from "node:fs/promises"
 import { ArgumentEngine } from "../lib/core/argument-engine.js"
 import type { TCoreArgument } from "../lib/schemata/index.js"
-import type { TCliArgumentMeta, TCliArgumentVersionMeta } from "./schemata.js"
-import { getPremisesDir } from "./config.js"
+import type {
+    TCliArgumentMeta,
+    TCliArgumentVersionMeta,
+    TCliSourceMeta,
+} from "./schemata.js"
+import { getPremisesDir, getSourcesDir } from "./config.js"
 import {
     readArgumentMeta,
     readVersionMeta,
@@ -17,6 +21,15 @@ import {
     writePremiseMeta,
 } from "./storage/premises.js"
 import { readRoles, writeRoles } from "./storage/roles.js"
+import {
+    listSourceIds as listDiskSourceIds,
+    readExpressionAssociations,
+    readSourceMeta,
+    readVariableAssociations,
+    writeExpressionAssociations,
+    writeSourceMeta,
+    writeVariableAssociations,
+} from "./storage/sources.js"
 import { readVariables, writeVariables } from "./storage/variables.js"
 
 /**
@@ -111,6 +124,30 @@ export async function hydrateEngine(
     // Supporting premises are now derived from expression type (inference premises
     // that aren't the conclusion), so no explicit role assignment is needed.
 
+    // ── Sources ────────────────────────────────────────────────────────────
+    const [sourceIds, varAssociations, exprAssociations] = await Promise.all([
+        listDiskSourceIds(argumentId, version),
+        readVariableAssociations(argumentId, version),
+        readExpressionAssociations(argumentId, version),
+    ])
+
+    for (const sourceId of sourceIds) {
+        const sourceMeta = await readSourceMeta(argumentId, version, sourceId)
+        engine.addSource({ ...sourceMeta, argumentVersion: version })
+    }
+
+    for (const assoc of varAssociations) {
+        engine.addVariableSourceAssociation(assoc.sourceId, assoc.variableId)
+    }
+
+    for (const assoc of exprAssociations) {
+        engine.addExpressionSourceAssociation(
+            assoc.sourceId,
+            assoc.expressionId,
+            assoc.premiseId
+        )
+    }
+
     return engine
 }
 
@@ -162,4 +199,28 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
             expressions: pm.getExpressions(),
         })
     }
+
+    // ── Sources ────────────────────────────────────────────────────────────
+    const sourcesDir = getSourcesDir(id, arg.version)
+    await fs.mkdir(sourcesDir, { recursive: true })
+
+    for (const source of engine.getSources()) {
+        await writeSourceMeta(
+            id,
+            arg.version,
+            source.id,
+            source as TCliSourceMeta
+        )
+    }
+
+    await writeVariableAssociations(
+        id,
+        arg.version,
+        engine.getAllVariableSourceAssociations()
+    )
+    await writeExpressionAssociations(
+        id,
+        arg.version,
+        engine.getAllExpressionSourceAssociations()
+    )
 }
