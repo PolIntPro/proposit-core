@@ -107,7 +107,14 @@ export interface TExpressionMutations<
     removeExpression(
         expressionId: string,
         deleteSubtree: boolean
-    ): TCoreMutationResult<TExpr | undefined, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        TExpr | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     /**
      * Splices a new expression between existing nodes in the tree. The new
      * expression inherits the tree slot of the anchor node
@@ -409,5 +416,12 @@ export interface TPremiseIdentity<
      */
     setExtras(
         extras: Record<string, unknown>
-    ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        Record<string, unknown>,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
 }

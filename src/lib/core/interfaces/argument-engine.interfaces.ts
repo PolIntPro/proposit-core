@@ -75,7 +75,14 @@ export interface TPremiseCrud<
      */
     removePremise(
         premiseId: string
-    ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        TPremise | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     /**
      * Returns the premise with the given ID, or `undefined` if not found.
      *
@@ -150,7 +157,14 @@ export interface TVariableManagement<
     updateVariable(
         variableId: string,
         updates: { symbol?: string }
-    ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        TVar | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     /**
      * Removes a variable and cascade-deletes all expressions referencing it
      * across every premise (including subtrees and operator collapse).
@@ -160,7 +174,14 @@ export interface TVariableManagement<
      */
     removeVariable(
         variableId: string
-    ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        TVar | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     /**
      * Returns the variable with the given ID, or `undefined` if not found.
      *
@@ -300,7 +321,14 @@ export interface TArgumentRoleState<
      */
     setConclusionPremise(
         premiseId: string
-    ): TCoreMutationResult<TCoreArgumentRoleState, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<
+        TCoreArgumentRoleState,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     /**
      * Clears the conclusion designation.
      *
