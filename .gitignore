@@ -6,3 +6,4 @@ coverage/
 .claude/
 .worktrees/
 .release_notes.md
+.untracked/
