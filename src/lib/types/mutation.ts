@@ -12,6 +12,7 @@ import type {
     TCoreVariableSourceAssociation,
     TCoreExpressionSourceAssociation,
 } from "../schemata/index.js"
+
 /** Added/modified/removed entities of one type within a single mutation. */
 export interface TCoreEntityChanges<T> {
     added: T[]
