@@ -15,39 +15,41 @@
 ## File Map
 
 ### New files
-| Path | Responsibility |
-|------|---------------|
-| `src/lib/schemata/source.ts` | `CoreSourceSchema`, `CoreVariableSourceAssociationSchema`, `CoreExpressionSourceAssociationSchema` + TS types |
-| `src/lib/core/source-manager.ts` | `SourceManager<TSource>` — storage, indices, mutations, queries, snapshot/restore, orphan cleanup |
-| `src/lib/core/interfaces/source-management.interfaces.ts` | `TSourceManagement` interface contract for ArgumentEngine |
-| `src/extensions/ieee/index.ts` | Barrel export for IEEE extensions |
-| `src/extensions/ieee/references.ts` | `IEEEReferenceSchema` — 31 IEEE reference type schemas |
-| `src/extensions/ieee/source.ts` | `IEEESourceSchema` — extends CoreSourceSchema with url + citation |
-| `src/cli/storage/sources.ts` | Disk I/O: read/write source meta, read/write association files |
-| `src/cli/commands/sources.ts` | CLI source commands: add, remove, list, show, link, unlink |
+
+| Path                                                      | Responsibility                                                                                                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/lib/schemata/source.ts`                              | `CoreSourceSchema`, `CoreVariableSourceAssociationSchema`, `CoreExpressionSourceAssociationSchema` + TS types |
+| `src/lib/core/source-manager.ts`                          | `SourceManager<TSource>` — storage, indices, mutations, queries, snapshot/restore, orphan cleanup             |
+| `src/lib/core/interfaces/source-management.interfaces.ts` | `TSourceManagement` interface contract for ArgumentEngine                                                     |
+| `src/extensions/ieee/index.ts`                            | Barrel export for IEEE extensions                                                                             |
+| `src/extensions/ieee/references.ts`                       | `IEEEReferenceSchema` — 31 IEEE reference type schemas                                                        |
+| `src/extensions/ieee/source.ts`                           | `IEEESourceSchema` — extends CoreSourceSchema with url + citation                                             |
+| `src/cli/storage/sources.ts`                              | Disk I/O: read/write source meta, read/write association files                                                |
+| `src/cli/commands/sources.ts`                             | CLI source commands: add, remove, list, show, link, unlink                                                    |
 
 ### Modified files
-| Path | Changes |
-|------|---------|
-| `src/lib/schemata/index.ts` | Re-export source schemata |
-| `src/lib/types/mutation.ts` | Add `TSource` 5th generic param to `TCoreChangeset` and `TCoreMutationResult`; add 3 new changeset categories |
-| `src/lib/types/checksum.ts` | Add `sourceFields`, `variableSourceAssociationFields`, `expressionSourceAssociationFields` to `TCoreChecksumConfig` |
-| `src/lib/consts.ts` | Add source/association defaults to `DEFAULT_CHECKSUM_CONFIG`; extend `createChecksumConfig` keys |
-| `src/lib/types/diff.ts` | Add `TSource` 5th generic param to `TCoreArgumentDiff`, `TCoreDiffOptions`; add 3 new diff fields + comparators |
-| `src/lib/types/reactive.ts` | Add `TSource` 5th generic param to `TReactiveSnapshot`; add source + association records |
-| `src/lib/core/change-collector.ts` | Add `TSource` 5th generic param; add 6 new accumulator methods |
-| `src/lib/core/interfaces/index.ts` | Re-export source-management interfaces |
-| `src/lib/core/interfaces/argument-engine.interfaces.ts` | Add `TSource` to all interfaces; compose `TSourceManagement` |
-| `src/lib/core/interfaces/premise-engine.interfaces.ts` | Add `TSource` to all interfaces; add source convenience methods |
-| `src/lib/core/argument-engine.ts` | Own SourceManager; implement TSourceManagement; extend cascades in removeVariable, removePremise |
-| `src/lib/core/premise-engine.ts` | Accept SourceManager dep; add convenience methods; extend removeExpression cascade |
-| `src/lib/core/diff.ts` | Diff sources + both association types; add 3 default comparators |
-| `src/lib/index.ts` | Export new schemas, types, SourceManager |
-| `src/cli/schemata.ts` | `CliSourceSchema` extending CoreSourceSchema with `url: string` |
-| `src/cli/engine.ts` | Hydrate sources + associations from disk |
-| `src/cli/config.ts` | `getSourcesDir()`, `getSourceDir()` path helpers |
-| `src/cli/router.ts` | Route `sources` subcommand |
-| `test/core.test.ts` | All new tests (SourceManager, engine integration, cascades, diff, validation) |
+
+| Path                                                    | Changes                                                                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/schemata/index.ts`                             | Re-export source schemata                                                                                           |
+| `src/lib/types/mutation.ts`                             | Add `TSource` 5th generic param to `TCoreChangeset` and `TCoreMutationResult`; add 3 new changeset categories       |
+| `src/lib/types/checksum.ts`                             | Add `sourceFields`, `variableSourceAssociationFields`, `expressionSourceAssociationFields` to `TCoreChecksumConfig` |
+| `src/lib/consts.ts`                                     | Add source/association defaults to `DEFAULT_CHECKSUM_CONFIG`; extend `createChecksumConfig` keys                    |
+| `src/lib/types/diff.ts`                                 | Add `TSource` 5th generic param to `TCoreArgumentDiff`, `TCoreDiffOptions`; add 3 new diff fields + comparators     |
+| `src/lib/types/reactive.ts`                             | Add `TSource` 5th generic param to `TReactiveSnapshot`; add source + association records                            |
+| `src/lib/core/change-collector.ts`                      | Add `TSource` 5th generic param; add 6 new accumulator methods                                                      |
+| `src/lib/core/interfaces/index.ts`                      | Re-export source-management interfaces                                                                              |
+| `src/lib/core/interfaces/argument-engine.interfaces.ts` | Add `TSource` to all interfaces; compose `TSourceManagement`                                                        |
+| `src/lib/core/interfaces/premise-engine.interfaces.ts`  | Add `TSource` to all interfaces; add source convenience methods                                                     |
+| `src/lib/core/argument-engine.ts`                       | Own SourceManager; implement TSourceManagement; extend cascades in removeVariable, removePremise                    |
+| `src/lib/core/premise-engine.ts`                        | Accept SourceManager dep; add convenience methods; extend removeExpression cascade                                  |
+| `src/lib/core/diff.ts`                                  | Diff sources + both association types; add 3 default comparators                                                    |
+| `src/lib/index.ts`                                      | Export new schemas, types, SourceManager                                                                            |
+| `src/cli/schemata.ts`                                   | `CliSourceSchema` extending CoreSourceSchema with `url: string`                                                     |
+| `src/cli/engine.ts`                                     | Hydrate sources + associations from disk                                                                            |
+| `src/cli/config.ts`                                     | `getSourcesDir()`, `getSourceDir()` path helpers                                                                    |
+| `src/cli/router.ts`                                     | Route `sources` subcommand                                                                                          |
+| `test/core.test.ts`                                     | All new tests (SourceManager, engine integration, cascades, diff, validation)                                       |
 
 ---
 
@@ -56,6 +58,7 @@
 ### Task 1: Source and association schemas
 
 **Files:**
+
 - Create: `src/lib/schemata/source.ts`
 - Modify: `src/lib/schemata/index.ts`
 
@@ -119,6 +122,7 @@ export type TCoreExpressionSourceAssociation = Static<
 - [ ] **Step 2: Export from schemata barrel**
 
 In `src/lib/schemata/index.ts`, add:
+
 ```typescript
 export * from "./source.js"
 ```
@@ -142,6 +146,7 @@ git commit -m "feat: add CoreSourceSchema and association schemas"
 ### Task 2: Add source checksum config
 
 **Files:**
+
 - Modify: `src/lib/types/checksum.ts`
 - Modify: `src/lib/consts.ts`
 
@@ -193,6 +198,7 @@ git commit -m "feat: add source and association checksum config"
 Note: task numbering shifted by +1 from the original due to the inserted Task 2. All subsequent task references use the new numbering.
 
 **Files:**
+
 - Modify: `src/lib/types/mutation.ts`
 
 - [ ] **Step 1: Add TSource generic parameter to TCoreChangeset**
@@ -200,7 +206,11 @@ Note: task numbering shifted by +1 from the original due to the inserted Task 2.
 Add `TSource extends TCoreSource = TCoreSource` as the 5th parameter. Add three new optional categories:
 
 ```typescript
-import type { TCoreSource, TCoreVariableSourceAssociation, TCoreExpressionSourceAssociation } from "../schemata/index.js"
+import type {
+    TCoreSource,
+    TCoreVariableSourceAssociation,
+    TCoreExpressionSourceAssociation,
+} from "../schemata/index.js"
 
 export interface TCoreChangeset<
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
@@ -253,6 +263,7 @@ git commit -m "feat: add TSource generic to TCoreChangeset and TCoreMutationResu
 ### Task 4: Expand diff types with TSource
 
 **Files:**
+
 - Modify: `src/lib/types/diff.ts`
 
 - [ ] **Step 1: Add TSource to TCoreArgumentDiff**
@@ -292,6 +303,7 @@ git commit -m "feat: add TSource generic to diff types"
 ### Task 5: Expand reactive snapshot types with TSource
 
 **Files:**
+
 - Modify: `src/lib/types/reactive.ts`
 
 - [ ] **Step 1: Add TSource to TReactiveSnapshot**
@@ -319,6 +331,7 @@ git commit -m "feat: add TSource generic to TReactiveSnapshot"
 ### Task 6: Expand ChangeCollector with TSource
 
 **Files:**
+
 - Modify: `src/lib/core/change-collector.ts`
 
 - [ ] **Step 1: Add TSource generic and 6 new accumulator methods**
@@ -355,6 +368,7 @@ git commit -m "feat: add TSource to ChangeCollector with source accumulator meth
 ### Task 7: SourceManager — core storage, mutations, queries
 
 **Files:**
+
 - Create: `src/lib/core/source-manager.ts`
 - Modify: `test/core.test.ts`
 
@@ -363,6 +377,7 @@ git commit -m "feat: add TSource to ChangeCollector with source accumulator meth
 Add a new `describe("SourceManager")` block at the bottom of `test/core.test.ts`. Import `TCoreSource`, `TCoreVariableSourceAssociation`, `TCoreExpressionSourceAssociation` from the schemata. Since `SourceManager` is not yet exported, the import will fail.
 
 Write tests for:
+
 - `addSource` / `getSource` / `getSources` — add a source, retrieve it by ID, list all
 - `addVariableSourceAssociation` / `getAssociationsForVariable` — add association, query by variable
 - `addExpressionSourceAssociation` / `getAssociationsForExpression` — add association, query by expression
@@ -409,7 +424,10 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     // Maps
     private sources: Map<string, TSource>
     private variableAssociations: Map<string, TCoreVariableSourceAssociation>
-    private expressionAssociations: Map<string, TCoreExpressionSourceAssociation>
+    private expressionAssociations: Map<
+        string,
+        TCoreExpressionSourceAssociation
+    >
 
     // Reverse indices
     private sourceToAssociations: Map<string, Set<string>>
@@ -421,6 +439,7 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
 ```
 
 Implement all methods per spec. Key behaviors:
+
 - `removeSource(id)` removes source + all its associations via `sourceToAssociations` index
 - `removeAssociationsForVariable(varId)` removes variable associations + runs orphan check on each affected source
 - `removeAssociationsForExpression(exprId)` removes expression associations + runs orphan check
@@ -430,9 +449,13 @@ Implement all methods per spec. Key behaviors:
 - [ ] **Step 4: Export SourceManager from library barrel**
 
 In `src/lib/index.ts`, add:
+
 ```typescript
 export { SourceManager } from "./core/source-manager.js"
-export type { TSourceManagerSnapshot, TSourceRemovalResult } from "./core/source-manager.js"
+export type {
+    TSourceManagerSnapshot,
+    TSourceRemovalResult,
+} from "./core/source-manager.js"
 ```
 
 - [ ] **Step 5: Run tests**
@@ -450,11 +473,13 @@ git commit -m "feat: implement SourceManager with storage, mutations, and querie
 ### Task 8: SourceManager — orphan cleanup
 
 **Files:**
+
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for orphan cleanup**
 
 In the `SourceManager` describe block, add tests for:
+
 - Remove a variable association → source with zero remaining associations is auto-deleted
 - Remove an expression association → source with zero remaining associations is auto-deleted
 - Remove a variable association → source with other remaining associations survives
@@ -469,6 +494,7 @@ Expected: FAIL on orphan tests (if not yet implemented in step 3 above; otherwis
 - [ ] **Step 3: Verify/fix orphan cleanup implementation**
 
 Ensure the orphan check runs after every association removal. The `removeAssociationsForVariable` and `removeAssociationsForExpression` methods should:
+
 1. Collect all affected source IDs before removing associations
 2. Remove the associations
 3. For each affected source, check if `sourceToAssociations.get(sourceId)` is empty
@@ -489,12 +515,14 @@ git commit -m "feat: add SourceManager orphan cleanup with tests"
 ### Task 9: SourceManager — snapshot and restoration
 
 **Files:**
+
 - Modify: `test/core.test.ts`
 - Modify: `src/lib/core/source-manager.ts`
 
 - [ ] **Step 1: Write failing tests for snapshot/restore**
 
 Tests:
+
 - `snapshot()` returns all sources + both association arrays
 - `fromSnapshot()` rebuilds manager with correct state and indices
 - Round-trip: add sources/associations → snapshot → fromSnapshot → queries return same data
@@ -530,6 +558,7 @@ git commit -m "feat: add SourceManager snapshot and restoration"
 ### Task 10: Source management interface
 
 **Files:**
+
 - Create: `src/lib/core/interfaces/source-management.interfaces.ts`
 - Modify: `src/lib/core/interfaces/index.ts`
 - Modify: `src/lib/core/interfaces/argument-engine.interfaces.ts`
@@ -539,7 +568,11 @@ git commit -m "feat: add SourceManager snapshot and restoration"
 Create `src/lib/core/interfaces/source-management.interfaces.ts`:
 
 ```typescript
-import type { TCoreSource, TCoreVariableSourceAssociation, TCoreExpressionSourceAssociation } from "../../schemata/index.js"
+import type {
+    TCoreSource,
+    TCoreVariableSourceAssociation,
+    TCoreExpressionSourceAssociation,
+} from "../../schemata/index.js"
 import type { TCoreMutationResult } from "../../types/mutation.js"
 // ... other imports
 
@@ -550,17 +583,74 @@ export interface TSourceManagement<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TSource extends TCoreSource = TCoreSource,
 > {
-    addSource(source: TOptionalChecksum<TSource>): TCoreMutationResult<TSource, TExpr, TVar, TPremise, TArg, TSource>
-    removeSource(sourceId: string): TCoreMutationResult<TSource | undefined, TExpr, TVar, TPremise, TArg, TSource>
-    addVariableSourceAssociation(sourceId: string, variableId: string): TCoreMutationResult<TCoreVariableSourceAssociation, TExpr, TVar, TPremise, TArg, TSource>
-    removeVariableSourceAssociation(associationId: string): TCoreMutationResult<TCoreVariableSourceAssociation | undefined, TExpr, TVar, TPremise, TArg, TSource>
-    addExpressionSourceAssociation(sourceId: string, expressionId: string, premiseId: string): TCoreMutationResult<TCoreExpressionSourceAssociation, TExpr, TVar, TPremise, TArg, TSource>
-    removeExpressionSourceAssociation(associationId: string): TCoreMutationResult<TCoreExpressionSourceAssociation | undefined, TExpr, TVar, TPremise, TArg, TSource>
+    addSource(
+        source: TOptionalChecksum<TSource>
+    ): TCoreMutationResult<TSource, TExpr, TVar, TPremise, TArg, TSource>
+    removeSource(
+        sourceId: string
+    ): TCoreMutationResult<
+        TSource | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
+    addVariableSourceAssociation(
+        sourceId: string,
+        variableId: string
+    ): TCoreMutationResult<
+        TCoreVariableSourceAssociation,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
+    removeVariableSourceAssociation(
+        associationId: string
+    ): TCoreMutationResult<
+        TCoreVariableSourceAssociation | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
+    addExpressionSourceAssociation(
+        sourceId: string,
+        expressionId: string,
+        premiseId: string
+    ): TCoreMutationResult<
+        TCoreExpressionSourceAssociation,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
+    removeExpressionSourceAssociation(
+        associationId: string
+    ): TCoreMutationResult<
+        TCoreExpressionSourceAssociation | undefined,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg,
+        TSource
+    >
     getSources(): TSource[]
     getSource(sourceId: string): TSource | undefined
-    getAssociationsForSource(sourceId: string): { variable: TCoreVariableSourceAssociation[]; expression: TCoreExpressionSourceAssociation[] }
-    getAssociationsForVariable(variableId: string): TCoreVariableSourceAssociation[]
-    getAssociationsForExpression(expressionId: string): TCoreExpressionSourceAssociation[]
+    getAssociationsForSource(sourceId: string): {
+        variable: TCoreVariableSourceAssociation[]
+        expression: TCoreExpressionSourceAssociation[]
+    }
+    getAssociationsForVariable(
+        variableId: string
+    ): TCoreVariableSourceAssociation[]
+    getAssociationsForExpression(
+        expressionId: string
+    ): TCoreExpressionSourceAssociation[]
     getAllVariableSourceAssociations(): TCoreVariableSourceAssociation[]
     getAllExpressionSourceAssociations(): TCoreExpressionSourceAssociation[]
 }
@@ -588,6 +678,7 @@ getSourceAssociationsForExpression(expressionId: string): TCoreExpressionSourceA
 - [ ] **Step 4: Export from interfaces barrel**
 
 In `src/lib/core/interfaces/index.ts`, add:
+
 ```typescript
 export type * from "./source-management.interfaces.js"
 ```
@@ -607,12 +698,14 @@ git commit -m "feat: add TSourceManagement interface and TSource to all engine i
 ### Task 11: ArgumentEngine — source management implementation
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for ArgumentEngine source CRUD**
 
 Add a new `describe("ArgumentEngine source management")` block. Tests:
+
 - `addSource` — adds source, returns it with checksum, appears in `getSources()`
 - `addSource` duplicate ID — throws
 - `removeSource` — removes source, returns it, no longer in `getSources()`
@@ -633,17 +726,18 @@ Expected: FAIL
 - [ ] **Step 3: Implement source management on ArgumentEngine**
 
 In `argument-engine.ts`:
+
 1. Add `TSource` as 5th generic parameter to the class
 2. Add `private sourceManager: SourceManager<TSource>` field
 3. Initialize `SourceManager` in constructor
 4. Pass `sourceManager` to each `PremiseEngine` via deps
 5. Implement all `TSourceManagement` methods:
-   - `addSource`: attach checksum, delegate to `sourceManager.addSource()`, build changeset
-   - `removeSource`: delegate to `sourceManager.removeSource()`, build changeset with cascaded associations
-   - `addVariableSourceAssociation`: validate source exists (`sourceManager.getSource`), validate variable exists (`variableManager`), create association with ID + checksum, delegate to `sourceManager`
-   - `addExpressionSourceAssociation`: validate source, get `PremiseEngine` for premiseId, validate expression exists in that premise, create association, delegate
-   - Remove association methods: delegate to `sourceManager`, build changeset
-   - Query methods: direct delegation
+    - `addSource`: attach checksum, delegate to `sourceManager.addSource()`, build changeset
+    - `removeSource`: delegate to `sourceManager.removeSource()`, build changeset with cascaded associations
+    - `addVariableSourceAssociation`: validate source exists (`sourceManager.getSource`), validate variable exists (`variableManager`), create association with ID + checksum, delegate to `sourceManager`
+    - `addExpressionSourceAssociation`: validate source, get `PremiseEngine` for premiseId, validate expression exists in that premise, create association, delegate
+    - Remove association methods: delegate to `sourceManager`, build changeset
+    - Query methods: direct delegation
 
 - [ ] **Step 4: Run tests**
 
@@ -660,12 +754,14 @@ git commit -m "feat: implement source management on ArgumentEngine"
 ### Task 12: PremiseEngine — source convenience methods and cascade
 
 **Files:**
+
 - Modify: `src/lib/core/premise-engine.ts`
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for PremiseEngine source methods**
 
 Tests:
+
 - `addExpressionSourceAssociation(sourceId, expressionId)` — fills premiseId, delegates correctly
 - `addExpressionSourceAssociation` with nonexistent expression — throws
 - `removeExpressionSourceAssociation` — delegates correctly
@@ -683,12 +779,13 @@ Expected: FAIL
 - [ ] **Step 3: Implement PremiseEngine source integration**
 
 In `premise-engine.ts`:
+
 1. Add `TSource` as 5th generic parameter
 2. Accept `sourceManager?: SourceManager<TSource>` in constructor deps
 3. Implement convenience methods:
-   - `addExpressionSourceAssociation(sourceId, expressionId)`: validate expression exists in this premise via `this.expressions`, fill in `this.premiseId`, delegate to `sourceManager`
-   - `removeExpressionSourceAssociation(associationId)`: delegate to `sourceManager`
-   - `getSourceAssociationsForExpression(expressionId)`: delegate to `sourceManager`
+    - `addExpressionSourceAssociation(sourceId, expressionId)`: validate expression exists in this premise via `this.expressions`, fill in `this.premiseId`, delegate to `sourceManager`
+    - `removeExpressionSourceAssociation(associationId)`: delegate to `sourceManager`
+    - `getSourceAssociationsForExpression(expressionId)`: delegate to `sourceManager`
 4. Extend `removeExpression`: after each expression is actually removed, call `sourceManager.removeAssociationsForExpression(exprId)`. Capture removed associations and orphan sources, add to changeset.
 
 - [ ] **Step 4: Run tests**
@@ -706,12 +803,14 @@ git commit -m "feat: add source convenience methods and cascade to PremiseEngine
 ### Task 13: ArgumentEngine — cascade extensions (depends on Task 12)
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for source cascades**
 
 Tests:
+
 - `removeVariable` with variable-source association → association deleted, source orphaned and deleted
 - `removeVariable` with variable-source association → source has other associations, source survives
 - `removeVariable` cascade through expressions → expression-source associations also removed (handled transitively by PremiseEngine's extended `removeExpression` from Task 12)
@@ -729,15 +828,17 @@ Expected: FAIL
 - [ ] **Step 3: Extend removeVariable cascade**
 
 In `removeVariable()`, after the existing expression cascade (which now transitively handles expression-source associations via PremiseEngine's `removeExpression`):
-1. Call `sourceManager.removeAssociationsForVariable(variableId)` — this handles only *variable*-source associations (expression-source cleanup is already handled transitively in step above)
+
+1. Call `sourceManager.removeAssociationsForVariable(variableId)` — this handles only _variable_-source associations (expression-source cleanup is already handled transitively in step above)
 2. Capture the returned removed associations and orphan sources
 3. Add them to the `ChangeCollector`
 
-Note: orphan source cleanup in this step considers sources that may have lost all associations from *both* the expression cascade and the variable-association removal combined.
+Note: orphan source cleanup in this step considers sources that may have lost all associations from _both_ the expression cascade and the variable-association removal combined.
 
 - [ ] **Step 4: Extend removePremise cascade**
 
 In `removePremise()`, during the existing expression index cleanup loop (which iterates all expressions in the premise):
+
 1. For each expression, call `sourceManager.removeAssociationsForExpression(expr.id)`
 2. Capture returned removed associations and orphan sources
 3. Add them to the `ChangeCollector`
@@ -761,12 +862,14 @@ git commit -m "feat: extend ArgumentEngine cascades for source cleanup"
 ### Task 14: Snapshot expansion
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for snapshots with sources**
 
 Tests:
+
 - `snapshot()` includes sources and both association types
 - `rollback()` restores sources and associations to previous state
 - `fromSnapshot()` static factory rebuilds engine with sources and associations
@@ -780,6 +883,7 @@ Expected: FAIL
 - [ ] **Step 3: Extend snapshot/rollback/fromSnapshot**
 
 In `argument-engine.ts`:
+
 1. Add `TSource` as the 5th generic parameter to `TArgumentEngineSnapshot`
 2. `snapshot()`: include `sourceManager.snapshot()` fields in the returned snapshot
 3. `rollback()`: reconstruct `SourceManager` from snapshot data using `SourceManager.fromSnapshot()`. Pass new `sourceManager` to each `PremiseEngine` rebuilt during rollback.
@@ -788,6 +892,7 @@ In `argument-engine.ts`:
 6. Reactive snapshot: include source/association records in `TReactiveSnapshot` construction. Add `sources: boolean` to `reactiveDirty` tracking. Update `markReactiveDirty` to set it when `changes.sources`, `changes.variableSourceAssociations`, or `changes.expressionSourceAssociations` are present. Update `buildReactiveSnapshot` to include source/association records.
 
 `TArgumentEngineSnapshot` gains:
+
 ```typescript
 sources: TSource[]
 variableSourceAssociations: TCoreVariableSourceAssociation[]
@@ -809,12 +914,14 @@ git commit -m "feat: include sources in snapshots and rollback"
 ### Task 15: Diff expansion
 
 **Files:**
+
 - Modify: `src/lib/core/diff.ts`
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for source diffs**
 
 Tests:
+
 - Diff two engines: one has a source, the other doesn't → source appears in `added`
 - Diff two engines: source removed → appears in `removed`
 - Diff two engines: variable-source association added → appears in diff
@@ -830,15 +937,16 @@ Expected: FAIL
 - [ ] **Step 3: Add default comparators and implement source diffing**
 
 In `diff.ts`:
+
 1. Add `defaultCompareSource`: returns empty array (no diffable fields on base type)
 2. Add `defaultCompareVariableSourceAssociation`: compares `sourceId`, `variableId`
 3. Add `defaultCompareExpressionSourceAssociation`: compares `sourceId`, `expressionId`, `premiseId`
 4. In `diffArguments()`:
-   - Add `TSource` as 5th generic parameter
-   - Get sources from both engines via `getSources()`
-   - Get all associations via `getAllVariableSourceAssociations()` and `getAllExpressionSourceAssociations()` (these two new query methods must be added to `TSourceManagement` and `ArgumentEngine` — add them in this task or back in Task 10/11)
-   - Call `diffEntitySet()` for sources, variable associations, and expression associations
-   - Include results in the returned `TCoreArgumentDiff`
+    - Add `TSource` as 5th generic parameter
+    - Get sources from both engines via `getSources()`
+    - Get all associations via `getAllVariableSourceAssociations()` and `getAllExpressionSourceAssociations()` (these two new query methods must be added to `TSourceManagement` and `ArgumentEngine` — add them in this task or back in Task 10/11)
+    - Call `diffEntitySet()` for sources, variable associations, and expression associations
+    - Include results in the returned `TCoreArgumentDiff`
 
 Export the new default comparators from `src/lib/index.ts`.
 
@@ -857,12 +965,14 @@ git commit -m "feat: add source and association diffing"
 ### Task 16: Validation expansion
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts` (or wherever `validateEvaluability` lives)
 - Modify: `test/core.test.ts`
 
 - [ ] **Step 1: Write failing tests for source validation**
 
 Tests:
+
 - Engine with orphaned source (via snapshot restoration) → `SOURCE_ORPHANED` warning
 - Engine with variable association pointing to nonexistent variable (via snapshot) → `SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE` error
 - Engine with expression association pointing to nonexistent expression (via snapshot) → `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION` error
@@ -882,8 +992,8 @@ In the `validateEvaluability` method (on `ArgumentEngine`), add checks after exi
 
 1. For each variable-source association, verify `variableManager.getVariable(assoc.variableId)` exists → else error `SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE`
 2. For each expression-source association:
-   - Verify premise exists (`this.premises.has(assoc.premiseId)`) → else error `SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE`
-   - Verify expression exists in that premise → else error `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION`
+    - Verify premise exists (`this.premises.has(assoc.premiseId)`) → else error `SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE`
+    - Verify expression exists in that premise → else error `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION`
 3. For each source, check if it has any associations → if zero, warning `SOURCE_ORPHANED`
 
 - [ ] **Step 4: Run tests**
@@ -910,6 +1020,7 @@ git commit -m "feat: add source validation checks"
 ### Task 17: CLI source schema and path helpers
 
 **Files:**
+
 - Modify: `src/cli/schemata.ts`
 - Modify: `src/cli/config.ts`
 
@@ -960,6 +1071,7 @@ git commit -m "feat: add CLI source schema and path helpers"
 ### Task 18: CLI source storage
 
 **Files:**
+
 - Create: `src/cli/storage/sources.ts`
 
 - [ ] **Step 1: Implement source storage functions**
@@ -968,16 +1080,46 @@ Create `src/cli/storage/sources.ts` following the pattern in `variables.ts` and 
 
 ```typescript
 // Source meta I/O
-export async function readSourceMeta(argumentId: string, version: number, sourceId: string): Promise<TCliSource>
-export async function writeSourceMeta(argumentId: string, version: number, sourceId: string, data: TCliSource): Promise<void>
-export async function listSourceIds(argumentId: string, version: number): Promise<string[]>
-export async function deleteSourceDir(argumentId: string, version: number, sourceId: string): Promise<void>
+export async function readSourceMeta(
+    argumentId: string,
+    version: number,
+    sourceId: string
+): Promise<TCliSource>
+export async function writeSourceMeta(
+    argumentId: string,
+    version: number,
+    sourceId: string,
+    data: TCliSource
+): Promise<void>
+export async function listSourceIds(
+    argumentId: string,
+    version: number
+): Promise<string[]>
+export async function deleteSourceDir(
+    argumentId: string,
+    version: number,
+    sourceId: string
+): Promise<void>
 
 // Association I/O
-export async function readVariableAssociations(argumentId: string, version: number): Promise<TCoreVariableSourceAssociation[]>
-export async function writeVariableAssociations(argumentId: string, version: number, data: TCoreVariableSourceAssociation[]): Promise<void>
-export async function readExpressionAssociations(argumentId: string, version: number): Promise<TCoreExpressionSourceAssociation[]>
-export async function writeExpressionAssociations(argumentId: string, version: number, data: TCoreExpressionSourceAssociation[]): Promise<void>
+export async function readVariableAssociations(
+    argumentId: string,
+    version: number
+): Promise<TCoreVariableSourceAssociation[]>
+export async function writeVariableAssociations(
+    argumentId: string,
+    version: number,
+    data: TCoreVariableSourceAssociation[]
+): Promise<void>
+export async function readExpressionAssociations(
+    argumentId: string,
+    version: number
+): Promise<TCoreExpressionSourceAssociation[]>
+export async function writeExpressionAssociations(
+    argumentId: string,
+    version: number,
+    data: TCoreExpressionSourceAssociation[]
+): Promise<void>
 ```
 
 Use `getSourcesDir` / `getSourceDir` from config. Association files are `variable-associations.json` and `expression-associations.json` in the sources directory. Handle missing files gracefully (return empty arrays), matching the pattern in `variables.ts`.
@@ -997,11 +1139,13 @@ git commit -m "feat: add CLI source storage I/O"
 ### Task 19: CLI engine hydration and persistence
 
 **Files:**
+
 - Modify: `src/cli/engine.ts`
 
 - [ ] **Step 1: Extend hydrateEngine to load sources and associations**
 
 After loading variables and premises, add:
+
 1. Read source IDs from disk via `listSourceIds()`
 2. For each source, read meta and call `engine.addSource()`
 3. Read variable associations via `readVariableAssociations()` and call `engine.addVariableSourceAssociation()` for each
@@ -1012,6 +1156,7 @@ Handle the case where the sources directory doesn't exist (no sources yet) — r
 - [ ] **Step 2: Extend persistEngine to write sources and associations**
 
 In `persistEngine()` (or equivalent persist function), add:
+
 1. Create sources directory via `fs.mkdir(getSourcesDir(argumentId, version), { recursive: true })`
 2. For each source from `engine.getSources()`, write meta via `writeSourceMeta()`
 3. Write all variable associations via `writeVariableAssociations(argumentId, version, engine.getAllVariableSourceAssociations())`
@@ -1034,6 +1179,7 @@ git commit -m "feat: hydrate and persist sources and associations from disk"
 ### Task 20: CLI source commands
 
 **Files:**
+
 - Create: `src/cli/commands/sources.ts`
 - Modify: `src/cli/router.ts` (or equivalent routing file)
 
@@ -1070,11 +1216,13 @@ git commit -m "feat: add CLI source commands"
 ### Task 21: CLI smoke test coverage
 
 **Files:**
+
 - Modify: `scripts/smoke-test.sh`
 
 - [ ] **Step 1: Add source smoke tests**
 
 Add test cases to `scripts/smoke-test.sh`:
+
 1. Add a source with `--url`
 2. List sources
 3. Show a source
@@ -1105,6 +1253,7 @@ git commit -m "test: add source CLI smoke tests"
 ### Task 22: Extensions subproject setup
 
 **Files:**
+
 - Create: `src/extensions/ieee/index.ts`
 
 No separate `tsconfig` needed — the existing `tsconfig.build.json` already includes `src/**/*.ts` with `rootDir: ./src`, so files at `src/extensions/ieee/*.ts` compile automatically to `dist/extensions/ieee/*.js`.
@@ -1129,6 +1278,7 @@ git commit -m "feat: set up extensions subproject structure"
 ### Task 23: IEEE reference schemas
 
 **Files:**
+
 - Create: `src/extensions/ieee/references.ts`
 
 - [ ] **Step 1: Port IEEEReferenceSchema from proposit-server**
@@ -1136,12 +1286,14 @@ git commit -m "feat: set up extensions subproject structure"
 Port the 31 reference type schemas from `.untracked/proposit-server/src/schemas/model/references.ts`. Adapt to use the project's existing TypeBox patterns.
 
 Key adaptations when porting:
+
 - Use `import Type, { type Static } from "typebox"` (not `@sinclair/typebox`)
 - Rename all type aliases to use T-prefix per naming conventions: `TReferenceType`, `TBaseReference`, `TBookReference`, etc.
 - Standardize schema construction on `Type.Intersect()` for consistency
 - Drop server-specific exports (`ReferenceImportRequestSchema`, template strings, etc.)
 
 Key types:
+
 - `TReferenceType` — union of 31 string literals
 - Individual reference schemas (e.g., `BookReferenceSchema`, `WebsiteReferenceSchema`, etc.)
 - `IEEEReferenceSchema` — discriminated union of all 31 types
@@ -1163,6 +1315,7 @@ git commit -m "feat: port IEEE reference schemas from proposit-server"
 ### Task 24: IEEE source schema and barrel export
 
 **Files:**
+
 - Create: `src/extensions/ieee/source.ts`
 - Modify: `src/extensions/ieee/index.ts`
 
@@ -1201,16 +1354,16 @@ Add an exports entry in `package.json` so consumers can import from `@polintpro/
 
 ```json
 {
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./extensions/ieee": {
-      "types": "./dist/extensions/ieee/index.d.ts",
-      "import": "./dist/extensions/ieee/index.js"
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./extensions/ieee": {
+            "types": "./dist/extensions/ieee/index.d.ts",
+            "import": "./dist/extensions/ieee/index.js"
+        }
     }
-  }
 }
 ```
 
@@ -1233,6 +1386,7 @@ git commit -m "feat: add IEEE source extension with reference schemas"
 ### Task 25: Documentation sync
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `docs/api-reference.md`
 - Modify: `README.md`
@@ -1243,6 +1397,7 @@ git commit -m "feat: add IEEE source extension with reference schemas"
 - [ ] **Step 1: Update CLAUDE.md design rules**
 
 Add source-related design rules to the "Key design rules" section:
+
 - Sources are argument-scoped (like variables), not premise-scoped
 - Association types are immutable (create or delete, no update)
 - Orphan cleanup: removing all associations for a source auto-deletes the source
@@ -1251,6 +1406,7 @@ Add source-related design rules to the "Key design rules" section:
 - [ ] **Step 2: Update api-reference.md**
 
 Add sections for:
+
 - `TCoreSource` and association types
 - `SourceManager` class
 - `TSourceManagement` interface methods on ArgumentEngine
@@ -1296,13 +1452,18 @@ Expected: PASS
 - [ ] **Step 3: Verify exports**
 
 Verify that all new public types and functions are accessible:
+
 ```typescript
 import {
-    CoreSourceSchema, TCoreSource,
-    CoreVariableSourceAssociationSchema, TCoreVariableSourceAssociation,
-    CoreExpressionSourceAssociationSchema, TCoreExpressionSourceAssociation,
+    CoreSourceSchema,
+    TCoreSource,
+    CoreVariableSourceAssociationSchema,
+    TCoreVariableSourceAssociation,
+    CoreExpressionSourceAssociationSchema,
+    TCoreExpressionSourceAssociation,
     SourceManager,
-    diffArguments, defaultCompareSource,
+    diffArguments,
+    defaultCompareSource,
     // ... etc
 } from "@polintpro/proposit-core"
 ```

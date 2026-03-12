@@ -16,8 +16,8 @@ A new `src/extensions/ieee/` subproject provides optional IEEE reference schemas
 
 ```typescript
 interface TCoreSource {
-    id: string              // UUID
-    argumentId: string      // UUID
+    id: string // UUID
+    argumentId: string // UUID
     argumentVersion: number
     checksum: string
 }
@@ -31,10 +31,10 @@ Follows the `TCorePremise` pattern: no display/UX data. Extended via `additional
 
 ```typescript
 interface TCoreVariableSourceAssociation {
-    id: string              // UUID — unique association ID
-    sourceId: string        // UUID
-    variableId: string      // UUID
-    argumentId: string      // UUID
+    id: string // UUID — unique association ID
+    sourceId: string // UUID
+    variableId: string // UUID
+    argumentId: string // UUID
     argumentVersion: number
     checksum: string
 }
@@ -46,11 +46,11 @@ interface TCoreVariableSourceAssociation {
 
 ```typescript
 interface TCoreExpressionSourceAssociation {
-    id: string              // UUID — unique association ID
-    sourceId: string        // UUID
-    expressionId: string    // UUID
-    premiseId: string       // UUID — locates the expression's premise
-    argumentId: string      // UUID
+    id: string // UUID — unique association ID
+    sourceId: string // UUID
+    expressionId: string // UUID
+    premiseId: string // UUID — locates the expression's premise
+    argumentId: string // UUID
     argumentVersion: number
     checksum: string
 }
@@ -64,14 +64,14 @@ Association types are **not generic** — they are fixed-shape core types (like 
 
 ### Internal state
 
-| State | Type | Purpose |
-|-------|------|---------|
-| Sources map | `Map<sourceId, TSource>` | Source entities |
-| Variable associations map | `Map<associationId, TCoreVariableSourceAssociation>` | Variable-source links |
-| Expression associations map | `Map<associationId, TCoreExpressionSourceAssociation>` | Expression-source links |
-| Source → associations index | `Map<sourceId, Set<associationId>>` | Cascade: remove source → remove associations |
-| Variable → associations index | `Map<variableId, Set<associationId>>` | Cascade: remove variable → remove associations |
-| Expression → associations index | `Map<expressionId, Set<associationId>>` | Cascade: remove expression → remove associations |
+| State                           | Type                                                   | Purpose                                          |
+| ------------------------------- | ------------------------------------------------------ | ------------------------------------------------ |
+| Sources map                     | `Map<sourceId, TSource>`                               | Source entities                                  |
+| Variable associations map       | `Map<associationId, TCoreVariableSourceAssociation>`   | Variable-source links                            |
+| Expression associations map     | `Map<associationId, TCoreExpressionSourceAssociation>` | Expression-source links                          |
+| Source → associations index     | `Map<sourceId, Set<associationId>>`                    | Cascade: remove source → remove associations     |
+| Variable → associations index   | `Map<variableId, Set<associationId>>`                  | Cascade: remove variable → remove associations   |
+| Expression → associations index | `Map<expressionId, Set<associationId>>`                | Cascade: remove expression → remove associations |
 
 ### Mutation methods
 
@@ -117,39 +117,43 @@ interface TSourceManagerSnapshot<TSource extends TCoreSource = TCoreSource> {
 ### ArgumentEngine
 
 Gains:
+
 - Owns the `SourceManager` instance, passes it by reference to each `PremiseEngine`
 - New interface contract `TSourceManagement` exposing public source CRUD + association methods:
-  - `addSource(source)` — registers source, returns mutation result with changeset
-  - `removeSource(sourceId)` — removes source + cascades all associations, returns changeset
-  - `addVariableSourceAssociation(sourceId, variableId)` — validates both exist, delegates to `SourceManager`
-  - `addExpressionSourceAssociation(sourceId, expressionId, premiseId)` — validates source exists, delegates to `PremiseEngine` for expression validation, then to `SourceManager`
-  - `removeVariableSourceAssociation(associationId)` / `removeExpressionSourceAssociation(associationId)`
-  - `getSources()`, `getSource(id)`, `getAssociationsForVariable(id)`, `getAssociationsForExpression(id)`, `getAssociationsForSource(id)`
+    - `addSource(source)` — registers source, returns mutation result with changeset
+    - `removeSource(sourceId)` — removes source + cascades all associations, returns changeset
+    - `addVariableSourceAssociation(sourceId, variableId)` — validates both exist, delegates to `SourceManager`
+    - `addExpressionSourceAssociation(sourceId, expressionId, premiseId)` — validates source exists, delegates to `PremiseEngine` for expression validation, then to `SourceManager`
+    - `removeVariableSourceAssociation(associationId)` / `removeExpressionSourceAssociation(associationId)`
+    - `getSources()`, `getSource(id)`, `getAssociationsForVariable(id)`, `getAssociationsForExpression(id)`, `getAssociationsForSource(id)`
 
 Extended cascades:
+
 - `removeVariable()` — now also calls `sourceManager.removeAssociationsForVariable()` (which may cascade to orphaned source deletion)
 - `removePremise()` — current implementation does not call `removeExpression()` individually; it iterates all expressions in the premise and removes each from the expression index, then discards the `PremiseEngine`. This iteration must be extended to also call `sourceManager.removeAssociationsForExpression()` for each expression before discarding the premise. Orphan source cleanup applies.
 
 ### PremiseEngine
 
 Gains:
+
 - Receives shared `SourceManager` reference via the constructor `deps` object (same pattern as `VariableManager`)
 - Convenience method `addExpressionSourceAssociation(sourceId, expressionId)` — fills in its own `premiseId`, validates expression exists within this premise, delegates to `SourceManager`
 - Convenience method `removeExpressionSourceAssociation(associationId)` — delegates to `SourceManager`
 - Query convenience: `getSourceAssociationsForExpression(expressionId)` — delegates to `SourceManager`
 
 Extended cascades:
+
 - `removeExpression()` — for each expression actually removed during the cascade, calls `sourceManager.removeAssociationsForExpression(expressionId)` (which may cascade to orphaned source deletion)
 
 ## Generic Type Parameter
 
 The engine generics expand from 4 to 5 type parameters:
 
-| Class | Type Parameters |
-|-------|----------------|
+| Class            | Type Parameters                          |
+| ---------------- | ---------------------------------------- |
 | `ArgumentEngine` | `<TArg, TPremise, TExpr, TVar, TSource>` |
-| `PremiseEngine` | `<TArg, TPremise, TExpr, TVar, TSource>` |
-| `SourceManager` | `<TSource>` |
+| `PremiseEngine`  | `<TArg, TPremise, TExpr, TVar, TSource>` |
+| `SourceManager`  | `<TSource>`                              |
 
 All parameters have `extends BaseType = BaseType` defaults. `TSource extends TCoreSource = TCoreSource`.
 
@@ -194,6 +198,7 @@ interface TCoreArgumentDiff<TArg, TVar, TPremise, TExpr, TSource> {
 ```
 
 `TCoreDiffOptions` adds:
+
 - `compareSource` — default comparator: empty (no diffable fields on base source, same as premise)
 - `compareVariableSourceAssociation` — default: compares `sourceId`, `variableId`
 - `compareExpressionSourceAssociation` — default: compares `sourceId`, `expressionId`, `premiseId`
@@ -203,11 +208,13 @@ Note: Associations are **immutable** — they can be created or deleted, but not
 ## Snapshot Expansion
 
 `TArgumentEngineSnapshot` adds:
+
 - `sources: TSource[]`
 - `variableSourceAssociations: TCoreVariableSourceAssociation[]`
 - `expressionSourceAssociations: TCoreExpressionSourceAssociation[]`
 
 `TReactiveSnapshot` adds:
+
 - `sources: Record<string, TSource>`
 - `variableSourceAssociations: Record<string, TCoreVariableSourceAssociation>`
 - `expressionSourceAssociations: Record<string, TCoreExpressionSourceAssociation>`
@@ -215,30 +222,35 @@ Note: Associations are **immutable** — they can be created or deleted, but not
 ## Cascade Behavior
 
 ### `removeSource(sourceId)`
+
 1. Delete all `TCoreVariableSourceAssociation` where `sourceId` matches
 2. Delete all `TCoreExpressionSourceAssociation` where `sourceId` matches
 3. Delete the source entity
 4. Changeset includes removed source + all removed associations
 
 ### `removeVariable(variableId)` (extended)
+
 1. Existing: cascade-delete referencing expressions with operator collapse. This transitively triggers expression-source association cleanup via the extended `removeExpression` cascade (see below).
-2. New: delete *variable*-source associations for this variable (a separate concern from expression-source associations handled in step 1)
+2. New: delete _variable_-source associations for this variable (a separate concern from expression-source associations handled in step 1)
 3. New: delete any source left with zero associations after both steps (orphan cleanup)
 4. Changeset now also includes removed associations and orphaned sources from both steps
 
 ### `removeExpression(expressionId)` (extended)
+
 1. Existing: remove expression, collapse operators, may recurse
 2. New: for each expression actually removed, delete its expression-source associations
 3. New: delete any source left with zero associations (orphan cleanup)
 4. Changeset now also includes removed associations and orphaned sources
 
 ### `removePremise(premiseId)` (extended)
+
 1. Existing: iterate all expressions in the premise, remove each from the expression index, then discard the `PremiseEngine`
 2. New: during the expression iteration (before discarding), call `sourceManager.removeAssociationsForExpression()` for each expression
 3. New: delete any source left with zero associations (orphan cleanup)
 4. Changeset now also includes removed expression-source associations and orphaned sources
 
 ### Association removal → source lifecycle
+
 Removing an association never directly deletes the source. But if the source has zero remaining associations after the removal, the source is deleted as an orphan. This is handled internally by `SourceManager`.
 
 ## Validation
@@ -246,11 +258,13 @@ Removing an association never directly deletes the source. But if the source has
 New validation codes in `TCoreValidationResult`:
 
 ### Error-level (block evaluation)
+
 - `SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE` — association references nonexistent variable
 - `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION` — association references nonexistent expression
 - `SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE` — association references nonexistent premise
 
 ### Warning-level
+
 - `SOURCE_ORPHANED` — source exists with zero associations
 
 These should be unreachable during normal engine usage since mutation methods validate targets before creating associations and cascades clean up on removal. They guard against snapshot restoration or deserialization from corrupted state.
@@ -262,7 +276,7 @@ The CLI extends `CoreSourceSchema` with a required URL field:
 ```typescript
 const CliSourceSchema = Type.Intersect([
     CoreSourceSchema,
-    Type.Object({ url: Type.String() })
+    Type.Object({ url: Type.String() }),
 ])
 ```
 
@@ -270,15 +284,15 @@ const CliSourceSchema = Type.Intersect([
 
 Under `{argumentId}/{version}/sources/`:
 
-| Command | Description |
-|---------|-------------|
-| `add --url <url>` | Create a source |
-| `remove <sourceId>` | Delete a source by ID |
-| `list` | List all sources |
-| `link variable <sourceId> <variableId>` | Create variable-source association |
+| Command                                     | Description                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `add --url <url>`                           | Create a source                                                                                                     |
+| `remove <sourceId>`                         | Delete a source by ID                                                                                               |
+| `list`                                      | List all sources                                                                                                    |
+| `link variable <sourceId> <variableId>`     | Create variable-source association                                                                                  |
 | `link expression <sourceId> <expressionId>` | Create expression-source association (premise resolved via expression index lookup; errors if expression not found) |
-| `unlink <associationId>` | Remove an association |
-| `show <sourceId>` | Display source and its associations |
+| `unlink <associationId>`                    | Remove an association                                                                                               |
+| `show <sourceId>`                           | Display source and its associations                                                                                 |
 
 ### CLI storage
 
