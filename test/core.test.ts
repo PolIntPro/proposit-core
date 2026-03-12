@@ -10890,3 +10890,206 @@ describe("ArgumentEngine source management", () => {
         })
     })
 })
+
+// ---------------------------------------------------------------------------
+// diffArguments sources
+// ---------------------------------------------------------------------------
+
+import {
+    defaultCompareSource,
+    defaultCompareVariableSourceAssociation,
+    defaultCompareExpressionSourceAssociation,
+} from "../src/lib/core/diff"
+
+describe("diffArguments sources", () => {
+    function buildEngineWithSource(srcId?: string) {
+        const engine = new ArgumentEngine({ id: "arg-1", version: 1 })
+        engine.addVariable(makeVar("var-p", "P"))
+        const { result: pm } = engine.createPremiseWithId("premise-1")
+        pm.addExpression(
+            makeVarExpr("expr-p", "var-p", { parentId: null, position: 0 })
+        )
+        if (srcId) {
+            engine.addSource({
+                id: srcId,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                checksum: `checksum-${srcId}`,
+            })
+        }
+        return engine
+    }
+
+    describe("defaultCompareSource", () => {
+        it("returns empty array (no diffable fields on base source)", () => {
+            const a = makeSource("s1")
+            const b = { ...makeSource("s1"), checksum: "different" }
+            expect(defaultCompareSource(a, b)).toEqual([])
+        })
+    })
+
+    describe("defaultCompareVariableSourceAssociation", () => {
+        it("returns empty array for matching associations", () => {
+            const a = makeVarAssoc("va1", "s1", "var-1")
+            expect(defaultCompareVariableSourceAssociation(a, a)).toEqual([])
+        })
+
+        it("detects sourceId change", () => {
+            const before = makeVarAssoc("va1", "s1", "var-1")
+            const after = makeVarAssoc("va1", "s2", "var-1")
+            expect(
+                defaultCompareVariableSourceAssociation(before, after)
+            ).toEqual([{ field: "sourceId", before: "s1", after: "s2" }])
+        })
+
+        it("detects variableId change", () => {
+            const before = makeVarAssoc("va1", "s1", "var-1")
+            const after = makeVarAssoc("va1", "s1", "var-2")
+            expect(
+                defaultCompareVariableSourceAssociation(before, after)
+            ).toEqual([
+                { field: "variableId", before: "var-1", after: "var-2" },
+            ])
+        })
+    })
+
+    describe("defaultCompareExpressionSourceAssociation", () => {
+        it("returns empty array for matching associations", () => {
+            const a = makeExprAssoc("ea1", "s1", "expr-1", "premise-1")
+            expect(defaultCompareExpressionSourceAssociation(a, a)).toEqual([])
+        })
+
+        it("detects sourceId change", () => {
+            const before = makeExprAssoc("ea1", "s1", "expr-1", "premise-1")
+            const after = makeExprAssoc("ea1", "s2", "expr-1", "premise-1")
+            expect(
+                defaultCompareExpressionSourceAssociation(before, after)
+            ).toEqual([{ field: "sourceId", before: "s1", after: "s2" }])
+        })
+
+        it("detects expressionId change", () => {
+            const before = makeExprAssoc("ea1", "s1", "expr-1", "premise-1")
+            const after = makeExprAssoc("ea1", "s1", "expr-2", "premise-1")
+            expect(
+                defaultCompareExpressionSourceAssociation(before, after)
+            ).toEqual([
+                { field: "expressionId", before: "expr-1", after: "expr-2" },
+            ])
+        })
+
+        it("detects premiseId change", () => {
+            const before = makeExprAssoc("ea1", "s1", "expr-1", "premise-1")
+            const after = makeExprAssoc("ea1", "s1", "expr-1", "premise-2")
+            expect(
+                defaultCompareExpressionSourceAssociation(before, after)
+            ).toEqual([
+                {
+                    field: "premiseId",
+                    before: "premise-1",
+                    after: "premise-2",
+                },
+            ])
+        })
+    })
+
+    describe("diffArguments function — sources", () => {
+        it("detects added source (A has none, B has one)", () => {
+            const engineA = buildEngineWithSource()
+            const engineB = buildEngineWithSource("src-1")
+            const diff = diffArguments(engineA, engineB)
+            expect(diff.sources.added).toHaveLength(1)
+            expect(diff.sources.added[0].id).toBe("src-1")
+            expect(diff.sources.removed).toHaveLength(0)
+            expect(diff.sources.modified).toHaveLength(0)
+        })
+
+        it("detects removed source (A has one, B has none)", () => {
+            const engineA = buildEngineWithSource("src-1")
+            const engineB = buildEngineWithSource()
+            const diff = diffArguments(engineA, engineB)
+            expect(diff.sources.removed).toHaveLength(1)
+            expect(diff.sources.removed[0].id).toBe("src-1")
+            expect(diff.sources.added).toHaveLength(0)
+        })
+
+        it("returns empty sources diff for identical engines with same source", () => {
+            const engineA = buildEngineWithSource("src-same")
+            const engineB = buildEngineWithSource("src-same")
+            const diff = diffArguments(engineA, engineB)
+            expect(diff.sources.added).toHaveLength(0)
+            expect(diff.sources.removed).toHaveLength(0)
+            expect(diff.sources.modified).toHaveLength(0)
+        })
+
+        it("detects added variable-source association", () => {
+            const engineA = buildEngineWithSource("src-1")
+            const engineB = buildEngineWithSource("src-1")
+            engineB.addVariableSourceAssociation("src-1", "var-p")
+            const diff = diffArguments(engineA, engineB)
+            expect(diff.variableSourceAssociations.added).toHaveLength(1)
+            expect(diff.variableSourceAssociations.added[0].variableId).toBe(
+                "var-p"
+            )
+            expect(diff.variableSourceAssociations.removed).toHaveLength(0)
+        })
+
+        it("detects removed expression-source association", () => {
+            const engineA = buildEngineWithSource("src-1")
+            engineA.addExpressionSourceAssociation(
+                "src-1",
+                "expr-p",
+                "premise-1"
+            )
+            const engineB = buildEngineWithSource("src-1")
+            const diff = diffArguments(engineA, engineB)
+            expect(diff.expressionSourceAssociations.removed).toHaveLength(1)
+            expect(
+                diff.expressionSourceAssociations.removed[0].expressionId
+            ).toBe("expr-p")
+            expect(diff.expressionSourceAssociations.added).toHaveLength(0)
+        })
+
+        it("uses a custom compareSource comparator to detect field changes", () => {
+            type TExtendedSource = TCoreSource & { label: string }
+            const engineA = new ArgumentEngine({ id: "arg-1", version: 1 })
+            const engineB = new ArgumentEngine({ id: "arg-1", version: 1 })
+            const srcA: TExtendedSource = {
+                id: "src-ext",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                checksum: "x",
+                label: "Alpha",
+            }
+            const srcB: TExtendedSource = {
+                ...srcA,
+                label: "Beta",
+            }
+            engineA.addSource(srcA)
+            engineB.addSource(srcB)
+            const diff = diffArguments<
+                TCoreArgument,
+                TCorePremise,
+                TCorePropositionalExpression,
+                TCorePropositionalVariable,
+                TExtendedSource
+            >(engineA, engineB, {
+                compareSource: (before, after) => {
+                    const changes: import("../src/lib/types/diff").TCoreFieldChange[] =
+                        []
+                    if (before.label !== after.label) {
+                        changes.push({
+                            field: "label",
+                            before: before.label,
+                            after: after.label,
+                        })
+                    }
+                    return changes
+                },
+            })
+            expect(diff.sources.modified).toHaveLength(1)
+            expect(diff.sources.modified[0].changes).toEqual([
+                { field: "label", before: "Alpha", after: "Beta" },
+            ])
+        })
+    })
+})

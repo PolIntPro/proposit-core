@@ -3,6 +3,9 @@ import type {
     TCorePremise,
     TCorePropositionalExpression,
     TCorePropositionalVariable,
+    TCoreSource,
+    TCoreVariableSourceAssociation,
+    TCoreExpressionSourceAssociation,
 } from "../schemata/index.js"
 import type {
     TCoreArgumentDiff,
@@ -47,6 +50,67 @@ export function defaultComparePremise(
     _after: TCorePremise
 ): TCoreFieldChange[] {
     return []
+}
+
+/** Compares two sources. Base source only has identity fields, so no diffable fields. */
+export function defaultCompareSource(
+    _before: TCoreSource,
+    _after: TCoreSource
+): TCoreFieldChange[] {
+    return []
+}
+
+/** Compares two variable-source associations and returns field-level changes for `sourceId` and `variableId`. */
+export function defaultCompareVariableSourceAssociation(
+    before: TCoreVariableSourceAssociation,
+    after: TCoreVariableSourceAssociation
+): TCoreFieldChange[] {
+    const changes: TCoreFieldChange[] = []
+    if (before.sourceId !== after.sourceId) {
+        changes.push({
+            field: "sourceId",
+            before: before.sourceId,
+            after: after.sourceId,
+        })
+    }
+    if (before.variableId !== after.variableId) {
+        changes.push({
+            field: "variableId",
+            before: before.variableId,
+            after: after.variableId,
+        })
+    }
+    return changes
+}
+
+/** Compares two expression-source associations and returns field-level changes for `sourceId`, `expressionId`, and `premiseId`. */
+export function defaultCompareExpressionSourceAssociation(
+    before: TCoreExpressionSourceAssociation,
+    after: TCoreExpressionSourceAssociation
+): TCoreFieldChange[] {
+    const changes: TCoreFieldChange[] = []
+    if (before.sourceId !== after.sourceId) {
+        changes.push({
+            field: "sourceId",
+            before: before.sourceId,
+            after: after.sourceId,
+        })
+    }
+    if (before.expressionId !== after.expressionId) {
+        changes.push({
+            field: "expressionId",
+            before: before.expressionId,
+            after: after.expressionId,
+        })
+    }
+    if (before.premiseId !== after.premiseId) {
+        changes.push({
+            field: "premiseId",
+            before: before.premiseId,
+            after: after.premiseId,
+        })
+    }
+    return changes
 }
 
 /** Compares two expressions and returns field-level changes for structural fields (`type`, `parentId`, `position`, `variableId`, `operator`). */
@@ -231,11 +295,12 @@ export function diffArguments<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TSource extends TCoreSource = TCoreSource,
 >(
-    engineA: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
-    engineB: ArgumentEngine<TArg, TPremise, TExpr, TVar>,
-    options?: TCoreDiffOptions<TArg, TVar, TPremise, TExpr>
-): TCoreArgumentDiff<TArg, TVar, TPremise, TExpr> {
+    engineA: ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource>,
+    engineB: ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource>,
+    options?: TCoreDiffOptions<TArg, TVar, TPremise, TExpr, TSource>
+): TCoreArgumentDiff<TArg, TVar, TPremise, TExpr, TSource> {
     const argA = engineA.getArgument()
     const argB = engineB.getArgument()
     const premiseEnginesA = engineA.listPremises()
@@ -263,6 +328,15 @@ export function diffArguments<
     const compareExpr =
         options?.compareExpression ??
         (defaultCompareExpression as TCoreFieldComparator<TExpr>)
+    const compareSrc =
+        options?.compareSource ??
+        (defaultCompareSource as TCoreFieldComparator<TSource>)
+    const compareVarAssoc =
+        options?.compareVariableSourceAssociation ??
+        defaultCompareVariableSourceAssociation
+    const compareExprAssoc =
+        options?.compareExpressionSourceAssociation ??
+        defaultCompareExpressionSourceAssociation
 
     const argumentChanges = compareArg(argA, argB)
 
@@ -289,8 +363,20 @@ export function diffArguments<
             rolesA.conclusionPremiseId,
             rolesB.conclusionPremiseId
         ),
-        sources: { added: [], removed: [], modified: [] },
-        variableSourceAssociations: { added: [], removed: [], modified: [] },
-        expressionSourceAssociations: { added: [], removed: [], modified: [] },
+        sources: diffEntitySet(
+            engineA.getSources(),
+            engineB.getSources(),
+            compareSrc
+        ),
+        variableSourceAssociations: diffEntitySet(
+            engineA.getAllVariableSourceAssociations(),
+            engineB.getAllVariableSourceAssociations(),
+            compareVarAssoc
+        ),
+        expressionSourceAssociations: diffEntitySet(
+            engineA.getAllExpressionSourceAssociations(),
+            engineB.getAllExpressionSourceAssociations(),
+            compareExprAssoc
+        ),
     }
 }
