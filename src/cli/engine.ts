@@ -125,27 +125,38 @@ export async function hydrateEngine(
     // that aren't the conclusion), so no explicit role assignment is needed.
 
     // ── Sources ────────────────────────────────────────────────────────────
+    // Restore sources via snapshot/rollback to preserve association IDs
+    // (engine.addVariableSourceAssociation would generate new IDs).
     const [sourceIds, varAssociations, exprAssociations] = await Promise.all([
         listDiskSourceIds(argumentId, version),
         readVariableAssociations(argumentId, version),
         readExpressionAssociations(argumentId, version),
     ])
 
-    for (const sourceId of sourceIds) {
-        const sourceMeta = await readSourceMeta(argumentId, version, sourceId)
-        engine.addSource({ ...sourceMeta, argumentVersion: version })
-    }
-
-    for (const assoc of varAssociations) {
-        engine.addVariableSourceAssociation(assoc.sourceId, assoc.variableId)
-    }
-
-    for (const assoc of exprAssociations) {
-        engine.addExpressionSourceAssociation(
-            assoc.sourceId,
-            assoc.expressionId,
-            assoc.premiseId
+    if (
+        sourceIds.length > 0 ||
+        varAssociations.length > 0 ||
+        exprAssociations.length > 0
+    ) {
+        const sourceMetas = await Promise.all(
+            sourceIds.map((sid) => readSourceMeta(argumentId, version, sid))
         )
+        const snap = engine.snapshot()
+        snap.sources = {
+            sources: sourceMetas.map((s) => ({
+                ...s,
+                checksum: s.checksum ?? "",
+            })),
+            variableSourceAssociations: varAssociations.map((a) => ({
+                ...a,
+                checksum: a.checksum ?? "",
+            })),
+            expressionSourceAssociations: exprAssociations.map((a) => ({
+                ...a,
+                checksum: a.checksum ?? "",
+            })),
+        }
+        engine.rollback(snap)
     }
 
     return engine
