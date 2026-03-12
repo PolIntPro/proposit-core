@@ -98,10 +98,7 @@ const ExpressionAssociationSchema = Type.Array(
     })
 )
 
-function variableAssociationsPath(
-    argumentId: string,
-    version: number
-): string {
+function variableAssociationsPath(argumentId: string, version: number): string {
     return path.join(
         getSourcesDir(argumentId, version),
         "variable-associations.json"

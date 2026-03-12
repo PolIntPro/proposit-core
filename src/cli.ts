@@ -8,6 +8,7 @@ import { registerVariableCommands } from "./cli/commands/variables.js"
 import { registerPremiseCommands } from "./cli/commands/premises.js"
 import { registerExpressionCommands } from "./cli/commands/expressions.js"
 import { registerAnalysisCommands } from "./cli/commands/analysis.js"
+import { registerSourceCommands } from "./cli/commands/sources.js"
 import { registerRenderCommand } from "./cli/commands/render.js"
 import { registerDiffCommand } from "./cli/commands/diff.js"
 import { isNamedCommand, resolveVersion } from "./cli/router.js"
@@ -52,6 +53,7 @@ if (!isNamedCommand(process.argv)) {
     registerPremiseCommands(sub, argumentId, version)
     registerExpressionCommands(sub, argumentId, version)
     registerAnalysisCommands(sub, argumentId, version)
+    registerSourceCommands(sub, argumentId, version)
 
     // Replace the consumed positional args with the remainder so Commander
     // sees: ["node", "proposit-core", <group>, <subcommand>, ...]
