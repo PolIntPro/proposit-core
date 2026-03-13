@@ -4,7 +4,6 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
     TOptionalChecksum,
-    TCoreSource,
 } from "../../schemata/index.js"
 import type {
     TCoreArgumentEvaluationOptions,
@@ -28,7 +27,6 @@ export interface TPremiseCrud<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-    TSource extends TCoreSource = TCoreSource,
 > {
     /**
      * Creates a new premise with an auto-generated UUID and registers it
@@ -40,12 +38,11 @@ export interface TPremiseCrud<
     createPremise(
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseEngine<TArg, TPremise, TExpr, TVar, TSource>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
-        TArg,
-        TSource
+        TArg
     >
     /**
      * Creates a premise with a caller-supplied ID and registers it with
@@ -60,12 +57,11 @@ export interface TPremiseCrud<
         id: string,
         extras?: Record<string, unknown>
     ): TCoreMutationResult<
-        PremiseEngine<TArg, TPremise, TExpr, TVar, TSource>,
+        PremiseEngine<TArg, TPremise, TExpr, TVar>,
         TExpr,
         TVar,
         TPremise,
-        TArg,
-        TSource
+        TArg
     >
     /**
      * Removes a premise and clears any role assignments that reference it.
@@ -75,14 +71,7 @@ export interface TPremiseCrud<
      */
     removePremise(
         premiseId: string
-    ): TCoreMutationResult<
-        TPremise | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg,
-        TSource
-    >
+    ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg>
     /**
      * Returns the premise with the given ID, or `undefined` if not found.
      *
@@ -91,7 +80,7 @@ export interface TPremiseCrud<
      */
     getPremise(
         premiseId: string
-    ): PremiseEngine<TArg, TPremise, TExpr, TVar, TSource> | undefined
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined
     /**
      * Returns `true` if a premise with the given ID exists.
      *
@@ -110,7 +99,7 @@ export interface TPremiseCrud<
      *
      * @returns An array of PremiseEngine instances.
      */
-    listPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar, TSource>[]
+    listPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar>[]
     /**
      * Returns the PremiseEngine containing the given expression, or
      * `undefined`.
@@ -120,7 +109,7 @@ export interface TPremiseCrud<
      */
     findPremiseByExpressionId(
         expressionId: string
-    ): PremiseEngine<TArg, TPremise, TExpr, TVar, TSource> | undefined
+    ): PremiseEngine<TArg, TPremise, TExpr, TVar> | undefined
 }
 
 /**
@@ -131,7 +120,6 @@ export interface TVariableManagement<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-    TSource extends TCoreSource = TCoreSource,
 > {
     /**
      * Registers a propositional variable for use across all premises.
@@ -144,27 +132,26 @@ export interface TVariableManagement<
      */
     addVariable(
         variable: TOptionalChecksum<TVar>
-    ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg, TSource>
+    ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg>
     /**
      * Updates fields on an existing variable. Since all premises share the
      * same VariableManager, the update is immediately visible everywhere.
      *
      * @param variableId - The ID of the variable to update.
-     * @param updates - Fields to update (currently only `symbol`).
+     * @param updates - Fields to update (`symbol`, `assertionId`, `assertionVersion`).
+     *   `assertionId` and `assertionVersion` must be provided together.
      * @returns The updated variable, or `undefined` if not found.
      * @throws If the new symbol is already in use by a different variable.
+     * @throws If the new assertion reference does not exist in the assertion library.
      */
     updateVariable(
         variableId: string,
-        updates: { symbol?: string }
-    ): TCoreMutationResult<
-        TVar | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg,
-        TSource
-    >
+        updates: {
+            symbol?: string
+            assertionId?: string
+            assertionVersion?: number
+        }
+    ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>
     /**
      * Removes a variable and cascade-deletes all expressions referencing it
      * across every premise (including subtrees and operator collapse).
@@ -174,14 +161,7 @@ export interface TVariableManagement<
      */
     removeVariable(
         variableId: string
-    ): TCoreMutationResult<
-        TVar | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg,
-        TSource
-    >
+    ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>
     /**
      * Returns the variable with the given ID, or `undefined` if not found.
      *
@@ -295,7 +275,6 @@ export interface TArgumentRoleState<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-    TSource extends TCoreSource = TCoreSource,
 > {
     /**
      * Returns the conclusion premise, or `undefined` if none is set.
@@ -303,7 +282,7 @@ export interface TArgumentRoleState<
      * @returns The conclusion PremiseEngine, or `undefined`.
      */
     getConclusionPremise():
-        | PremiseEngine<TArg, TPremise, TExpr, TVar, TSource>
+        | PremiseEngine<TArg, TPremise, TExpr, TVar>
         | undefined
     /**
      * Returns all supporting premises (derived: inference premises that are
@@ -311,13 +290,7 @@ export interface TArgumentRoleState<
      *
      * @returns An array of supporting PremiseEngine instances.
      */
-    listSupportingPremises(): PremiseEngine<
-        TArg,
-        TPremise,
-        TExpr,
-        TVar,
-        TSource
-    >[]
+    listSupportingPremises(): PremiseEngine<TArg, TPremise, TExpr, TVar>[]
     /**
      * Designates a premise as the argument's conclusion.
      *
@@ -327,14 +300,7 @@ export interface TArgumentRoleState<
      */
     setConclusionPremise(
         premiseId: string
-    ): TCoreMutationResult<
-        TCoreArgumentRoleState,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg,
-        TSource
-    >
+    ): TCoreMutationResult<TCoreArgumentRoleState, TExpr, TVar, TPremise, TArg>
     /**
      * Clears the conclusion designation.
      *
@@ -345,8 +311,7 @@ export interface TArgumentRoleState<
         TExpr,
         TVar,
         TPremise,
-        TArg,
-        TSource
+        TArg
     >
     /**
      * Returns the current role assignments (conclusion premise ID only;
@@ -413,7 +378,6 @@ export interface TArgumentLifecycle<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
-    TSource extends TCoreSource = TCoreSource,
 > {
     /**
      * Registers a listener that is called after every mutation.
@@ -427,20 +391,20 @@ export interface TArgumentLifecycle<
      *
      * @returns The reactive snapshot.
      */
-    getSnapshot(): TReactiveSnapshot<TArg, TPremise, TExpr, TVar, TSource>
+    getSnapshot(): TReactiveSnapshot<TArg, TPremise, TExpr, TVar>
     /**
      * Returns a serializable snapshot of the full engine state.
      *
      * @returns The engine snapshot.
      */
-    snapshot(): TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar, TSource>
+    snapshot(): TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
     /**
      * Restores the engine to a previously captured snapshot state.
      *
      * @param snapshot - The snapshot to restore from.
      */
     rollback(
-        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar, TSource>
+        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
     ): void
 }
 
