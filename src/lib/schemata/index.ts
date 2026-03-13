@@ -1,5 +1,6 @@
 export * from "./analysis.js"
 export * from "./argument.js"
+export * from "./assertion.js"
 export * from "./propositional.js"
 export * from "./shared.js"
 export * from "./source.js"
