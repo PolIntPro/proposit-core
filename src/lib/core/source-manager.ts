@@ -1,35 +1,23 @@
 import type {
-    TCoreSource,
     TCoreVariableSourceAssociation,
     TCoreExpressionSourceAssociation,
 } from "../schemata/index.js"
 
-export interface TSourceRemovalResult<
-    TSource extends TCoreSource = TCoreSource,
-> {
+export interface TSourceAssociationRemovalResult {
     removedVariableAssociations: TCoreVariableSourceAssociation[]
     removedExpressionAssociations: TCoreExpressionSourceAssociation[]
-    removedOrphanSources: TSource[]
 }
 
-export interface TSourceManagerSnapshot<
-    TSource extends TCoreSource = TCoreSource,
-> {
-    sources: TSource[]
+export interface TSourceManagerSnapshot {
     variableSourceAssociations: TCoreVariableSourceAssociation[]
     expressionSourceAssociations: TCoreExpressionSourceAssociation[]
 }
 
 /**
- * Registry for sources and their associations to variables and expressions
- * within an argument. Shared across all premises.
- *
- * Enforces uniqueness of source and association IDs. Automatically removes
- * orphaned sources (sources with zero remaining associations) when
- * associations are deleted.
+ * Registry for source associations to variables and expressions within an
+ * argument. Source entities themselves live in SourceLibrary.
  */
-export class SourceManager<TSource extends TCoreSource = TCoreSource> {
-    private sources: Map<string, TSource>
+export class SourceManager {
     private variableAssociations: Map<string, TCoreVariableSourceAssociation>
     private expressionAssociations: Map<
         string,
@@ -40,7 +28,6 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     private expressionToAssociations: Map<string, Set<string>>
 
     constructor() {
-        this.sources = new Map()
         this.variableAssociations = new Map()
         this.expressionAssociations = new Map()
         this.sourceToAssociations = new Map()
@@ -49,97 +36,9 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     }
 
     // -----------------------------------------------------------------------
-    // Source mutations
-    // -----------------------------------------------------------------------
-
-    /**
-     * Registers a source.
-     *
-     * @throws If a source with the same ID already exists.
-     */
-    public addSource(source: TSource): void {
-        if (this.sources.has(source.id)) {
-            throw new Error(`Source with ID "${source.id}" already exists.`)
-        }
-        this.sources.set(source.id, source)
-        this.sourceToAssociations.set(source.id, new Set())
-    }
-
-    /**
-     * Removes a source and cascades deletion to all its associations.
-     *
-     * @throws If the source does not exist.
-     */
-    public removeSource(sourceId: string): TSourceRemovalResult<TSource> {
-        const source = this.sources.get(sourceId)
-        if (!source) {
-            throw new Error(`Source "${sourceId}" does not exist.`)
-        }
-
-        const associationIds = this.sourceToAssociations.get(sourceId)
-        const removedVariableAssociations: TCoreVariableSourceAssociation[] = []
-        const removedExpressionAssociations: TCoreExpressionSourceAssociation[] =
-            []
-
-        if (associationIds) {
-            for (const assocId of associationIds) {
-                const varAssoc = this.variableAssociations.get(assocId)
-                if (varAssoc) {
-                    this.variableAssociations.delete(assocId)
-                    const varSet = this.variableToAssociations.get(
-                        varAssoc.variableId
-                    )
-                    if (varSet) {
-                        varSet.delete(assocId)
-                        if (varSet.size === 0) {
-                            this.variableToAssociations.delete(
-                                varAssoc.variableId
-                            )
-                        }
-                    }
-                    removedVariableAssociations.push(varAssoc)
-                    continue
-                }
-
-                const exprAssoc = this.expressionAssociations.get(assocId)
-                if (exprAssoc) {
-                    this.expressionAssociations.delete(assocId)
-                    const exprSet = this.expressionToAssociations.get(
-                        exprAssoc.expressionId
-                    )
-                    if (exprSet) {
-                        exprSet.delete(assocId)
-                        if (exprSet.size === 0) {
-                            this.expressionToAssociations.delete(
-                                exprAssoc.expressionId
-                            )
-                        }
-                    }
-                    removedExpressionAssociations.push(exprAssoc)
-                }
-            }
-        }
-
-        this.sources.delete(sourceId)
-        this.sourceToAssociations.delete(sourceId)
-
-        return {
-            removedVariableAssociations,
-            removedExpressionAssociations,
-            removedOrphanSources: [],
-        }
-    }
-
-    // -----------------------------------------------------------------------
     // Variable association mutations
     // -----------------------------------------------------------------------
 
-    /**
-     * Registers a variable-source association.
-     *
-     * @throws If an association with the same ID already exists.
-     * @throws If the referenced source does not exist.
-     */
     public addVariableSourceAssociation(
         assoc: TCoreVariableSourceAssociation
     ): void {
@@ -148,13 +47,13 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
                 `Variable-source association with ID "${assoc.id}" already exists.`
             )
         }
-        if (!this.sources.has(assoc.sourceId)) {
-            throw new Error(`Source "${assoc.sourceId}" does not exist.`)
-        }
-
         this.variableAssociations.set(assoc.id, assoc)
 
-        const sourceSet = this.sourceToAssociations.get(assoc.sourceId)!
+        let sourceSet = this.sourceToAssociations.get(assoc.sourceId)
+        if (!sourceSet) {
+            sourceSet = new Set()
+            this.sourceToAssociations.set(assoc.sourceId, sourceSet)
+        }
         sourceSet.add(assoc.id)
 
         let varSet = this.variableToAssociations.get(assoc.variableId)
@@ -165,27 +64,23 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         varSet.add(assoc.id)
     }
 
-    /**
-     * Removes a variable-source association by ID.
-     *
-     * @returns The removed association and any orphaned sources.
-     * @throws If the association does not exist.
-     */
     public removeVariableSourceAssociation(
         id: string
-    ): TSourceRemovalResult<TSource> {
+    ): TSourceAssociationRemovalResult {
         const assoc = this.variableAssociations.get(id)
         if (!assoc) {
             throw new Error(
                 `Variable-source association "${id}" does not exist.`
             )
         }
-
         this.variableAssociations.delete(id)
 
         const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
         if (sourceSet) {
             sourceSet.delete(id)
+            if (sourceSet.size === 0) {
+                this.sourceToAssociations.delete(assoc.sourceId)
+            }
         }
 
         const varSet = this.variableToAssociations.get(assoc.variableId)
@@ -196,12 +91,9 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
             }
         }
 
-        const removedOrphanSources = this.cleanupOrphanedSource(assoc.sourceId)
-
         return {
             removedVariableAssociations: [assoc],
             removedExpressionAssociations: [],
-            removedOrphanSources,
         }
     }
 
@@ -209,12 +101,6 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     // Expression association mutations
     // -----------------------------------------------------------------------
 
-    /**
-     * Registers an expression-source association.
-     *
-     * @throws If an association with the same ID already exists.
-     * @throws If the referenced source does not exist.
-     */
     public addExpressionSourceAssociation(
         assoc: TCoreExpressionSourceAssociation
     ): void {
@@ -223,13 +109,13 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
                 `Expression-source association with ID "${assoc.id}" already exists.`
             )
         }
-        if (!this.sources.has(assoc.sourceId)) {
-            throw new Error(`Source "${assoc.sourceId}" does not exist.`)
-        }
-
         this.expressionAssociations.set(assoc.id, assoc)
 
-        const sourceSet = this.sourceToAssociations.get(assoc.sourceId)!
+        let sourceSet = this.sourceToAssociations.get(assoc.sourceId)
+        if (!sourceSet) {
+            sourceSet = new Set()
+            this.sourceToAssociations.set(assoc.sourceId, sourceSet)
+        }
         sourceSet.add(assoc.id)
 
         let exprSet = this.expressionToAssociations.get(assoc.expressionId)
@@ -240,27 +126,23 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         exprSet.add(assoc.id)
     }
 
-    /**
-     * Removes an expression-source association by ID.
-     *
-     * @returns The removed association and any orphaned sources.
-     * @throws If the association does not exist.
-     */
     public removeExpressionSourceAssociation(
         id: string
-    ): TSourceRemovalResult<TSource> {
+    ): TSourceAssociationRemovalResult {
         const assoc = this.expressionAssociations.get(id)
         if (!assoc) {
             throw new Error(
                 `Expression-source association "${id}" does not exist.`
             )
         }
-
         this.expressionAssociations.delete(id)
 
         const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
         if (sourceSet) {
             sourceSet.delete(id)
+            if (sourceSet.size === 0) {
+                this.sourceToAssociations.delete(assoc.sourceId)
+            }
         }
 
         const exprSet = this.expressionToAssociations.get(assoc.expressionId)
@@ -271,113 +153,84 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
             }
         }
 
-        const removedOrphanSources = this.cleanupOrphanedSource(assoc.sourceId)
-
         return {
             removedVariableAssociations: [],
             removedExpressionAssociations: [assoc],
-            removedOrphanSources,
         }
     }
 
     // -----------------------------------------------------------------------
-    // Bulk association removal (for cascade from variable/expression deletion)
+    // Bulk association removal
     // -----------------------------------------------------------------------
 
-    /**
-     * Removes all variable-source associations for a given variable.
-     * Orphaned sources are automatically cleaned up.
-     */
     public removeAssociationsForVariable(
         variableId: string
-    ): TSourceRemovalResult<TSource> {
+    ): TSourceAssociationRemovalResult {
         const assocIds = this.variableToAssociations.get(variableId)
         if (!assocIds || assocIds.size === 0) {
             return {
                 removedVariableAssociations: [],
                 removedExpressionAssociations: [],
-                removedOrphanSources: [],
             }
         }
 
         const removedVariableAssociations: TCoreVariableSourceAssociation[] = []
-        const sourceIdsToCheck = new Set<string>()
-
         for (const assocId of assocIds) {
             const assoc = this.variableAssociations.get(assocId)
             if (!assoc) continue
-
             this.variableAssociations.delete(assocId)
-            sourceIdsToCheck.add(assoc.sourceId)
 
             const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
             if (sourceSet) {
                 sourceSet.delete(assocId)
+                if (sourceSet.size === 0) {
+                    this.sourceToAssociations.delete(assoc.sourceId)
+                }
             }
-
             removedVariableAssociations.push(assoc)
         }
 
         this.variableToAssociations.delete(variableId)
 
-        const removedOrphanSources: TSource[] = []
-        for (const sourceId of sourceIdsToCheck) {
-            removedOrphanSources.push(...this.cleanupOrphanedSource(sourceId))
-        }
-
         return {
             removedVariableAssociations,
             removedExpressionAssociations: [],
-            removedOrphanSources,
         }
     }
 
-    /**
-     * Removes all expression-source associations for a given expression.
-     * Orphaned sources are automatically cleaned up.
-     */
     public removeAssociationsForExpression(
         expressionId: string
-    ): TSourceRemovalResult<TSource> {
+    ): TSourceAssociationRemovalResult {
         const assocIds = this.expressionToAssociations.get(expressionId)
         if (!assocIds || assocIds.size === 0) {
             return {
                 removedVariableAssociations: [],
                 removedExpressionAssociations: [],
-                removedOrphanSources: [],
             }
         }
 
         const removedExpressionAssociations: TCoreExpressionSourceAssociation[] =
             []
-        const sourceIdsToCheck = new Set<string>()
-
         for (const assocId of assocIds) {
             const assoc = this.expressionAssociations.get(assocId)
             if (!assoc) continue
-
             this.expressionAssociations.delete(assocId)
-            sourceIdsToCheck.add(assoc.sourceId)
 
             const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
             if (sourceSet) {
                 sourceSet.delete(assocId)
+                if (sourceSet.size === 0) {
+                    this.sourceToAssociations.delete(assoc.sourceId)
+                }
             }
-
             removedExpressionAssociations.push(assoc)
         }
 
         this.expressionToAssociations.delete(expressionId)
 
-        const removedOrphanSources: TSource[] = []
-        for (const sourceId of sourceIdsToCheck) {
-            removedOrphanSources.push(...this.cleanupOrphanedSource(sourceId))
-        }
-
         return {
             removedVariableAssociations: [],
             removedExpressionAssociations,
-            removedOrphanSources,
         }
     }
 
@@ -385,31 +238,15 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     // Queries
     // -----------------------------------------------------------------------
 
-    /** Returns the source with the given ID, or `undefined` if not found. */
-    public getSource(id: string): TSource | undefined {
-        return this.sources.get(id)
-    }
-
-    /** Returns all registered sources sorted by ID for deterministic output. */
-    public getSources(): TSource[] {
-        return Array.from(this.sources.values()).sort((a, b) =>
-            a.id.localeCompare(b.id)
-        )
-    }
-
-    /** Returns all associations (variable and expression) for a given source. */
     public getAssociationsForSource(sourceId: string): {
         variable: TCoreVariableSourceAssociation[]
         expression: TCoreExpressionSourceAssociation[]
     } {
         const assocIds = this.sourceToAssociations.get(sourceId)
-        if (!assocIds) {
-            return { variable: [], expression: [] }
-        }
+        if (!assocIds) return { variable: [], expression: [] }
 
         const variable: TCoreVariableSourceAssociation[] = []
         const expression: TCoreExpressionSourceAssociation[] = []
-
         for (const assocId of assocIds) {
             const varAssoc = this.variableAssociations.get(assocId)
             if (varAssoc) {
@@ -417,21 +254,16 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
                 continue
             }
             const exprAssoc = this.expressionAssociations.get(assocId)
-            if (exprAssoc) {
-                expression.push(exprAssoc)
-            }
+            if (exprAssoc) expression.push(exprAssoc)
         }
-
         return { variable, expression }
     }
 
-    /** Returns all variable-source associations for a given variable. */
     public getAssociationsForVariable(
         variableId: string
     ): TCoreVariableSourceAssociation[] {
         const assocIds = this.variableToAssociations.get(variableId)
         if (!assocIds) return []
-
         const result: TCoreVariableSourceAssociation[] = []
         for (const assocId of assocIds) {
             const assoc = this.variableAssociations.get(assocId)
@@ -440,13 +272,11 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         return result
     }
 
-    /** Returns all expression-source associations for a given expression. */
     public getAssociationsForExpression(
         expressionId: string
     ): TCoreExpressionSourceAssociation[] {
         const assocIds = this.expressionToAssociations.get(expressionId)
         if (!assocIds) return []
-
         const result: TCoreExpressionSourceAssociation[] = []
         for (const assocId of assocIds) {
             const assoc = this.expressionAssociations.get(assocId)
@@ -455,12 +285,10 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         return result
     }
 
-    /** Returns all variable-source associations. */
     public getAllVariableSourceAssociations(): TCoreVariableSourceAssociation[] {
         return Array.from(this.variableAssociations.values())
     }
 
-    /** Returns all expression-source associations. */
     public getAllExpressionSourceAssociations(): TCoreExpressionSourceAssociation[] {
         return Array.from(this.expressionAssociations.values())
     }
@@ -469,10 +297,8 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
     // Snapshot & restoration
     // -----------------------------------------------------------------------
 
-    /** Returns a serializable snapshot of the current state. */
-    public snapshot(): TSourceManagerSnapshot<TSource> {
+    public snapshot(): TSourceManagerSnapshot {
         return {
-            sources: this.getSources(),
             variableSourceAssociations: Array.from(
                 this.variableAssociations.values()
             ).sort((a, b) => a.id.localeCompare(b.id)),
@@ -482,31 +308,18 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         }
     }
 
-    /**
-     * Creates a new SourceManager from a previously captured snapshot.
-     * Rebuilds all internal maps and indices. No validation or orphan
-     * cleanup is performed — the snapshot is restored verbatim.
-     */
-    public static fromSnapshot<TSource extends TCoreSource = TCoreSource>(
-        data: TSourceManagerSnapshot<TSource>
-    ): SourceManager<TSource> {
-        const sm = new SourceManager<TSource>()
+    public static fromSnapshot(data: TSourceManagerSnapshot): SourceManager {
+        const sm = new SourceManager()
 
-        // Restore sources (without creating empty sourceToAssociations entries
-        // here — we build those from the associations below)
-        for (const source of data.sources) {
-            sm.sources.set(source.id, source)
-            sm.sourceToAssociations.set(source.id, new Set())
-        }
-
-        // Restore variable associations and rebuild indices
         for (const assoc of data.variableSourceAssociations) {
             sm.variableAssociations.set(assoc.id, assoc)
 
-            const sourceSet = sm.sourceToAssociations.get(assoc.sourceId)
-            if (sourceSet) {
-                sourceSet.add(assoc.id)
+            let sourceSet = sm.sourceToAssociations.get(assoc.sourceId)
+            if (!sourceSet) {
+                sourceSet = new Set()
+                sm.sourceToAssociations.set(assoc.sourceId, sourceSet)
             }
+            sourceSet.add(assoc.id)
 
             let varSet = sm.variableToAssociations.get(assoc.variableId)
             if (!varSet) {
@@ -516,14 +329,15 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
             varSet.add(assoc.id)
         }
 
-        // Restore expression associations and rebuild indices
         for (const assoc of data.expressionSourceAssociations) {
             sm.expressionAssociations.set(assoc.id, assoc)
 
-            const sourceSet = sm.sourceToAssociations.get(assoc.sourceId)
-            if (sourceSet) {
-                sourceSet.add(assoc.id)
+            let sourceSet = sm.sourceToAssociations.get(assoc.sourceId)
+            if (!sourceSet) {
+                sourceSet = new Set()
+                sm.sourceToAssociations.set(assoc.sourceId, sourceSet)
             }
+            sourceSet.add(assoc.id)
 
             let exprSet = sm.expressionToAssociations.get(assoc.expressionId)
             if (!exprSet) {
@@ -534,26 +348,5 @@ export class SourceManager<TSource extends TCoreSource = TCoreSource> {
         }
 
         return sm
-    }
-
-    // -----------------------------------------------------------------------
-    // Internal helpers
-    // -----------------------------------------------------------------------
-
-    /**
-     * Checks if the given source has zero remaining associations and, if so,
-     * removes it and returns it in an array. Returns an empty array otherwise.
-     */
-    private cleanupOrphanedSource(sourceId: string): TSource[] {
-        const sourceSet = this.sourceToAssociations.get(sourceId)
-        if (sourceSet?.size === 0) {
-            const source = this.sources.get(sourceId)
-            if (source) {
-                this.sources.delete(sourceId)
-                this.sourceToAssociations.delete(sourceId)
-                return [source]
-            }
-        }
-        return []
     }
 }
