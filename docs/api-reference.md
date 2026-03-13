@@ -2,9 +2,9 @@
 
 ## `ArgumentEngine`
 
-### `new ArgumentEngine(argument, options?)`
+### `new ArgumentEngine(argument, assertionLibrary, sourceLibrary, options?)`
 
-Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Accepts an optional `config?: TLogicEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`). `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes.
+Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Requires an `assertionLibrary` implementing `TAssertionLookup` (used to validate assertion references on variables) and a `sourceLibrary` implementing `TSourceLookup` (used to validate source references on associations). Accepts an optional `config?: TLogicEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`). `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes.
 
 ---
 
@@ -46,13 +46,13 @@ Returns all premise IDs sorted alphabetically.
 
 ### `addVariable(variable)` → `TCoreMutationResult<TPropositionalVariable>`
 
-Registers a variable (without `checksum` — it is computed lazily) for use across all premises. Throws if the `id` or `symbol` already exists, or if `argumentId`/`argumentVersion` don't match the engine's argument.
+Registers a variable (without `checksum` — it is computed lazily) for use across all premises. The variable must include `assertionId: string` and `assertionVersion: number` fields referencing a valid entry in the `AssertionLibrary`. Throws if the `id` or `symbol` already exists, if `argumentId`/`argumentVersion` don't match the engine's argument, or if the assertion reference is not found in the assertion library.
 
 ---
 
-### `updateVariable(variableId, { symbol? })` → `TCoreMutationResult<TPropositionalVariable>`
+### `updateVariable(variableId, { symbol?, assertionId?, assertionVersion? })` → `TCoreMutationResult<TPropositionalVariable>`
 
-Updates variable fields. Returns a mutation result with the modified variable.
+Updates variable fields. `assertionId` and `assertionVersion` must be provided together — providing one without the other throws. Returns a mutation result with the modified variable.
 
 ---
 
@@ -222,13 +222,13 @@ Returns a `TReactiveSnapshot` with structurally-shared sub-objects. Unchanged sl
 
 ### `snapshot()` → `TArgumentEngineSnapshot`
 
-Returns a serialisable snapshot of the full engine state (`{ argument, variables, premises, conclusionPremiseId, config }`). Each premise snapshot includes its metadata and expression snapshot. Can be used to reconstruct the engine via `ArgumentEngine.fromSnapshot()` or to restore state in place via `rollback()`.
+Returns a serialisable snapshot of the full engine state (`{ argument, variables, premises, conclusionPremiseId, config, sources }`). Each premise snapshot includes its metadata and expression snapshot. Can be used to reconstruct the engine via `ArgumentEngine.fromSnapshot()` or to restore state in place via `rollback()`.
 
 ---
 
-### `static fromSnapshot(snapshot)` → `ArgumentEngine`
+### `static fromSnapshot(snapshot, assertionLibrary, sourceLibrary)` → `ArgumentEngine`
 
-Reconstructs an `ArgumentEngine` from a previously captured snapshot. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
+Reconstructs an `ArgumentEngine` from a previously captured snapshot. Requires the same `assertionLibrary` (implementing `TAssertionLookup`) and `sourceLibrary` (implementing `TSourceLookup`) that would be passed to the constructor. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
 
 ---
 
@@ -238,9 +238,9 @@ Restores the engine's internal state in place from a previously captured snapsho
 
 ---
 
-### `static fromData(argument, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
+### `static fromData(argument, assertionLibrary, sourceLibrary, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
 
-Bulk-loads an engine from flat arrays (as returned by DB queries). Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
+Bulk-loads an engine from flat arrays (as returned by DB queries). Requires `assertionLibrary` and `sourceLibrary` instances. Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
 
 ---
 
@@ -250,23 +250,11 @@ Renders the full argument as a multi-line string. Each premise is prefixed with 
 
 ---
 
-### Source Management
+### Source Association Management
 
-#### `addSource(source)` → `TCoreMutationResult<TSource>`
+#### `addVariableSourceAssociation(sourceId, sourceVersion, variableId)` → `TCoreMutationResult<TCoreVariableSourceAssociation>`
 
-Registers a new source entity with this argument. The `source` parameter is `TOptionalChecksum<TSource>` — the checksum is computed lazily. Throws if a source with the given ID already exists.
-
----
-
-#### `removeSource(sourceId)` → `TCoreMutationResult<TSource | undefined>`
-
-Removes a source and cascades to delete all its variable and expression associations. Returns the removed source, or `undefined` if not found.
-
----
-
-#### `addVariableSourceAssociation(sourceId, variableId)` → `TCoreMutationResult<TCoreVariableSourceAssociation>`
-
-Creates an association between a source and a variable. Throws if either doesn't exist or if the association already exists.
+Creates an association between a source version and a variable. Throws if the source version does not exist in the source library, or if the variable does not exist.
 
 ---
 
@@ -276,9 +264,9 @@ Removes a variable–source association by ID. Returns the removed association, 
 
 ---
 
-#### `addExpressionSourceAssociation(sourceId, expressionId, premiseId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
+#### `addExpressionSourceAssociation(sourceId, sourceVersion, expressionId, premiseId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
 
-Creates an association between a source and an expression within a specific premise. Throws if the source, premise, or expression doesn't exist, or if the association already exists.
+Creates an association between a source version and an expression within a specific premise. Throws if the source version does not exist in the source library, or if the premise or expression does not exist.
 
 ---
 
@@ -288,21 +276,9 @@ Removes an expression–source association by ID. Returns the removed associatio
 
 ---
 
-#### `getSources()` → `TSource[]`
-
-Returns all registered sources sorted by ID.
-
----
-
-#### `getSource(sourceId)` → `TSource | undefined`
-
-Returns a source by ID, or `undefined`.
-
----
-
 #### `getAssociationsForSource(sourceId)` → `{ variable, expression }`
 
-Returns all variable and expression associations for a given source.
+Returns all variable and expression associations for a given source ID (across all versions of that source).
 
 ---
 
@@ -327,6 +303,138 @@ Returns all variable–source associations across the argument.
 #### `getAllExpressionSourceAssociations()` → `TCoreExpressionSourceAssociation[]`
 
 Returns all expression–source associations across the argument.
+
+---
+
+## `AssertionLibrary<TAssertion>`
+
+Global versioned repository for assertion entities. Implements `TAssertionLookup<TAssertion>`. Pass an instance to `ArgumentEngine` constructor and `fromSnapshot` to enable assertion reference validation on variables.
+
+Each assertion has a `version` (starting at `0`) and a `frozen` flag. Freezing locks the current version and auto-creates a new mutable copy at the next version number.
+
+### `new AssertionLibrary(options?)`
+
+Creates an empty library. Accepts an optional `{ checksumConfig? }` parameter.
+
+---
+
+### `create(assertion)` → `TAssertion`
+
+Creates a new assertion at version `0` (unfrozen). The `assertion` parameter omits `version`, `frozen`, and `checksum` fields — these are set automatically. Throws if an assertion with the given ID already exists.
+
+---
+
+### `update(id, updates)` → `TAssertion`
+
+Updates fields on the latest (unfrozen) version of an assertion. Throws if the assertion does not exist or its latest version is frozen.
+
+---
+
+### `freeze(id)` → `{ frozen: TAssertion; current: TAssertion }`
+
+Marks the current version as frozen and creates the next mutable version (incrementing version number, copying all fields except `frozen`). Returns both the frozen and new current entity. Throws if the assertion does not exist or is already frozen.
+
+---
+
+### `get(id, version)` → `TAssertion | undefined`
+
+Returns a specific version of an assertion, or `undefined` if not found.
+
+---
+
+### `getCurrent(id)` → `TAssertion | undefined`
+
+Returns the latest version of an assertion, or `undefined` if not found.
+
+---
+
+### `getAll()` → `TAssertion[]`
+
+Returns all assertion entities across all versions and IDs.
+
+---
+
+### `getVersions(id)` → `TAssertion[]`
+
+Returns all versions of a given assertion ID, sorted by version number ascending.
+
+---
+
+### `snapshot()` → `TAssertionLibrarySnapshot<TAssertion>`
+
+Returns a serialisable snapshot `{ assertions: TAssertion[] }` containing all assertion entities across all versions.
+
+---
+
+### `static fromSnapshot(snapshot, options?)` → `AssertionLibrary<TAssertion>`
+
+Reconstructs an `AssertionLibrary` from a previously captured snapshot.
+
+---
+
+## `SourceLibrary<TSource>`
+
+Global versioned repository for source entities. Implements `TSourceLookup<TSource>`. Pass an instance to `ArgumentEngine` constructor and `fromSnapshot` to enable source reference validation on associations.
+
+Has the same versioning and freeze semantics as `AssertionLibrary`. Source entities live here — `SourceManager` within `ArgumentEngine` manages associations only.
+
+### `new SourceLibrary(options?)`
+
+Creates an empty library. Accepts an optional `{ checksumConfig? }` parameter.
+
+---
+
+### `create(source)` → `TSource`
+
+Creates a new source at version `0` (unfrozen). The `source` parameter omits `version`, `frozen`, and `checksum` fields. Throws if a source with the given ID already exists.
+
+---
+
+### `update(id, updates)` → `TSource`
+
+Updates fields on the latest (unfrozen) version of a source. Throws if the source does not exist or its latest version is frozen.
+
+---
+
+### `freeze(id)` → `{ frozen: TSource; current: TSource }`
+
+Marks the current version as frozen and creates the next mutable version. Returns both the frozen and new current entity. Throws if the source does not exist or is already frozen.
+
+---
+
+### `get(id, version)` → `TSource | undefined`
+
+Returns a specific version of a source, or `undefined` if not found.
+
+---
+
+### `getCurrent(id)` → `TSource | undefined`
+
+Returns the latest version of a source, or `undefined` if not found.
+
+---
+
+### `getAll()` → `TSource[]`
+
+Returns all source entities across all versions and IDs.
+
+---
+
+### `getVersions(id)` → `TSource[]`
+
+Returns all versions of a given source ID, sorted by version number ascending.
+
+---
+
+### `snapshot()` → `TSourceLibrarySnapshot<TSource>`
+
+Returns a serialisable snapshot `{ sources: TSource[] }` containing all source entities across all versions.
+
+---
+
+### `static fromSnapshot(snapshot, options?)` → `SourceLibrary<TSource>`
+
+Reconstructs a `SourceLibrary` from a previously captured snapshot.
 
 ---
 
@@ -488,7 +596,7 @@ Returns source associations for a specific expression in this premise.
 
 ### `diffArguments(engineA, engineB, options?)` → `TCoreArgumentDiff`
 
-Compares two `ArgumentEngine` instances and returns a structured diff covering argument metadata, variables, premises (with nested expression diffs), and role changes. Each entity category reports added, removed, and modified items with field-level change details.
+Compares two `ArgumentEngine` instances and returns a structured diff covering argument metadata, variables, premises (with nested expression diffs), role changes, and source association changes. Each entity category reports added, removed, and modified items with field-level change details.
 
 Options allow plugging custom comparators per entity type via `TCoreDiffOptions`:
 
@@ -503,9 +611,9 @@ const diff = diffArguments(engineA, engineB, {
 })
 ```
 
-Default comparators are also exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`. Source-related default comparators are also exported: `defaultCompareSource`, `defaultCompareVariableSourceAssociation`, `defaultCompareExpressionSourceAssociation`.
+Default comparators exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`, `defaultCompareVariableSourceAssociation`, `defaultCompareExpressionSourceAssociation`.
 
-The diff result includes `sources`, `variableSourceAssociations`, and `expressionSourceAssociations` fields with the same add/remove/modify structure.
+The diff result includes `variableSourceAssociations` and `expressionSourceAssociations` fields with the same add/remove/modify structure.
 
 ---
 
@@ -540,15 +648,15 @@ Builds a profile of a premise's variable appearances, recording each variable's 
 
 ---
 
-### `parseFormula(input)` → `FormulaAST`
+### `parseFormula(input)` → `TFormulaAST`
 
 Parses a logical formula string into an AST. Supports standard logical notation with operators `not`/`¬`, `and`/`∧`, `or`/`∨`, `implies`/`→`, `iff`/`↔`, and parentheses for grouping.
 
 ```typescript
 import { parseFormula } from "@polintpro/proposit-core"
-import type { FormulaAST } from "@polintpro/proposit-core"
+import type { TFormulaAST } from "@polintpro/proposit-core"
 
-const ast: FormulaAST = parseFormula("(P and Q) implies R")
+const ast: TFormulaAST = parseFormula("(P and Q) implies R")
 ```
 
 ---
@@ -618,10 +726,12 @@ Hierarchical snapshot types for capturing and restoring engine state:
 | `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                                                                                                     |
 | `TVariableManagerSnapshot`   | `variables`, `config`                                                                                                                                                        |
 | `TPremiseEngineSnapshot`     | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                                                                                                     |
-| `TSourceManagerSnapshot`     | `sources`, `variableAssociations`, `expressionAssociations`, `config`                                                                                                        |
+| `TSourceManagerSnapshot`     | `variableSourceAssociations`, `expressionSourceAssociations`                                                                                                                 |
 | `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `sources` snapshot, `conclusionPremiseId`, `config`                                                                  |
-| `TReactiveSnapshot`          | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles`, `sources`, `variableSourceAssociations`, `expressionSourceAssociations` Records |
+| `TReactiveSnapshot`          | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles`, `variableSourceAssociations`, `expressionSourceAssociations` Records            |
 | `TReactivePremiseSnapshot`   | `premise`, `expressions` (Record by ID), `rootExpressionId`                                                                                                                  |
+| `TAssertionLibrarySnapshot`  | `assertions` (all versions of all assertions)                                                                                                                                |
+| `TSourceLibrarySnapshot`     | `sources` (all versions of all sources)                                                                                                                                      |
 
 `TReactiveSnapshot` is the type returned by `getSnapshot()` — optimized for React with Record-based lookups and structural sharing. The other snapshot types are for serialization and restoration.
 
@@ -631,16 +741,22 @@ Each snapshot captures only what the class **owns**. Dependencies (e.g., variabl
 
 ### `SourceManager`
 
-Internal manager class for source entities and associations. Shared across `ArgumentEngine` and `PremiseEngine` instances (similar to `VariableManager`). Handles storage, indices, mutations, queries, snapshot/restore, and orphan cleanup. Exported from the library barrel for advanced use cases.
+Internal manager class for source associations (variable–source and expression–source). Shared across `ArgumentEngine` and `PremiseEngine` instances (similar to `VariableManager`). Manages association storage, indices, mutations, queries, and snapshot/restore. Source entities themselves live in `SourceLibrary` — `SourceManager` is association-only and non-generic. Exported from the library barrel for advanced use cases.
 
 ---
 
 ### Source Types
 
-| Type                               | Description                                                          |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| `TCoreSource`                      | Base source entity (`{ id, argumentId, argumentVersion, checksum }`) |
-| `TCoreVariableSourceAssociation`   | Links a source to a variable                                         |
-| `TCoreExpressionSourceAssociation` | Links a source to an expression within a premise                     |
-| `TSourceManagement`                | Interface contract for source management methods on `ArgumentEngine` |
-| `TSourceManagerSnapshot`           | Snapshot type for `SourceManager` state                              |
+| Type                               | Description                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `TCoreSource`                      | Base source entity (`{ id, version, frozen, checksum }`)                            |
+| `TCoreAssertion`                   | Base assertion entity (`{ id, version, frozen, checksum }`)                         |
+| `TCoreVariableSourceAssociation`   | Links a source version to a variable (`{ sourceId, sourceVersion, variableId, … }`) |
+| `TCoreExpressionSourceAssociation` | Links a source version to an expression within a premise                            |
+| `TSourceAssociationRemovalResult`  | Return type of bulk association removal (`{ removedVariableAssociations, removedExpressionAssociations }`) |
+| `TSourceManagement`                | Interface contract for source association management methods on `ArgumentEngine`    |
+| `TSourceManagerSnapshot`           | Snapshot type for `SourceManager` state                                             |
+| `TAssertionLookup`                 | Narrow read-only interface for assertion lookups (`get(id, version)`)               |
+| `TSourceLookup`                    | Narrow read-only interface for source lookups (`get(id, version)`)                  |
+| `TAssertionLibrarySnapshot`        | Snapshot type for `AssertionLibrary` state                                          |
+| `TSourceLibrarySnapshot`           | Snapshot type for `SourceLibrary` state                                             |
