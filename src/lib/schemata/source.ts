@@ -4,8 +4,13 @@ import { UUID } from "./shared.js"
 export const CoreSourceSchema = Type.Object(
     {
         id: UUID,
-        argumentId: UUID,
-        argumentVersion: Type.Number(),
+        version: Type.Number({
+            description: "Source version number. Starts at 0.",
+        }),
+        frozen: Type.Boolean({
+            description:
+                "Whether this version is frozen (immutable). Frozen versions cannot be updated.",
+        }),
         checksum: Type.String({
             description: "Source-level checksum for sync detection.",
         }),
@@ -13,7 +18,7 @@ export const CoreSourceSchema = Type.Object(
     {
         additionalProperties: true,
         description:
-            "A source entity providing evidentiary support for variables or expressions.",
+            "A global source entity providing evidentiary support for variables or expressions.",
     }
 )
 export type TCoreSource = Static<typeof CoreSourceSchema>
@@ -21,6 +26,9 @@ export type TCoreSource = Static<typeof CoreSourceSchema>
 export const CoreVariableSourceAssociationSchema = Type.Object({
     id: UUID,
     sourceId: UUID,
+    sourceVersion: Type.Number({
+        description: "The version of the source this association pins to.",
+    }),
     variableId: UUID,
     argumentId: UUID,
     argumentVersion: Type.Number(),
@@ -35,6 +43,9 @@ export type TCoreVariableSourceAssociation = Static<
 export const CoreExpressionSourceAssociationSchema = Type.Object({
     id: UUID,
     sourceId: UUID,
+    sourceVersion: Type.Number({
+        description: "The version of the source this association pins to.",
+    }),
     expressionId: UUID,
     premiseId: UUID,
     argumentId: UUID,
