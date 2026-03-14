@@ -10976,6 +10976,177 @@ describe("validateEvaluability source checks", () => {
 })
 
 // ---------------------------------------------------------------------------
+// toggleNegation
+// ---------------------------------------------------------------------------
+describe("toggleNegation", () => {
+    it("wraps a root variable expression with NOT", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        const { result } = premise.toggleNegation("expr-p")
+
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe("operator")
+        if (result!.type === "operator") expect(result!.operator).toBe("not")
+        expect(premise.getRootExpressionId()).toBe(result!.id)
+        expect(premise.toDisplayString()).toBe("¬(P)")
+    })
+
+    it("unwraps a NOT around a variable expression, returning null", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        premise.toggleNegation("expr-p")
+
+        const { result } = premise.toggleNegation("expr-p")
+
+        expect(result).toBeNull()
+        expect(premise.getRootExpressionId()).toBe("expr-p")
+        expect(premise.toDisplayString()).toBe("P")
+    })
+
+    it("wraps a non-root variable expression with NOT", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeOpExpr("op-and", "and"))
+        premise.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        premise.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result } = premise.toggleNegation("expr-p")
+
+        expect(result).not.toBeNull()
+        if (result!.type === "operator") expect(result!.operator).toBe("not")
+        expect(premise.getExpression(result!.id)!.parentId).toBe("op-and")
+        expect(premise.getExpression("expr-p")!.parentId).toBe(result!.id)
+        expect(premise.toDisplayString()).toBe("(¬(P) ∧ Q)")
+    })
+
+    it("unwraps NOT from a non-root expression", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeOpExpr("op-and", "and"))
+        premise.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        premise.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        premise.toggleNegation("expr-p")
+
+        const { result } = premise.toggleNegation("expr-p")
+
+        expect(result).toBeNull()
+        expect(premise.getExpression("expr-p")!.parentId).toBe("op-and")
+        expect(premise.toDisplayString()).toBe("(P ∧ Q)")
+    })
+
+    it("works on operator expressions", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeOpExpr("op-and", "and"))
+        premise.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        premise.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result } = premise.toggleNegation("op-and")
+
+        expect(result).not.toBeNull()
+        if (result!.type === "operator") expect(result!.operator).toBe("not")
+        expect(premise.toDisplayString()).toBe("¬((P ∧ Q))")
+    })
+
+    it("works on formula expressions", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeFormulaExpr("formula-1"))
+        premise.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, { parentId: "formula-1" })
+        )
+
+        const { result } = premise.toggleNegation("formula-1")
+
+        expect(result).not.toBeNull()
+        if (result!.type === "operator") expect(result!.operator).toBe("not")
+        expect(premise.toDisplayString()).toBe("¬((P))")
+    })
+
+    it("throws when expression does not exist", () => {
+        const premise = premiseWithVars()
+
+        expect(() => premise.toggleNegation("nonexistent")).toThrow(
+            /Expression .* not found/
+        )
+    })
+
+    it("toggle twice returns to original structure", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const originalDisplay = premise.toDisplayString()
+
+        premise.toggleNegation("expr-p")
+        premise.toggleNegation("expr-p")
+
+        expect(premise.toDisplayString()).toBe(originalDisplay)
+    })
+
+    it("changeset includes created NOT expression when adding negation", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        const { changes } = premise.toggleNegation("expr-p")
+
+        expect(changes.expressions!.added).toHaveLength(1)
+        const added = changes.expressions!.added[0]
+        if (added.type === "operator") expect(added.operator).toBe("not")
+        expect(added.type).toBe("operator")
+        expect(changes.expressions!.modified.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it("changeset includes removed NOT expression when removing negation", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        premise.toggleNegation("expr-p")
+
+        const { changes } = premise.toggleNegation("expr-p")
+
+        expect(changes.expressions!.removed).toHaveLength(1)
+        const removed = changes.expressions!.removed[0]
+        if (removed.type === "operator") expect(removed.operator).toBe("not")
+        expect(removed.type).toBe("operator")
+    })
+
+    it("marks checksum dirty after toggle", () => {
+        const premise = premiseWithVars()
+        premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        const checksumBefore = premise.checksum()
+
+        premise.toggleNegation("expr-p")
+
+        expect(premise.checksum()).not.toBe(checksumBefore)
+    })
+})
+
+// ---------------------------------------------------------------------------
 // Argument checksum includes source associations
 // ---------------------------------------------------------------------------
 describe("Argument checksum includes source associations", () => {

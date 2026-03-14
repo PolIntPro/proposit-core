@@ -151,6 +151,19 @@ export interface TExpressionMutations<
         rightNodeId?: string
     ): TCoreMutationResult<TExpr, TExpr, TVar, TPremise, TArg>
     /**
+     * Toggles negation on an expression. If the expression's parent is a
+     * NOT operator, removes the NOT (promoting the expression). Otherwise,
+     * wraps the expression with a new NOT operator.
+     *
+     * @param expressionId - The ID of the expression to toggle negation on.
+     * @returns The new NOT expression when adding negation, or `null` when
+     *   removing it, along with the changeset.
+     * @throws If the expression does not exist in this premise.
+     */
+    toggleNegation(
+        expressionId: string
+    ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
+    /**
      * Creates an association between a source and this expression within
      * this premise.
      *

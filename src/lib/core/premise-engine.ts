@@ -589,6 +589,71 @@ export class PremiseEngine<
         }
     }
 
+    public toggleNegation(
+        expressionId: string
+    ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg> {
+        const target = this.expressions.getExpression(expressionId)
+        if (!target) {
+            throw new Error(
+                `Expression "${expressionId}" not found in this premise.`
+            )
+        }
+
+        this.assertBelongsToArgument(target.argumentId, target.argumentVersion)
+
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+        this.expressions.setCollector(collector)
+        try {
+            const parent = target.parentId
+                ? this.expressions.getExpression(target.parentId)
+                : undefined
+
+            if (
+                parent &&
+                parent.type === "operator" &&
+                parent.operator === "not"
+            ) {
+                // Remove the NOT operator, promoting target into its slot
+                this.expressions.removeExpression(parent.id, false)
+
+                this.syncRootExpressionId()
+                this.markDirty()
+
+                const changes = collector.toChangeset()
+                this.syncExpressionIndex(changes)
+                this.onMutate?.()
+                return { result: null, changes }
+            } else {
+                // Wrap target with a new NOT operator
+                const notExpr = {
+                    id: randomUUID(),
+                    argumentId: target.argumentId,
+                    argumentVersion: target.argumentVersion,
+                    premiseId: target.premiseId,
+                    type: "operator",
+                    operator: "not",
+                    parentId: target.parentId,
+                    position: target.position,
+                } as TExpressionInput<TExpr>
+
+                this.expressions.insertExpression(notExpr, expressionId)
+
+                this.syncRootExpressionId()
+                this.markDirty()
+
+                const changes = collector.toChangeset()
+                this.syncExpressionIndex(changes)
+                this.onMutate?.()
+                return {
+                    result: this.expressions.getExpression(notExpr.id)!,
+                    changes,
+                }
+            }
+        } finally {
+            this.expressions.setCollector(null)
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Source association convenience methods
     // -------------------------------------------------------------------------
