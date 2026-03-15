@@ -20,8 +20,6 @@ export type {
     TPremiseIdentity,
 } from "./premise-engine.interfaces.js"
 
-export type { TSourceManagement } from "./source-management.interfaces.js"
-
 export type {
     TClaimLookup,
     TSourceLookup,

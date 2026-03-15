@@ -15,11 +15,6 @@ export type { TExpressionManagerSnapshot } from "./core/expression-manager.js"
 export type { TVariableManagerSnapshot } from "./core/variable-manager.js"
 export { ClaimLibrary } from "./core/claim-library.js"
 export { SourceLibrary } from "./core/source-library.js"
-export { SourceManager } from "./core/source-manager.js"
-export type {
-    TSourceManagerSnapshot,
-    TSourceAssociationRemovalResult,
-} from "./core/source-manager.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
