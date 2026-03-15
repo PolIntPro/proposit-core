@@ -1,6 +1,6 @@
 import fs from "node:fs/promises"
 import { ArgumentEngine } from "../lib/core/argument-engine.js"
-import { AssertionLibrary } from "../lib/core/assertion-library.js"
+import { ClaimLibrary } from "../lib/core/claim-library.js"
 import { SourceLibrary } from "../lib/core/source-library.js"
 import type { TCoreArgument } from "../lib/schemata/index.js"
 import type { TCliArgumentMeta, TCliArgumentVersionMeta } from "./schemata.js"
@@ -56,7 +56,7 @@ export async function hydrateEngine(
     }
     const engine = new ArgumentEngine(
         argument,
-        new AssertionLibrary(),
+        new ClaimLibrary(),
         new SourceLibrary()
     )
 

@@ -8,7 +8,7 @@ import type { TExpressionInput } from "../lib/core/expression-manager.js"
 import type { TFormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
 import { ArgumentEngine } from "../lib/core/argument-engine.js"
-import { AssertionLibrary } from "../lib/core/assertion-library.js"
+import { ClaimLibrary } from "../lib/core/claim-library.js"
 import { SourceLibrary } from "../lib/core/source-library.js"
 import { POSITION_INITIAL } from "../lib/utils/position.js"
 
@@ -252,11 +252,11 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
         published: false,
     }
 
-    const assertionLibrary = new AssertionLibrary()
-    const defaultAssertion = assertionLibrary.create({ id: randomUUID() })
+    const claimLibrary = new ClaimLibrary()
+    const defaultClaim = claimLibrary.create({ id: randomUUID() })
     const engine = new ArgumentEngine(
         argument,
-        assertionLibrary,
+        claimLibrary,
         new SourceLibrary()
     )
 
@@ -271,8 +271,8 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
             argumentId,
             argumentVersion: 0,
             symbol: name,
-            assertionId: defaultAssertion.id,
-            assertionVersion: defaultAssertion.version,
+            claimId: defaultClaim.id,
+            claimVersion: defaultClaim.version,
         }
         variablesByName.set(name, variable)
     }

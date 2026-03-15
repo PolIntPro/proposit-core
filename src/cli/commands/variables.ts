@@ -46,9 +46,9 @@ export function registerVariableCommands(
                 argumentId,
                 argumentVersion: version,
                 symbol,
-                // TODO: resolve actual assertionId from AssertionLibrary
-                assertionId: "",
-                assertionVersion: 0,
+                // TODO: resolve actual claimId from ClaimLibrary
+                claimId: "",
+                claimVersion: 0,
             }
 
             try {
