@@ -138,18 +138,18 @@ export interface TVariableManagement<
      * same VariableManager, the update is immediately visible everywhere.
      *
      * @param variableId - The ID of the variable to update.
-     * @param updates - Fields to update (`symbol`, `assertionId`, `assertionVersion`).
-     *   `assertionId` and `assertionVersion` must be provided together.
+     * @param updates - Fields to update (`symbol`, `claimId`, `claimVersion`).
+     *   `claimId` and `claimVersion` must be provided together.
      * @returns The updated variable, or `undefined` if not found.
      * @throws If the new symbol is already in use by a different variable.
-     * @throws If the new assertion reference does not exist in the assertion library.
+     * @throws If the new claim reference does not exist in the claim library.
      */
     updateVariable(
         variableId: string,
         updates: {
             symbol?: string
-            assertionId?: string
-            assertionVersion?: number
+            claimId?: string
+            claimVersion?: number
         }
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>
     /**

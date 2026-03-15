@@ -23,8 +23,8 @@ export type {
 export type { TSourceManagement } from "./source-management.interfaces.js"
 
 export type {
-    TAssertionLookup,
+    TClaimLookup,
     TSourceLookup,
-    TAssertionLibrarySnapshot,
+    TClaimLibrarySnapshot,
     TSourceLibrarySnapshot,
 } from "./library.interfaces.js"
