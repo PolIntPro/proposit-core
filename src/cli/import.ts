@@ -9,6 +9,7 @@ import type { TFormulaAST } from "../lib/core/parser/formula.js"
 import { parseFormula } from "../lib/core/parser/formula.js"
 import { ArgumentEngine } from "../lib/core/argument-engine.js"
 import { ClaimLibrary } from "../lib/core/claim-library.js"
+import { ClaimSourceLibrary } from "../lib/core/claim-source-library.js"
 import { SourceLibrary } from "../lib/core/source-library.js"
 import { POSITION_INITIAL } from "../lib/utils/position.js"
 
@@ -257,7 +258,8 @@ export function importArgumentFromYaml(yamlString: string): ArgumentEngine {
     const engine = new ArgumentEngine(
         argument,
         claimLibrary,
-        new SourceLibrary()
+        new SourceLibrary(),
+        new ClaimSourceLibrary(claimLibrary, new SourceLibrary())
     )
 
     // Create variables

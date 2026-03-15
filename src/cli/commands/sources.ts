@@ -1,6 +1,5 @@
 import { Command } from "commander"
-import { hydrateEngine, persistEngine } from "../engine.js"
-import { errorExit, printLine } from "../output.js"
+import { errorExit } from "../output.js"
 import { readVersionMeta } from "../storage/arguments.js"
 
 async function assertNotPublished(
@@ -36,7 +35,7 @@ export function registerSourceCommands(
         .action(async (_opts: { url: string; id?: string }) => {
             await assertNotPublished(argumentId, version)
             errorExit(
-                "Source entity management has moved to global SourceLibrary. Not yet implemented in CLI."
+                "Source entity management has moved to global libraries. Not yet implemented in CLI."
             )
         })
 
@@ -47,7 +46,7 @@ export function registerSourceCommands(
         .action(async (_sourceId: string) => {
             await assertNotPublished(argumentId, version)
             errorExit(
-                "Source entity management has moved to global SourceLibrary. Not yet implemented in CLI."
+                "Source entity management has moved to global libraries. Not yet implemented in CLI."
             )
         })
 
@@ -58,7 +57,7 @@ export function registerSourceCommands(
         .option("--json", "Output as JSON")
         .action(async (_opts: { json?: boolean }) => {
             errorExit(
-                "Source entity management has moved to global SourceLibrary. Not yet implemented in CLI."
+                "Source entity management has moved to global libraries. Not yet implemented in CLI."
             )
         })
 
@@ -69,7 +68,7 @@ export function registerSourceCommands(
         .option("--json", "Output as JSON")
         .action(async (_sourceId: string, _opts: { json?: boolean }) => {
             errorExit(
-                "Source entity management has moved to global SourceLibrary. Not yet implemented in CLI."
+                "Source entity management has moved to global libraries. Not yet implemented in CLI."
             )
         })
 
@@ -77,83 +76,32 @@ export function registerSourceCommands(
     sources
         .command("link-variable <source_id> <variable_id>")
         .description("Link a source to a variable")
-        .action(async (sourceId: string, variableId: string) => {
+        .action(async (_sourceId: string, _variableId: string) => {
             await assertNotPublished(argumentId, version)
-            const engine = await hydrateEngine(argumentId, version)
-
-            try {
-                // TODO: resolve actual source version from SourceLibrary
-                engine.addVariableSourceAssociation(sourceId, 0, variableId)
-            } catch (err) {
-                errorExit(err instanceof Error ? err.message : String(err))
-            }
-
-            await persistEngine(engine)
-            printLine("success")
+            errorExit(
+                "Source associations have moved to ClaimSourceLibrary. Not yet implemented in CLI."
+            )
         })
 
     // ── link-expression ────────────────────────────────────────────────────
     sources
         .command("link-expression <source_id> <expression_id>")
         .description("Link a source to an expression")
-        .action(async (sourceId: string, expressionId: string) => {
+        .action(async (_sourceId: string, _expressionId: string) => {
             await assertNotPublished(argumentId, version)
-            const engine = await hydrateEngine(argumentId, version)
-
-            // Find which premise owns this expression
-            const premise = engine.findPremiseByExpressionId(expressionId)
-            if (!premise) {
-                errorExit(
-                    `Expression "${expressionId}" not found in any premise.`
-                )
-            }
-
-            try {
-                // TODO: resolve actual source version from SourceLibrary
-                engine.addExpressionSourceAssociation(
-                    sourceId,
-                    0,
-                    expressionId,
-                    premise.getId()
-                )
-            } catch (err) {
-                errorExit(err instanceof Error ? err.message : String(err))
-            }
-
-            await persistEngine(engine)
-            printLine("success")
+            errorExit(
+                "Source associations have moved to ClaimSourceLibrary. Not yet implemented in CLI."
+            )
         })
 
     // ── unlink ─────────────────────────────────────────────────────────────
     sources
         .command("unlink <association_id>")
         .description("Remove a source association")
-        .action(async (associationId: string) => {
+        .action(async (_associationId: string) => {
             await assertNotPublished(argumentId, version)
-            const engine = await hydrateEngine(argumentId, version)
-
-            // Check variable associations first
-            const varAssoc = engine
-                .getAllVariableSourceAssociations()
-                .find((a) => a.id === associationId)
-            if (varAssoc) {
-                engine.removeVariableSourceAssociation(associationId)
-                await persistEngine(engine)
-                printLine("success")
-                return
-            }
-
-            // Check expression associations
-            const exprAssoc = engine
-                .getAllExpressionSourceAssociations()
-                .find((a) => a.id === associationId)
-            if (exprAssoc) {
-                engine.removeExpressionSourceAssociation(associationId)
-                await persistEngine(engine)
-                printLine("success")
-                return
-            }
-
-            errorExit(`Association "${associationId}" not found.`)
+            errorExit(
+                "Source associations have moved to ClaimSourceLibrary. Not yet implemented in CLI."
+            )
         })
 }

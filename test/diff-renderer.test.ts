@@ -47,8 +47,6 @@ function emptyDiff(
         roles: {
             conclusion: { before: undefined, after: undefined },
         },
-        variableSourceAssociations: { added: [], removed: [], modified: [] },
-        expressionSourceAssociations: { added: [], removed: [], modified: [] },
         ...overrides,
     }
 }
