@@ -2,13 +2,12 @@ import { randomUUID } from "node:crypto"
 import type {
     TCoreArgument,
     TCoreClaim,
+    TCoreClaimSourceAssociation,
     TCorePremise,
     TCorePropositionalExpression,
     TCorePropositionalVariable,
     TOptionalChecksum,
     TCoreSource,
-    TCoreVariableSourceAssociation,
-    TCoreExpressionSourceAssociation,
 } from "../schemata/index.js"
 import type {
     TCoreArgumentEvaluationOptions,
@@ -52,14 +51,12 @@ import type {
     TArgumentEvaluation,
     TArgumentLifecycle,
     TArgumentIdentity,
-    TSourceManagement,
     TDisplayable,
     TChecksummable,
     TClaimLookup,
     TSourceLookup,
+    TClaimSourceLookup,
 } from "./interfaces/index.js"
-import { SourceManager } from "./source-manager.js"
-import type { TSourceManagerSnapshot } from "./source-manager.js"
 
 export type TLogicEngineOptions = {
     checksumConfig?: TCoreChecksumConfig
@@ -77,7 +74,6 @@ export type TArgumentEngineSnapshot<
     premises: TPremiseEngineSnapshot<TPremise, TExpr>[]
     conclusionPremiseId?: string
     config?: TLogicEngineOptions
-    sources?: TSourceManagerSnapshot
 }
 
 /**
@@ -94,6 +90,7 @@ export class ArgumentEngine<
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
     TSource extends TCoreSource = TCoreSource,
     TClaim extends TCoreClaim = TCoreClaim,
+    TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
 >
     implements
         TPremiseCrud<TArg, TPremise, TExpr, TVar>,
@@ -103,16 +100,15 @@ export class ArgumentEngine<
         TArgumentEvaluation,
         TArgumentLifecycle<TArg, TPremise, TExpr, TVar>,
         TArgumentIdentity<TArg>,
-        TSourceManagement<TArg, TPremise, TExpr, TVar>,
         TDisplayable,
         TChecksummable
 {
     private argument: TOptionalChecksum<TArg>
     private premises: Map<string, PremiseEngine<TArg, TPremise, TExpr, TVar>>
     private variables: VariableManager<TVar>
-    private sourceManager: SourceManager
     private claimLibrary: TClaimLookup<TClaim>
     private sourceLibrary: TSourceLookup<TSource>
+    private claimSourceLibrary: TClaimSourceLookup<TAssoc>
     private conclusionPremiseId: string | undefined
     private checksumConfig?: TCoreChecksumConfig
     private positionConfig?: TCorePositionConfig
@@ -124,7 +120,6 @@ export class ArgumentEngine<
         argument: true,
         variables: true,
         roles: true,
-        sources: true,
         premiseIds: new Set<string>(),
         allPremises: true,
     }
@@ -136,11 +131,13 @@ export class ArgumentEngine<
         argument: TOptionalChecksum<TArg>,
         claimLibrary: TClaimLookup<TClaim>,
         sourceLibrary: TSourceLookup<TSource>,
+        claimSourceLibrary: TClaimSourceLookup<TAssoc>,
         options?: TLogicEngineOptions
     ) {
         this.argument = { ...argument }
         this.claimLibrary = claimLibrary
         this.sourceLibrary = sourceLibrary
+        this.claimSourceLibrary = claimSourceLibrary
         this.premises = new Map()
         this.checksumConfig = options?.checksumConfig
         this.positionConfig = options?.positionConfig
@@ -148,7 +145,6 @@ export class ArgumentEngine<
             checksumConfig: this.checksumConfig,
             positionConfig: this.positionConfig,
         })
-        this.sourceManager = new SourceManager()
         this.expressionIndex = new Map()
         this.conclusionPremiseId = undefined
     }
@@ -184,7 +180,6 @@ export class ArgumentEngine<
             !dirty.argument &&
             !dirty.variables &&
             !dirty.roles &&
-            !dirty.sources &&
             dirty.premiseIds.size === 0 &&
             !dirty.allPremises
         ) {
@@ -230,29 +225,11 @@ export class ArgumentEngine<
             }
         }
 
-        let varAssocRecord: Record<string, TCoreVariableSourceAssociation>
-        let exprAssocRecord: Record<string, TCoreExpressionSourceAssociation>
-        if (dirty.sources || !prev) {
-            varAssocRecord = {}
-            for (const a of this.sourceManager.getAllVariableSourceAssociations()) {
-                varAssocRecord[a.id] = a
-            }
-            exprAssocRecord = {}
-            for (const a of this.sourceManager.getAllExpressionSourceAssociations()) {
-                exprAssocRecord[a.id] = a
-            }
-        } else {
-            varAssocRecord = prev.variableSourceAssociations
-            exprAssocRecord = prev.expressionSourceAssociations
-        }
-
         const snapshot: TReactiveSnapshot<TArg, TPremise, TExpr, TVar> = {
             argument,
             variables,
             premises,
             roles,
-            variableSourceAssociations: varAssocRecord,
-            expressionSourceAssociations: exprAssocRecord,
         }
 
         this.cachedReactiveSnapshot = snapshot
@@ -260,7 +237,6 @@ export class ArgumentEngine<
             argument: false,
             variables: false,
             roles: false,
-            sources: false,
             premiseIds: new Set(),
             allPremises: false,
         }
@@ -337,12 +313,6 @@ export class ArgumentEngine<
                 this.reactiveDirty.premiseIds.add(p.id)
             }
         }
-        if (
-            changes.variableSourceAssociations ||
-            changes.expressionSourceAssociations
-        ) {
-            this.reactiveDirty.sources = true
-        }
     }
 
     public getArgument(): TArg {
@@ -412,7 +382,6 @@ export class ArgumentEngine<
                 argument: this.argument,
                 variables: this.variables,
                 expressionIndex: this.expressionIndex,
-                sourceManager: this.sourceManager,
             },
             {
                 checksumConfig: this.checksumConfig,
@@ -449,14 +418,9 @@ export class ArgumentEngine<
         if (!pm) return { result: undefined, changes: {} }
         const data = pm.toPremiseData()
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        // Clean up expression index and source associations for removed premise's expressions
+        // Clean up expression index for removed premise's expressions
         for (const expr of pm.getExpressions()) {
             this.expressionIndex.delete(expr.id)
-            const sourceResult =
-                this.sourceManager.removeAssociationsForExpression(expr.id)
-            for (const assoc of sourceResult.removedExpressionAssociations) {
-                collector.removedExpressionSourceAssociation(assoc)
-            }
         }
         this.premises.delete(premiseId)
         collector.removedPremise(data)
@@ -595,8 +559,6 @@ export class ArgumentEngine<
         const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
 
         // Cascade: delete referencing expressions in every premise
-        // (PremiseEngine.removeExpression already cascades expression-source
-        //  associations via the Task 12 logic)
         for (const pm of this.listPremises()) {
             const { changes } = pm.deleteExpressionsUsingVariable(variableId)
             if (changes.expressions) {
@@ -604,18 +566,6 @@ export class ArgumentEngine<
                     collector.removedExpression(e)
                 }
             }
-            if (changes.expressionSourceAssociations) {
-                for (const a of changes.expressionSourceAssociations.removed) {
-                    collector.removedExpressionSourceAssociation(a)
-                }
-            }
-        }
-
-        // Cascade: remove variable-source associations
-        const varAssocResult =
-            this.sourceManager.removeAssociationsForVariable(variableId)
-        for (const assoc of varAssocResult.removedVariableAssociations) {
-            collector.removedVariableSourceAssociation(assoc)
         }
 
         this.variables.removeVariable(variableId)
@@ -787,201 +737,6 @@ export class ArgumentEngine<
         )
     }
 
-    // -------------------------------------------------------------------------
-    // Source association management
-    // -------------------------------------------------------------------------
-
-    public addVariableSourceAssociation(
-        sourceId: string,
-        sourceVersion: number,
-        variableId: string
-    ): TCoreMutationResult<
-        TCoreVariableSourceAssociation,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        if (!this.sourceLibrary.get(sourceId, sourceVersion)) {
-            throw new Error(
-                `Source "${sourceId}" version ${sourceVersion} does not exist in the source library.`
-            )
-        }
-        if (!this.variables.hasVariable(variableId)) {
-            throw new Error(`Variable "${variableId}" does not exist.`)
-        }
-        const assoc: TCoreVariableSourceAssociation = {
-            id: randomUUID(),
-            sourceId,
-            sourceVersion,
-            variableId,
-            argumentId: this.argument.id,
-            argumentVersion: this.argument.version,
-            checksum: "",
-        }
-        const fields =
-            this.checksumConfig?.variableSourceAssociationFields ??
-            DEFAULT_CHECKSUM_CONFIG.variableSourceAssociationFields!
-        const assocWithChecksum: TCoreVariableSourceAssociation = {
-            ...assoc,
-            checksum: entityChecksum(
-                assoc as unknown as Record<string, unknown>,
-                fields
-            ),
-        }
-        this.sourceManager.addVariableSourceAssociation(assocWithChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedVariableSourceAssociation(assocWithChecksum)
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return { result: assocWithChecksum, changes }
-    }
-
-    public removeVariableSourceAssociation(
-        associationId: string
-    ): TCoreMutationResult<
-        TCoreVariableSourceAssociation | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        const allVarAssocs =
-            this.sourceManager.getAllVariableSourceAssociations()
-        if (!allVarAssocs.some((a) => a.id === associationId)) {
-            return { result: undefined, changes: {} }
-        }
-        const removalResult =
-            this.sourceManager.removeVariableSourceAssociation(associationId)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        for (const assoc of removalResult.removedVariableAssociations) {
-            collector.removedVariableSourceAssociation(assoc)
-        }
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: removalResult.removedVariableAssociations[0],
-            changes,
-        }
-    }
-
-    public addExpressionSourceAssociation(
-        sourceId: string,
-        sourceVersion: number,
-        expressionId: string,
-        premiseId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        if (!this.sourceLibrary.get(sourceId, sourceVersion)) {
-            throw new Error(
-                `Source "${sourceId}" version ${sourceVersion} does not exist in the source library.`
-            )
-        }
-        const pm = this.premises.get(premiseId)
-        if (!pm) {
-            throw new Error(`Premise "${premiseId}" does not exist.`)
-        }
-        if (!pm.getExpression(expressionId)) {
-            throw new Error(
-                `Expression "${expressionId}" does not exist in premise "${premiseId}".`
-            )
-        }
-        const assoc: TCoreExpressionSourceAssociation = {
-            id: randomUUID(),
-            sourceId,
-            sourceVersion,
-            expressionId,
-            premiseId,
-            argumentId: this.argument.id,
-            argumentVersion: this.argument.version,
-            checksum: "",
-        }
-        const fields =
-            this.checksumConfig?.expressionSourceAssociationFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionSourceAssociationFields!
-        const assocWithChecksum: TCoreExpressionSourceAssociation = {
-            ...assoc,
-            checksum: entityChecksum(
-                assoc as unknown as Record<string, unknown>,
-                fields
-            ),
-        }
-        this.sourceManager.addExpressionSourceAssociation(assocWithChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedExpressionSourceAssociation(assocWithChecksum)
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return { result: assocWithChecksum, changes }
-    }
-
-    public removeExpressionSourceAssociation(
-        associationId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        const allExprAssocs =
-            this.sourceManager.getAllExpressionSourceAssociations()
-        if (!allExprAssocs.some((a) => a.id === associationId)) {
-            return { result: undefined, changes: {} }
-        }
-        const removalResult =
-            this.sourceManager.removeExpressionSourceAssociation(associationId)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        for (const assoc of removalResult.removedExpressionAssociations) {
-            collector.removedExpressionSourceAssociation(assoc)
-        }
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: removalResult.removedExpressionAssociations[0],
-            changes,
-        }
-    }
-
-    public getAssociationsForSource(sourceId: string): {
-        variable: TCoreVariableSourceAssociation[]
-        expression: TCoreExpressionSourceAssociation[]
-    } {
-        return this.sourceManager.getAssociationsForSource(sourceId)
-    }
-
-    public getAssociationsForVariable(
-        variableId: string
-    ): TCoreVariableSourceAssociation[] {
-        return this.sourceManager.getAssociationsForVariable(variableId)
-    }
-
-    public getAssociationsForExpression(
-        expressionId: string
-    ): TCoreExpressionSourceAssociation[] {
-        return this.sourceManager.getAssociationsForExpression(expressionId)
-    }
-
-    public getAllVariableSourceAssociations(): TCoreVariableSourceAssociation[] {
-        return this.sourceManager.getAllVariableSourceAssociations()
-    }
-
-    public getAllExpressionSourceAssociations(): TCoreExpressionSourceAssociation[] {
-        return this.sourceManager.getAllExpressionSourceAssociations()
-    }
-
     public snapshot(): TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar> {
         return {
             argument: { ...this.argument },
@@ -994,7 +749,6 @@ export class ArgumentEngine<
                 checksumConfig: this.checksumConfig,
                 positionConfig: this.positionConfig,
             },
-            sources: this.sourceManager.snapshot(),
         }
     }
 
@@ -1007,26 +761,25 @@ export class ArgumentEngine<
         TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
         TSource extends TCoreSource = TCoreSource,
         TClaim extends TCoreClaim = TCoreClaim,
+        TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
     >(
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>,
         claimLibrary: TClaimLookup<TClaim>,
-        sourceLibrary: TSourceLookup<TSource>
-    ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim> {
+        sourceLibrary: TSourceLookup<TSource>,
+        claimSourceLibrary: TClaimSourceLookup<TAssoc>
+    ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const engine = new ArgumentEngine<
             TArg,
             TPremise,
             TExpr,
             TVar,
             TSource,
-            TClaim
-        >(snapshot.argument, claimLibrary, sourceLibrary, snapshot.config)
+            TClaim,
+            TAssoc
+        >(snapshot.argument, claimLibrary, sourceLibrary, claimSourceLibrary, snapshot.config)
         // Restore variables
         for (const v of snapshot.variables.variables) {
             engine.addVariable(v)
-        }
-        // Restore source manager (before premises, so PremiseEngines get the correct reference)
-        if (snapshot.sources) {
-            engine.sourceManager = SourceManager.fromSnapshot(snapshot.sources)
         }
         // Restore premises using PremiseEngine.fromSnapshot
         for (const premiseSnap of snapshot.premises) {
@@ -1034,8 +787,7 @@ export class ArgumentEngine<
                 premiseSnap,
                 snapshot.argument,
                 engine.variables,
-                engine.expressionIndex,
-                engine.sourceManager
+                engine.expressionIndex
             )
             engine.premises.set(pe.getId(), pe)
             const premiseId = pe.getId()
@@ -1063,24 +815,27 @@ export class ArgumentEngine<
         TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
         TSource extends TCoreSource = TCoreSource,
         TClaim extends TCoreClaim = TCoreClaim,
+        TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
     >(
         argument: TOptionalChecksum<TArg>,
         claimLibrary: TClaimLookup<TClaim>,
         sourceLibrary: TSourceLookup<TSource>,
+        claimSourceLibrary: TClaimSourceLookup<TAssoc>,
         variables: TOptionalChecksum<TVar>[],
         premises: TOptionalChecksum<TPremise>[],
         expressions: TExpressionInput<TExpr>[],
         roles: TCoreArgumentRoleState,
         config?: TLogicEngineOptions
-    ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim> {
+    ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const engine = new ArgumentEngine<
             TArg,
             TPremise,
             TExpr,
             TVar,
             TSource,
-            TClaim
-        >(argument, claimLibrary, sourceLibrary, config)
+            TClaim,
+            TAssoc
+        >(argument, claimLibrary, sourceLibrary, claimSourceLibrary, config)
 
         // Register variables
         for (const v of variables) {
@@ -1159,9 +914,6 @@ export class ArgumentEngine<
         this.checksumConfig = snapshot.config?.checksumConfig
         this.positionConfig = snapshot.config?.positionConfig
         this.variables = VariableManager.fromSnapshot<TVar>(snapshot.variables)
-        this.sourceManager = snapshot.sources
-            ? SourceManager.fromSnapshot(snapshot.sources)
-            : new SourceManager()
         this.premises = new Map()
         this.expressionIndex = new Map()
         for (const premiseSnap of snapshot.premises) {
@@ -1169,8 +921,7 @@ export class ArgumentEngine<
                 premiseSnap,
                 this.argument,
                 this.variables,
-                this.expressionIndex,
-                this.sourceManager
+                this.expressionIndex
             )
             this.premises.set(pe.getId(), pe)
         }
@@ -1187,7 +938,6 @@ export class ArgumentEngine<
             argument: true,
             variables: true,
             roles: true,
-            sources: true,
             premiseIds: new Set(),
             allPremises: true,
         }
@@ -1226,14 +976,6 @@ export class ArgumentEngine<
         // Premise checksums (cumulative, from each PremiseEngine)
         for (const pe of this.listPremises()) {
             checksumMap[pe.getId()] = pe.checksum()
-        }
-
-        // Association checksums
-        for (const a of this.sourceManager.getAllVariableSourceAssociations()) {
-            checksumMap[a.id] = a.checksum
-        }
-        for (const a of this.sourceManager.getAllExpressionSourceAssociations()) {
-            checksumMap[a.id] = a.checksum
         }
 
         return computeHash(canonicalSerialize(checksumMap))
@@ -1406,37 +1148,6 @@ export class ArgumentEngine<
         for (const premise of this.listPremises()) {
             const premiseValidation = premise.validateEvaluability()
             issues.push(...premiseValidation.issues)
-        }
-
-        // Source validation
-        for (const assoc of this.sourceManager.getAllVariableSourceAssociations()) {
-            if (!this.variables.hasVariable(assoc.variableId)) {
-                issues.push(
-                    makeErrorIssue({
-                        code: "SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE",
-                        message: `Variable-source association "${assoc.id}" references non-existent variable "${assoc.variableId}".`,
-                    })
-                )
-            }
-        }
-
-        for (const assoc of this.sourceManager.getAllExpressionSourceAssociations()) {
-            const premise = this.premises.get(assoc.premiseId)
-            if (!premise) {
-                issues.push(
-                    makeErrorIssue({
-                        code: "SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE",
-                        message: `Expression-source association "${assoc.id}" references non-existent premise "${assoc.premiseId}".`,
-                    })
-                )
-            } else if (!premise.getExpression(assoc.expressionId)) {
-                issues.push(
-                    makeErrorIssue({
-                        code: "SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION",
-                        message: `Expression-source association "${assoc.id}" references non-existent expression "${assoc.expressionId}" in premise "${assoc.premiseId}".`,
-                    })
-                )
-            }
         }
 
         return makeValidationResult(issues)
