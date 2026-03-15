@@ -87,8 +87,8 @@ Bottom-up rename in dependency order. Each layer compiles before moving to the n
 - Rename `src/lib/core/assertion-library.ts` → `claim-library.ts`
 - Rename class `AssertionLibrary` → `ClaimLibrary`, all internals, error messages, snapshot `assertions` → `claims`
 - Update `src/lib/consts.ts`: `assertionFields` → `claimFields`, string literals `"assertionId"` → `"claimId"`, `"assertionVersion"` → `"claimVersion"`, `"assertionFields"` → `"claimFields"` in config keys
-- Update `src/lib/core/argument-engine.ts`: parameter names, validation, error messages (4 distinct error strings), inline comments
-- Update `src/lib/core/diff.ts`: field comparison references
+- Update `src/lib/core/argument-engine.ts`: parameter names, validation, error messages, inline comments
+- Update `src/lib/core/diff.ts`: field comparison references, JSDoc
 
 ### Layer 4 — Barrel Exports
 - Update `src/lib/index.ts` export path and name
@@ -96,7 +96,7 @@ Bottom-up rename in dependency order. Each layer compiles before moving to the n
 ### Layer 5 — CLI
 - Update `src/cli/engine.ts`: import + instantiation
 - Update `src/cli/import.ts`: import + instantiation + usage
-- Update `src/cli/commands/variables.ts`: TODO comment
+- Update `src/cli/commands/variables.ts`: TODO comment, variable literal field names
 
 ### Layer 6 — Tests
 - Update `test/core.test.ts`: ~134 fixture occurrences, `AssertionLibrary` instantiation, `aLib()` and `makeVar()` helpers
