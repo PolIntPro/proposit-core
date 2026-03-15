@@ -6,7 +6,6 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
     TOptionalChecksum,
-    TCoreExpressionSourceAssociation,
 } from "../schemata/index.js"
 import { DefaultMap } from "../utils/default-map.js"
 import { sortedCopyById, sortedUnique } from "../utils/collections.js"
@@ -44,7 +43,6 @@ import type {
 } from "./expression-manager.js"
 import { ExpressionManager } from "./expression-manager.js"
 import { VariableManager } from "./variable-manager.js"
-import type { SourceManager } from "./source-manager.js"
 import type {
     TExpressionMutations,
     TExpressionQueries,
@@ -94,7 +92,6 @@ export class PremiseEngine<
     private checksumDirty = true
     private cachedChecksum: string | undefined
     private expressionIndex?: Map<string, string>
-    private sourceManager?: SourceManager
     private onMutate?: () => void
 
     constructor(
@@ -103,7 +100,6 @@ export class PremiseEngine<
             argument: TOptionalChecksum<TArg>
             variables: VariableManager<TVar>
             expressionIndex?: Map<string, string>
-            sourceManager?: SourceManager
         },
         config?: TLogicEngineOptions
     ) {
@@ -115,7 +111,6 @@ export class PremiseEngine<
         this.expressions = new ExpressionManager<TExpr>(config)
         this.expressionsByVariableId = new DefaultMap(() => new Set())
         this.expressionIndex = deps.expressionIndex
-        this.sourceManager = deps.sourceManager
     }
 
     public setOnMutate(callback: (() => void) | undefined): void {
@@ -148,12 +143,6 @@ export class PremiseEngine<
                 if (changes.expressions) {
                     for (const e of changes.expressions.removed) {
                         collector.removedExpression(e)
-                    }
-                }
-                if (changes.expressionSourceAssociations) {
-                    for (const a of changes.expressionSourceAssociations
-                        .removed) {
-                        collector.removedExpressionSourceAssociation(a)
                     }
                 }
             }
@@ -457,22 +446,6 @@ export class PremiseEngine<
             this.syncRootExpressionId()
             this.markDirty()
 
-            // Cascade: remove source associations for all removed expressions
-            if (this.sourceManager) {
-                const removedExprs = collector.toChangeset().expressions
-                if (removedExprs) {
-                    for (const expr of removedExprs.removed) {
-                        const sourceResult =
-                            this.sourceManager.removeAssociationsForExpression(
-                                expr.id
-                            )
-                        for (const assoc of sourceResult.removedExpressionAssociations) {
-                            collector.removedExpressionSourceAssociation(assoc)
-                        }
-                    }
-                }
-            }
-
             const changes = collector.toChangeset()
             this.syncExpressionIndex(changes)
             this.onMutate?.()
@@ -652,97 +625,6 @@ export class PremiseEngine<
         } finally {
             this.expressions.setCollector(null)
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Source association convenience methods
-    // -------------------------------------------------------------------------
-
-    public addExpressionSourceAssociation(
-        sourceId: string,
-        sourceVersion: number,
-        expressionId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        if (!this.sourceManager) {
-            throw new Error("No SourceManager available.")
-        }
-        if (!this.expressions.getExpression(expressionId)) {
-            throw new Error(
-                `Expression "${expressionId}" does not exist in premise "${this.premise.id}".`
-            )
-        }
-        const assoc: TCoreExpressionSourceAssociation = {
-            id: randomUUID(),
-            sourceId,
-            sourceVersion,
-            expressionId,
-            premiseId: this.premise.id,
-            argumentId: this.argument.id,
-            argumentVersion: this.argument.version,
-            checksum: "",
-        }
-        const fields =
-            this.checksumConfig?.expressionSourceAssociationFields ??
-            DEFAULT_CHECKSUM_CONFIG.expressionSourceAssociationFields!
-        const assocWithChecksum: TCoreExpressionSourceAssociation = {
-            ...assoc,
-            checksum: entityChecksum(
-                assoc as unknown as Record<string, unknown>,
-                fields
-            ),
-        }
-        this.sourceManager.addExpressionSourceAssociation(assocWithChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedExpressionSourceAssociation(assocWithChecksum)
-        this.markDirty()
-        this.onMutate?.()
-        return { result: assocWithChecksum, changes: collector.toChangeset() }
-    }
-
-    public removeExpressionSourceAssociation(
-        associationId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    > {
-        if (!this.sourceManager) {
-            return { result: undefined, changes: {} }
-        }
-        const allExprAssocs =
-            this.sourceManager.getAllExpressionSourceAssociations()
-        if (!allExprAssocs.some((a) => a.id === associationId)) {
-            return { result: undefined, changes: {} }
-        }
-        const removalResult =
-            this.sourceManager.removeExpressionSourceAssociation(associationId)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        for (const assoc of removalResult.removedExpressionAssociations) {
-            collector.removedExpressionSourceAssociation(assoc)
-        }
-        this.markDirty()
-        this.onMutate?.()
-        return {
-            result: removalResult.removedExpressionAssociations[0],
-            changes: collector.toChangeset(),
-        }
-    }
-
-    public getSourceAssociationsForExpression(
-        expressionId: string
-    ): TCoreExpressionSourceAssociation[] {
-        if (!this.sourceManager) {
-            return []
-        }
-        return this.sourceManager.getAssociationsForExpression(expressionId)
     }
 
     public getExpression(id: string): TExpr | undefined {
@@ -1341,12 +1223,11 @@ export class PremiseEngine<
         snapshot: TPremiseEngineSnapshot<TPremise, TExpr>,
         argument: TOptionalChecksum<TArg>,
         variables: VariableManager<TVar>,
-        expressionIndex?: Map<string, string>,
-        sourceManager?: SourceManager
+        expressionIndex?: Map<string, string>
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
         const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             snapshot.premise,
-            { argument, variables, expressionIndex, sourceManager },
+            { argument, variables, expressionIndex },
             snapshot.config
         )
         // Restore expressions from the snapshot

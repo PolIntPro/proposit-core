@@ -3,7 +3,6 @@ import type {
     TCorePremise,
     TCorePropositionalExpression,
     TCorePropositionalVariable,
-    TCoreExpressionSourceAssociation,
 } from "../../schemata/index.js"
 import type {
     TCoreExpressionAssignment,
@@ -163,54 +162,6 @@ export interface TExpressionMutations<
     toggleNegation(
         expressionId: string
     ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
-    /**
-     * Creates an association between a source and this expression within
-     * this premise.
-     *
-     * @param sourceId - The ID of the source.
-     * @param sourceVersion - The version of the source to associate.
-     * @param expressionId - The ID of the expression to associate.
-     * @returns The created association and changeset.
-     * @throws If the source does not exist in the source library.
-     * @throws If the expression does not exist in this premise.
-     * @throws If the association already exists.
-     */
-    addExpressionSourceAssociation(
-        sourceId: string,
-        sourceVersion: number,
-        expressionId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    >
-    /**
-     * Removes an expression–source association by its own ID.
-     *
-     * @param associationId - The ID of the association to remove.
-     * @returns The removed association, or `undefined` if not found.
-     */
-    removeExpressionSourceAssociation(
-        associationId: string
-    ): TCoreMutationResult<
-        TCoreExpressionSourceAssociation | undefined,
-        TExpr,
-        TVar,
-        TPremise,
-        TArg
-    >
-    /**
-     * Returns all source associations for a given expression in this
-     * premise.
-     *
-     * @param expressionId - The expression ID to look up.
-     * @returns An array of expression–source associations.
-     */
-    getSourceAssociationsForExpression(
-        expressionId: string
-    ): TCoreExpressionSourceAssociation[]
 }
 
 /**
