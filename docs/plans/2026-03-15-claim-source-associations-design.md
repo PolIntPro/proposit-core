@@ -144,6 +144,8 @@ Removed from `ArgumentEngine`:
 - All `TSourceManagement` method implementations (both variable-source and expression-source)
 - `ArgumentEngine` no longer implements `TSourceManagement`
 - Source association checksums removed from argument checksum computation
+- `validate()` method: remove source association validation block (validates variable-source and expression-source associations against argument's variables and premises)
+- `reactiveDirty.sources` field and all its usages removed (dirty-tracking for source association changes in reactive snapshots)
 
 `TArgumentEngineSnapshot`:
 - Remove `sources?: TSourceManagerSnapshot` field entirely
@@ -167,11 +169,17 @@ The entire `src/lib/core/interfaces/source-management.interfaces.ts` file is del
 
 ### `PremiseEngine` changes
 
-All source cascade logic is removed from `PremiseEngine`:
-- `sourceManager` field/parameter — deleted
+All source-related code is removed from `PremiseEngine`:
+- `sourceManager` field removed from the `deps` parameter object type (in `premise-engine.ts` constructor deps)
 - In `removeExpression`: remove the cascade block that calls `sourceManager.removeAssociationsForExpression()` and notifies the collector
-- In `removeExpressionSourceAssociation`: delete method entirely
-- The `PremiseEngine` constructor no longer receives a `SourceManager`
+- Delete all expression-source methods: `addExpressionSourceAssociation`, `removeExpressionSourceAssociation`, `getSourceAssociationsForExpression`
+- `PremiseEngine.fromSnapshot()` static factory: remove `sourceManager?: SourceManager` parameter (5th param). Update all call sites in `ArgumentEngine.fromSnapshot()` and `ArgumentEngine.rollback()`
+
+### `TExpressionMutations` interface changes
+
+In `src/lib/core/interfaces/premise-engine.interfaces.ts`:
+- Remove `addExpressionSourceAssociation`, `removeExpressionSourceAssociation`, `getSourceAssociationsForExpression` methods
+- Remove `TCoreExpressionSourceAssociation` import
 
 ### `ChangeCollector` changes
 
@@ -246,6 +254,9 @@ In `src/lib/core/diff.ts`:
 - Disk storage: `sources/variable-associations.json` and `sources/expression-associations.json` both removed. Replaced with global `claim-source-associations.json`, managed separately from argument-versioned directories
 - `src/cli/storage/sources.ts`: remove all variable-association and expression-association functions. Add global claim-source association read/write functions (no `argumentId`/`version` parameters — global path)
 - `src/cli/engine.ts`: remove all source association reads/writes from `hydrateEngine` and `persistEngine`. `ArgumentEngine` constructor call updated to pass `claimSourceLibrary`. `ClaimSourceLibrary` hydration/persistence managed independently with dedicated helpers
+- `src/cli/config.ts`: remove `getSourcesDir()` and `getSourceDir()` path helpers (argument-version-scoped source paths are dead code)
+- `src/cli/schemata.ts`: remove `CliSourceMetaSchema` and any other source-entity CLI schemas that reference deleted types
+- `src/cli/storage/sources.ts`: remove source-entity storage functions (`readSourceMeta`, `writeSourceMeta`, `listSourceIds`, `deleteSourceDir`) — source entities live in global `SourceLibrary`, not argument-scoped storage
 
 ## Testing
 
