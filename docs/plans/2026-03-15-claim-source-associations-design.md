@@ -120,16 +120,24 @@ Added to `src/lib/core/interfaces/library.interfaces.ts` alongside `TClaimLookup
 
 ### `ArgumentEngine` constructor
 
-Adds a 4th library parameter (read-only):
+Adds `TAssoc` as a new generic parameter with a default, and a 4th library parameter (read-only):
 
 ```typescript
-constructor(
-    argument: TArg,
-    claimLibrary: TClaimLookup,
-    sourceLibrary: TSourceLookup,
-    claimSourceLibrary: TClaimSourceLookup<TAssoc>,
-    options?: TArgumentEngineOptions
-)
+class ArgumentEngine<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
+> {
+    constructor(
+        argument: TArg,
+        claimLibrary: TClaimLookup,
+        sourceLibrary: TSourceLookup,
+        claimSourceLibrary: TClaimSourceLookup<TAssoc>,
+        options?: TArgumentEngineOptions
+    )
+}
 ```
 
 `ArgumentEngine` does not mutate claim-source associations. It can query them (e.g., "what sources support the claim behind variable P?") but `ClaimSourceLibrary` is managed externally.
@@ -139,8 +147,9 @@ constructor(
 The entire variable-association half is removed:
 - Deleted: `variableAssociations` map, `variableToAssociations` index, all `*VariableSourceAssociation*` methods, `removeAssociationsForVariable`
 - Kept: all expression-association logic unchanged
-- `TSourceAssociationRemovalResult` drops `removedVariableAssociations`
+- `TSourceAssociationRemovalResult` replaced by `TCoreExpressionSourceAssociation[]` (single-field wrapper no longer needed)
 - `TSourceManagerSnapshot` drops `variableSourceAssociations`
+- `getAssociationsForSource` simplified: returns `TCoreExpressionSourceAssociation[]` instead of `{ variable, expression }` (only expression associations remain)
 
 ### `TSourceManagement` interface changes
 
@@ -149,13 +158,45 @@ Removed methods:
 - `removeVariableSourceAssociation`
 - `getAssociationsForVariable`
 - `getAllVariableSourceAssociations`
-- `getAssociationsForSource` (returned both variable and expression; no longer needed in this form)
+
+Changed methods:
+- `getAssociationsForSource(sourceId)` — simplified to return `TCoreExpressionSourceAssociation[]` (was `{ variable, expression }`)
 
 Kept methods (all expression-source):
 - `addExpressionSourceAssociation`
 - `removeExpressionSourceAssociation`
 - `getAssociationsForExpression`
 - `getAllExpressionSourceAssociations`
+
+### `ChangeCollector` changes
+
+In `src/lib/core/change-collector.ts`:
+- Remove `variableSourceAssociations` private field
+- Remove `addedVariableSourceAssociation()` and `removedVariableSourceAssociation()` methods
+- Keep all expression-source association tracking unchanged
+
+### `TCoreChangeset` changes
+
+In `src/lib/types/mutation.ts`:
+- Remove `variableSourceAssociations?: TCoreEntityChanges<TCoreVariableSourceAssociation>` field
+- Keep `expressionSourceAssociations` field unchanged
+
+### `TReactiveSnapshot` changes
+
+In `src/lib/types/reactive.ts`:
+- Remove `variableSourceAssociations: Record<string, TCoreVariableSourceAssociation>` field
+- Keep `expressionSourceAssociations` field unchanged
+
+### Diff module changes
+
+In `src/lib/types/diff.ts`:
+- Remove `variableSourceAssociations` field from `TCoreArgumentDiff`
+- Remove `compareVariableSourceAssociation` field from `TCoreDiffOptions`
+
+In `src/lib/core/diff.ts`:
+- Remove `defaultCompareVariableSourceAssociation` comparator function
+- Remove variable-source association diffing from `diffArguments` (calls to `getAllVariableSourceAssociations()`)
+- Remove `defaultCompareVariableSourceAssociation` from barrel exports
 
 ### Cascade changes
 
@@ -165,9 +206,9 @@ Kept methods (all expression-source):
 
 ### Checksum config
 
-- `variableSourceAssociationFields` renamed to `claimSourceAssociationFields`
+- `variableSourceAssociationFields` renamed to `claimSourceAssociationFields` in both `TCoreChecksumConfig` (`src/lib/types/checksum.ts`) and `DEFAULT_CHECKSUM_CONFIG` (`src/lib/consts.ts`)
 - Default fields: `["id", "claimId", "claimVersion", "sourceId", "sourceVersion"]`
-- `createChecksumConfig` updated to include the new key
+- `createChecksumConfig` `keys` array updated to replace `"variableSourceAssociationFields"` with `"claimSourceAssociationFields"`
 
 ## Exports
 
@@ -180,6 +221,7 @@ Kept methods (all expression-source):
 ### Removed exports
 
 - `TCoreVariableSourceAssociation` type and `CoreVariableSourceAssociationSchema`
+- `defaultCompareVariableSourceAssociation` from diff module
 - All variable-source methods from `TSourceManagement`
 
 ## CLI layer
@@ -187,7 +229,24 @@ Kept methods (all expression-source):
 - `sources link-variable` command removed or replaced with `sources link-claim` calling `ClaimSourceLibrary.add()`
 - `sources unlink` updated to handle claim-source vs expression-source association types
 - Disk storage: `sources/variable-associations.json` replaced with `claim-source-associations.json`, managed separately from argument-versioned directories (global, not argument-scoped)
+- `src/cli/storage/sources.ts`: remove `readVariableAssociations`, `writeVariableAssociations`, `variableAssociationsPath`, `VariableAssociationSchema`; add equivalents for claim-source associations
+- `src/cli/engine.ts`: update `hydrateEngine` and `persistEngine` to stop reading/writing variable-source associations; `ClaimSourceLibrary` hydration/persistence is managed independently (not inside `hydrateEngine`/`persistEngine`) since it is global, not argument-scoped
+
+## Testing
+
+Affected test blocks in `test/core.test.ts`:
+- All `SourceManager` variable-association tests — remove entirely
+- All `ArgumentEngine` `addVariableSourceAssociation`/`removeVariableSourceAssociation` tests — remove entirely
+- `removeVariable` cascade tests — update to verify no variable-source cascade (only expression-source cascade via expression deletion)
+- `getAssociationsForSource` tests — update to reflect simplified expression-only return type
+
+Affected test blocks in `test/diff-renderer.test.ts`:
+- Fixture objects that include `variableSourceAssociations` — remove field from fixtures
+
+New tests to add:
+- `ClaimSourceLibrary` — add/remove, validation against `ClaimLookup`/`SourceLookup`, `getForClaim`, `getForSource`, `filter`, snapshot/restore, duplicate ID rejection, missing claim/source rejection
+- Generic `TAssoc` extension — verify extended fields are preserved through add/snapshot/filter
 
 ## Breaking changes
 
-Breaking public API change to `ArgumentEngine` constructor signature, `TSourceManagement` interface, checksum config, and schemas. Acceptable at current semver (0.x).
+Breaking public API change to `ArgumentEngine` constructor signature and generics, `TSourceManagement` interface, `TCoreChangeset`, `TCoreArgumentDiff`, `TCoreDiffOptions`, `TReactiveSnapshot`, checksum config, and schemas. Acceptable at current semver (0.x).
