@@ -513,12 +513,7 @@ export class ArgumentEngine<
             )
         }
         // Validate claim reference
-        if (
-            !this.claimLibrary.get(
-                variable.claimId,
-                variable.claimVersion
-            )
-        ) {
+        if (!this.claimLibrary.get(variable.claimId, variable.claimVersion)) {
             throw new Error(
                 `Claim "${variable.claimId}" version ${variable.claimVersion} does not exist in the claim library.`
             )
@@ -557,10 +552,7 @@ export class ArgumentEngine<
         // Validate claim reference if provided
         if (hasClaimId && hasClaimVersion) {
             if (
-                !this.claimLibrary.get(
-                    updates.claimId!,
-                    updates.claimVersion!
-                )
+                !this.claimLibrary.get(updates.claimId!, updates.claimVersion!)
             ) {
                 throw new Error(
                     `Claim "${updates.claimId}" version ${updates.claimVersion} does not exist in the claim library.`

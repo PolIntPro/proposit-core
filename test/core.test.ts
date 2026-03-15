@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
     ArgumentEngine,
     PremiseEngine,
-    AssertionLibrary,
+    ClaimLibrary,
     SourceLibrary,
 } from "../src/lib/index"
 import type { TReactiveSnapshot } from "../src/lib/index"
@@ -75,8 +75,8 @@ const ARG: Omit<TCoreArgument, "checksum"> = {
 }
 
 function aLib() {
-    const lib = new AssertionLibrary()
-    lib.create({ id: "assert-default" })
+    const lib = new ClaimLibrary()
+    lib.create({ id: "claim-default" })
     return lib
 }
 
@@ -87,16 +87,16 @@ function sLib() {
 function makeVar(
     id: string,
     symbol: string,
-    assertionId = "assert-default",
-    assertionVersion = 0
+    claimId = "claim-default",
+    claimVersion = 0
 ): TVariableInput {
     return {
         id,
         argumentId: ARG.id,
         argumentVersion: ARG.version,
         symbol,
-        assertionId,
-        assertionVersion,
+        claimId,
+        claimVersion,
     }
 }
 
@@ -3332,8 +3332,8 @@ describe("schema shapes with additionalProperties", () => {
             id: "v-1",
             argumentId: "a-1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             checksum: "abc123",
             label: "Proposition P",
@@ -3346,8 +3346,8 @@ describe("schema shapes with additionalProperties", () => {
             id: "p-1",
             argumentId: "a-1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             variables: [],
             expressions: [],
             checksum: "abc123",
@@ -4683,8 +4683,8 @@ describe("ChangeCollector", () => {
             symbol: "P",
             argumentId: "a1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         } as TCorePropositionalVariable
         collector.addedVariable(v)
@@ -4746,16 +4746,16 @@ describe("PremiseEngine — mutation changesets", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
         const v2 = {
             id: "v2",
             symbol: "Q",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
         eng.addVariable(v1)
         eng.addVariable(v2)
@@ -4990,8 +4990,8 @@ describe("PremiseEngine — mutation changesets", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
         const { result, changes } = eng.addVariable(v)
         expect(result.id).toBe("v1")
@@ -5011,8 +5011,8 @@ describe("PremiseEngine — mutation changesets", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
         eng.addVariable(v)
         const { result, changes } = eng.removeVariable("v1")
@@ -5251,8 +5251,8 @@ describe("checksum utilities", () => {
                 symbol: "P",
                 argumentId: "arg1",
                 argumentVersion: 0,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             }
             eng.addVariable(v)
             const { result: pm } = eng.createPremise()
@@ -5284,8 +5284,8 @@ describe("checksum utilities", () => {
                 symbol: "P",
                 argumentId: "arg1",
                 argumentVersion: 0,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             })
             const after = pm.checksum()
             expect(before).toBe(after)
@@ -5302,8 +5302,8 @@ describe("checksum utilities", () => {
                 symbol: "P",
                 argumentId: "arg1",
                 argumentVersion: 0,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             }
             eng.addVariable(v1)
             const { result: pm1 } = eng.createPremiseWithId("p1")
@@ -5380,8 +5380,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
         eng.addVariable(v)
         const { result: pm } = eng.createPremise()
@@ -5434,16 +5434,16 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         eng.addVariable({
             id: "v2",
             symbol: "Q",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pm } = eng.createPremise()
         pm.addExpression({
@@ -5517,8 +5517,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pm } = eng.createPremise()
         const { changes } = pm.addExpression({
@@ -5555,8 +5555,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         expect(changes.variables?.added).toHaveLength(1)
         expect(changes.variables?.added[0].checksum).toMatch(/^[0-9a-f]{8}$/)
@@ -5573,8 +5573,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { changes } = eng.removeVariable("v1")
         expect(changes.variables?.removed).toHaveLength(1)
@@ -5592,8 +5592,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pm } = eng.createPremise()
         const { result } = pm.addExpression({
@@ -5620,8 +5620,8 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         expect(result.checksum).toMatch(/^[0-9a-f]{8}$/)
     })
@@ -5670,16 +5670,16 @@ describe("entity checksum fields", () => {
             symbol: "P",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         eng.addVariable({
             id: "v2",
             symbol: "Q",
             argumentId: "arg1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pm } = eng.createPremise()
         pm.addExpression({
@@ -5795,8 +5795,8 @@ describe("ArgumentEngine — variable management", () => {
                 id: "var-other",
                 argumentId: ARG.id,
                 argumentVersion: ARG.version,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
                 symbol: "P",
             })
         ).toThrow(/already exists/)
@@ -5815,8 +5815,8 @@ describe("ArgumentEngine — variable management", () => {
                 id: "var-x",
                 argumentId: "other",
                 argumentVersion: ARG.version,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
                 symbol: "X",
             })
         ).toThrow(/does not match/)
@@ -5829,8 +5829,8 @@ describe("ArgumentEngine — variable management", () => {
                 id: "var-x",
                 argumentId: ARG.id,
                 argumentVersion: 99,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
                 symbol: "X",
             })
         ).toThrow(/does not match/)
@@ -6831,8 +6831,8 @@ describe("VariableManager — generic type parameter", () => {
             id: "v1",
             argumentId: "a1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             checksum: "abc",
             color: "red",
@@ -6870,8 +6870,8 @@ describe("mutation types — generic changesets", () => {
                             id: "v1",
                             argumentId: "a1",
                             argumentVersion: 0,
-                            assertionId: "assert-default",
-                            assertionVersion: 0,
+                            claimId: "claim-default",
+                            claimVersion: 0,
                             symbol: "P",
                             checksum: "abc",
                             color: "red",
@@ -6960,8 +6960,8 @@ describe("ArgumentEngine — generic type parameters", () => {
             id: "v1",
             argumentId: "a1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             color: "red",
         })
@@ -7113,8 +7113,8 @@ describe("configurable position range", () => {
             id: "v1",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             checksum: "x",
         })
@@ -7331,8 +7331,8 @@ describe("VariableManager — snapshot and fromSnapshot", () => {
             id: "v1",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             checksum: "x",
         })
@@ -7340,8 +7340,8 @@ describe("VariableManager — snapshot and fromSnapshot", () => {
             id: "v2",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "Q",
             checksum: "y",
         })
@@ -7373,8 +7373,8 @@ describe("VariableManager — snapshot and fromSnapshot", () => {
             id: "v1",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
             checksum: "x",
         })
@@ -7419,8 +7419,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pe } = eng.createPremise()
         pe.appendExpression(null, {
@@ -7440,8 +7440,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         })
         const restored = PremiseEngine.fromSnapshot(
@@ -7478,8 +7478,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pe } = eng.createPremise()
         pe.addExpression({
@@ -7508,8 +7508,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         })
         const restored = PremiseEngine.fromSnapshot(
@@ -7539,8 +7539,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pe } = eng.createPremise()
         pe.appendExpression(null, {
@@ -7559,8 +7559,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         })
         const restored = PremiseEngine.fromSnapshot(
@@ -7579,16 +7579,16 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         eng.addVariable({
             id: "v2",
             symbol: "Q",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pe } = eng.createPremise()
         pe.addExpression({
@@ -7629,8 +7629,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         })
         vm2.addVariable({
@@ -7638,8 +7638,8 @@ describe("PremiseEngine — snapshot and fromSnapshot", () => {
             symbol: "Q",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             checksum: "x",
         })
         const restored = PremiseEngine.fromSnapshot(
@@ -7668,8 +7668,8 @@ describe("ArgumentEngine — snapshot, fromSnapshot, and rollback", () => {
             symbol,
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         }
     }
 
@@ -7814,16 +7814,16 @@ describe("ArgumentEngine — fromData bulk loading", () => {
                 symbol: "P",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             },
             {
                 id: "v2",
                 symbol: "Q",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             },
         ]
         const premises: TOptionalChecksum<TCorePremise>[] = [
@@ -7904,8 +7904,8 @@ describe("ArgumentEngine — fromData bulk loading", () => {
                 symbol: "P",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             },
         ]
         const premises: TOptionalChecksum<TCorePremise>[] = [
@@ -7963,16 +7963,16 @@ describe("ArgumentEngine — fromData bulk loading", () => {
                 symbol: "P",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             },
             {
                 id: "v2",
                 symbol: "Q",
                 argumentId: "arg-1",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             },
         ]
         const premises: TOptionalChecksum<TCorePremise>[] = [
@@ -8065,8 +8065,8 @@ describe("ArgumentEngine — toDisplayString", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: p1 } = eng.createPremise()
         p1.appendExpression(null, {
@@ -8090,16 +8090,16 @@ describe("ArgumentEngine — toDisplayString", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         eng.addVariable({
             id: "v2",
             symbol: "Q",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
 
         // p1: implies (inference) - will be conclusion (auto-assigned as first)
@@ -8187,8 +8187,8 @@ describe("VariableManager — getVariableBySymbol", () => {
         symbol,
         argumentId: "arg-1",
         argumentVersion: 0,
-        assertionId: "assert-default",
-        assertionVersion: 0,
+        claimId: "claim-default",
+        claimVersion: 0,
         checksum: "x",
     })
 
@@ -8244,8 +8244,8 @@ describe("PremiseEngine — shared expression index", () => {
         symbol,
         argumentId: "arg-1",
         argumentVersion: 0,
-        assertionId: "assert-default",
-        assertionVersion: 0,
+        claimId: "claim-default",
+        claimVersion: 0,
         checksum: "x",
     })
     const makeVarExpr = (
@@ -8494,16 +8494,16 @@ describe("ArgumentEngine — lookup methods", () => {
             symbol: "P",
             argumentId: "arg-1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         engine.addVariable({
             id: "v2",
             symbol: "Q",
             argumentId: "arg-1",
             argumentVersion: 0,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: p1 } = engine.createPremiseWithId("p1")
         const { result: p2 } = engine.createPremiseWithId("p2")
@@ -8906,8 +8906,8 @@ describe("ArgumentEngine subscribe", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         expect(notified).toBe(true)
@@ -8919,8 +8919,8 @@ describe("ArgumentEngine subscribe", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         let notified = false
@@ -8937,8 +8937,8 @@ describe("ArgumentEngine subscribe", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         let notified = false
@@ -9047,8 +9047,8 @@ describe("ArgumentEngine getSnapshot", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         const { result: premise } = engine.createPremise()
@@ -9121,8 +9121,8 @@ describe("ArgumentEngine getSnapshot", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         const snap2 = engine.getSnapshot()
@@ -9167,8 +9167,8 @@ describe("ArgumentEngine getSnapshot", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         const snap2 = engine.getSnapshot()
@@ -9211,8 +9211,8 @@ describe("ArgumentEngine reactive store integration", () => {
             id: "v1",
             argumentId: ARG.id,
             argumentVersion: ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
 
@@ -10058,8 +10058,8 @@ describe("ArgumentEngine source management", () => {
             id,
             argumentId: SRC_ARG.id,
             argumentVersion: SRC_ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol,
         }
     }
@@ -10523,16 +10523,16 @@ describe("ArgumentEngine source management", () => {
                 symbol: "P",
                 argumentId: "arg-collapse",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             })
             eng.addVariable({
                 id: "v-q",
                 symbol: "Q",
                 argumentId: "arg-collapse",
                 argumentVersion: 1,
-                assertionId: "assert-default",
-                assertionVersion: 0,
+                claimId: "claim-default",
+                claimVersion: 0,
             })
             const { result: pm2 } = eng.createPremiseWithId("pm-col")
             pm2.addExpression({
@@ -10824,8 +10824,8 @@ describe("validateEvaluability source checks", () => {
             symbol: "P",
             argumentId: VAL_ARG.id,
             argumentVersion: VAL_ARG.version,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
         })
         const { result: pm } = engine.createPremiseWithId("premise-val")
         pm.addExpression({
@@ -11162,8 +11162,8 @@ describe("Argument checksum includes source associations", () => {
             id: "v-1",
             argumentId: "arg-1",
             argumentVersion: 1,
-            assertionId: "assert-default",
-            assertionVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
             symbol: "P",
         })
         const checksumBefore = engine.getArgument().checksum

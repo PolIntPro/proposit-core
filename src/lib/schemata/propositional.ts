@@ -101,8 +101,7 @@ export const CorePropositionalVariableSchema = Type.Object(
         }),
         claimId: UUID,
         claimVersion: Type.Number({
-            description:
-                "The version of the claim this variable references.",
+            description: "The version of the claim this variable references.",
         }),
         checksum: Type.String({
             description: "Entity-level checksum for sync detection.",

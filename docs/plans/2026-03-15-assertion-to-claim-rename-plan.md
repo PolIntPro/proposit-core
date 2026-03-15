@@ -14,9 +14,9 @@
 
 No new files are created. Two files are renamed:
 
-| Before | After |
-|---|---|
-| `src/lib/schemata/assertion.ts` | `src/lib/schemata/claim.ts` |
+| Before                              | After                           |
+| ----------------------------------- | ------------------------------- |
+| `src/lib/schemata/assertion.ts`     | `src/lib/schemata/claim.ts`     |
 | `src/lib/core/assertion-library.ts` | `src/lib/core/claim-library.ts` |
 
 All other changes are edits to existing files.
@@ -28,6 +28,7 @@ All other changes are edits to existing files.
 ### Task 1: Rename schemata layer
 
 **Files:**
+
 - Rename: `src/lib/schemata/assertion.ts` → `src/lib/schemata/claim.ts`
 - Modify: `src/lib/schemata/claim.ts` (after rename)
 - Modify: `src/lib/schemata/propositional.ts:93-116`
@@ -42,6 +43,7 @@ git mv src/lib/schemata/assertion.ts src/lib/schemata/claim.ts
 - [ ] **Step 2: Rename identifiers and update JSDoc in `claim.ts`**
 
 In `src/lib/schemata/claim.ts`, replace:
+
 - `CoreAssertionSchema` → `CoreClaimSchema`
 - `"Assertion version number. Starts at 0."` → `"Claim version number. Starts at 0."`
 - `"A global assertion representing propositional content. Variables reference assertions by ID and version."` → `"A global claim representing propositional content. Variables reference claims by ID and version."`
@@ -79,6 +81,7 @@ export type TCoreClaim = Static<typeof CoreClaimSchema>
 - [ ] **Step 3: Update variable schema in `propositional.ts`**
 
 In `src/lib/schemata/propositional.ts`, lines 93-116, replace:
+
 - `assertionId: UUID,` → `claimId: UUID,`
 - `assertionVersion: Type.Number({` (keep as-is structurally)
 - `"The version of the assertion this variable references."` → `"The version of the claim this variable references."`
@@ -99,8 +102,7 @@ export const CorePropositionalVariableSchema = Type.Object(
         }),
         claimId: UUID,
         claimVersion: Type.Number({
-            description:
-                "The version of the claim this variable references.",
+            description: "The version of the claim this variable references.",
         }),
         checksum: Type.String({
             description: "Entity-level checksum for sync detection.",
@@ -117,6 +119,7 @@ export const CorePropositionalVariableSchema = Type.Object(
 - [ ] **Step 4: Update schemata barrel re-export**
 
 In `src/lib/schemata/index.ts`, line 3, replace:
+
 - `export * from "./assertion.js"` → `export * from "./claim.js"`
 
 - [ ] **Step 5: Verify schemata layer compiles**
@@ -135,6 +138,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in schemata lay
 ### Task 2: Rename interfaces and types layer
 
 **Files:**
+
 - Modify: `src/lib/core/interfaces/library.interfaces.ts`
 - Modify: `src/lib/core/interfaces/argument-engine.interfaces.ts:141-153`
 - Modify: `src/lib/core/interfaces/index.ts:25-30`
@@ -149,9 +153,7 @@ import type { TCoreClaim } from "../../schemata/claim.js"
 import type { TCoreSource } from "../../schemata/source.js"
 
 /** Narrow read-only interface for claim lookups. Used by ArgumentEngine for validation. */
-export interface TClaimLookup<
-    TClaim extends TCoreClaim = TCoreClaim,
-> {
+export interface TClaimLookup<TClaim extends TCoreClaim = TCoreClaim> {
     get(id: string, version: number): TClaim | undefined
 }
 
@@ -161,9 +163,7 @@ export interface TSourceLookup<TSource extends TCoreSource = TCoreSource> {
 }
 
 /** Serializable snapshot of a ClaimLibrary. */
-export type TClaimLibrarySnapshot<
-    TClaim extends TCoreClaim = TCoreClaim,
-> = {
+export type TClaimLibrarySnapshot<TClaim extends TCoreClaim = TCoreClaim> = {
     claims: TClaim[]
 }
 
@@ -216,6 +216,7 @@ export type {
 - [ ] **Step 4: Update checksum type**
 
 In `src/lib/types/checksum.ts`, line 13-14, replace:
+
 - `/** Fields to hash for assertion entities. Defaults to ["id", "version"]. */` → `/** Fields to hash for claim entities. Defaults to ["id", "version"]. */`
 - `assertionFields?: Set<string>` → `claimFields?: Set<string>`
 
@@ -235,6 +236,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in interfaces a
 ### Task 3: Rename core implementation layer
 
 **Files:**
+
 - Rename: `src/lib/core/assertion-library.ts` → `src/lib/core/claim-library.ts`
 - Modify: `src/lib/core/claim-library.ts` (after rename)
 - Modify: `src/lib/consts.ts:20-21,26,60`
@@ -250,6 +252,7 @@ git mv src/lib/core/assertion-library.ts src/lib/core/claim-library.ts
 - [ ] **Step 2: Rename all identifiers in `claim-library.ts`**
 
 Apply these replacements throughout the file:
+
 - Import: `TCoreAssertion` → `TCoreClaim`, `"../../schemata/assertion.js"` → `"../../schemata/claim.js"`
 - Import: `TAssertionLookup` → `TClaimLookup`, `TAssertionLibrarySnapshot` → `TClaimLibrarySnapshot`
 - Class: `AssertionLibrary` → `ClaimLibrary`
@@ -263,6 +266,7 @@ Apply these replacements throughout the file:
 - [ ] **Step 3: Update `consts.ts`**
 
 In `src/lib/consts.ts`:
+
 - Line 20: `"assertionId",` → `"claimId",`
 - Line 21: `"assertionVersion",` → `"claimVersion",`
 - Line 26: `assertionFields: new Set(["id", "version"]),` → `claimFields: new Set(["id", "version"]),`
@@ -271,6 +275,7 @@ In `src/lib/consts.ts`:
 - [ ] **Step 4: Update `argument-engine.ts`**
 
 Apply these replacements:
+
 - Line 4: `TCoreAssertion` → `TCoreClaim` (import)
 - Line 58: `TAssertionLookup` → `TClaimLookup` (import)
 - Line 96: `TAssertion extends TCoreAssertion = TCoreAssertion,` → `TClaim extends TCoreClaim = TCoreClaim,`
@@ -279,6 +284,7 @@ Apply these replacements:
 - Constructor body: `this.assertionLibrary = assertionLibrary` → `this.claimLibrary = claimLibrary`
 
 In `addVariable` (lines 515-525):
+
 - `// Validate assertion reference` → `// Validate claim reference`
 - `this.assertionLibrary.get(` → `this.claimLibrary.get(`
 - `variable.assertionId` → `variable.claimId`
@@ -286,6 +292,7 @@ In `addVariable` (lines 515-525):
 - Error: `Assertion "${variable.assertionId}" version ${variable.assertionVersion} does not exist in the assertion library.` → `Claim "${variable.claimId}" version ${variable.claimVersion} does not exist in the claim library.`
 
 In `updateVariable` (lines 541-569):
+
 - `assertionId?: string` → `claimId?: string`
 - `assertionVersion?: number` → `claimVersion?: number`
 - `const hasAssertionId = updates.assertionId !== undefined` → `const hasClaimId = updates.claimId !== undefined`
@@ -300,6 +307,7 @@ In `updateVariable` (lines 541-569):
 - Error: `Assertion "${updates.assertionId}" version ${updates.assertionVersion} does not exist in the assertion library.` → `Claim "${updates.claimId}" version ${updates.claimVersion} does not exist in the claim library.`
 
 In static methods `fromSnapshot` and `fromData` (lines ~1010-1091), apply the same renames:
+
 - `TAssertion extends TCoreAssertion = TCoreAssertion` → `TClaim extends TCoreClaim = TCoreClaim`
 - `assertionLibrary: TAssertionLookup<TAssertion>` → `claimLibrary: TClaimLookup<TClaim>`
 - `this.assertionLibrary = assertionLibrary` → `this.claimLibrary = claimLibrary`
@@ -329,11 +337,13 @@ git add -A && git commit -m "refactor: rename assertion to claim in core impleme
 ### Task 4: Update barrel exports
 
 **Files:**
+
 - Modify: `src/lib/index.ts:16`
 
 - [ ] **Step 1: Update library barrel export**
 
 In `src/lib/index.ts`, line 16, replace:
+
 - `export { AssertionLibrary } from "./core/assertion-library.js"` → `export { ClaimLibrary } from "./core/claim-library.js"`
 
 - [ ] **Step 2: Verify barrel compiles**
@@ -352,6 +362,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in barrel expor
 ### Task 5: Update CLI layer
 
 **Files:**
+
 - Modify: `src/cli/engine.ts:3,59`
 - Modify: `src/cli/import.ts:11,255-276`
 - Modify: `src/cli/commands/variables.ts:49-52`
@@ -392,6 +403,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in CLI layer"
 ### Task 6: Update tests
 
 **Files:**
+
 - Modify: `test/core.test.ts:5,77-101` + ~134 fixture occurrences
 - Modify: `test/diff-renderer.test.ts`
 
@@ -399,6 +411,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in CLI layer"
 
 - Line 5: `AssertionLibrary,` → `ClaimLibrary,`
 - Lines 77-81 (`aLib` helper):
+
 ```typescript
 function aLib() {
     const lib = new ClaimLibrary()
@@ -406,9 +419,11 @@ function aLib() {
     return lib
 }
 ```
+
 (Note: the `"assert-default"` string is just a test fixture ID, not terminology — it can stay or be renamed. Rename to `"claim-default"` for consistency.)
 
 - Lines 87-101 (`makeVar` helper):
+
 ```typescript
 function makeVar(
     id: string,
@@ -430,6 +445,7 @@ function makeVar(
 - [ ] **Step 2: Rename all `assertionId` → `claimId` and `assertionVersion` → `claimVersion` in test fixtures**
 
 Search and replace across the entire `test/core.test.ts` file:
+
 - `assertionId` → `claimId` (all occurrences)
 - `assertionVersion` → `claimVersion` (all occurrences)
 - `AssertionLibrary` → `ClaimLibrary` (all occurrences)
@@ -438,6 +454,7 @@ Search and replace across the entire `test/core.test.ts` file:
 - [ ] **Step 3: Update `diff-renderer.test.ts`**
 
 Search and replace:
+
 - `assertionId` → `claimId` (all occurrences)
 - `assertionVersion` → `claimVersion` (all occurrences)
 
@@ -468,6 +485,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in tests"
 ### Task 7: Update documentation
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `docs/api-reference.md`
 - Modify: `docs/plans/2026-03-13-global-libraries-design.md`
@@ -475,6 +493,7 @@ git add -A && git commit -m "refactor: rename assertion to claim in tests"
 - [ ] **Step 1: Update `CLAUDE.md`**
 
 Replace all domain-sense occurrences:
+
 - `assertionId` → `claimId`
 - `assertionVersion` → `claimVersion`
 - `AssertionLibrary` → `ClaimLibrary`
@@ -486,6 +505,7 @@ Replace all domain-sense occurrences:
 - [ ] **Step 2: Update `docs/api-reference.md`**
 
 Replace all occurrences:
+
 - `AssertionLibrary` → `ClaimLibrary`
 - `TAssertionLookup` → `TClaimLookup`
 - `TAssertionLibrarySnapshot` → `TClaimLibrarySnapshot`
@@ -541,6 +561,7 @@ Expected: Zero results.
 ```bash
 git add -A && git commit -m "refactor: clean up any remaining assertion references"
 ```
+
 (Only if step 2 or 3 found something.)
 
 - [ ] **Step 5: Verify smoke test passes**
@@ -548,4 +569,5 @@ git add -A && git commit -m "refactor: clean up any remaining assertion referenc
 ```bash
 pnpm run build && bash scripts/smoke-test.sh
 ```
+
 Expected: All smoke tests pass.

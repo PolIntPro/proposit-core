@@ -22,9 +22,7 @@ export class ClaimLibrary<
         claim: Omit<TClaim, "version" | "frozen" | "checksum">
     ): TClaim {
         if (this.entities.has(claim.id as string)) {
-            throw new Error(
-                `Claim with ID "${claim.id}" already exists.`
-            )
+            throw new Error(`Claim with ID "${claim.id}" already exists.`)
         }
         const full = {
             ...claim,
@@ -42,9 +40,7 @@ export class ClaimLibrary<
 
     public update(
         id: string,
-        updates: Partial<
-            Omit<TClaim, "id" | "version" | "frozen" | "checksum">
-        >
+        updates: Partial<Omit<TClaim, "id" | "version" | "frozen" | "checksum">>
     ): TClaim {
         const versions = this.entities.get(id)
         if (!versions) {
@@ -135,9 +131,7 @@ export class ClaimLibrary<
         return { claims: this.getAll() }
     }
 
-    public static fromSnapshot<
-        TClaim extends TCoreClaim = TCoreClaim,
-    >(
+    public static fromSnapshot<TClaim extends TCoreClaim = TCoreClaim>(
         snapshot: TClaimLibrarySnapshot<TClaim>,
         options?: { checksumConfig?: TCoreChecksumConfig }
     ): ClaimLibrary<TClaim> {
