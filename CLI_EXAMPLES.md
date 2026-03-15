@@ -248,50 +248,7 @@ proposit-core <argument-id> latest roles clear-conclusion
 
 ## 7. Sources
 
-### Add a source
-
-```bash
-proposit-core <argument-id> latest sources add --url "https://example.com/study"
-# → <source-id>
-```
-
-### List sources
-
-```bash
-proposit-core <argument-id> latest sources list
-proposit-core <argument-id> latest sources list --json
-```
-
-### Show a source
-
-```bash
-proposit-core <argument-id> latest sources show <source-id>
-proposit-core <argument-id> latest sources show <source-id> --json
-```
-
-### Link to a variable
-
-```bash
-proposit-core <argument-id> latest sources link-variable <source-id> <variable-id>
-```
-
-### Link to an expression
-
-```bash
-proposit-core <argument-id> latest sources link-expression <source-id> <expression-id>
-```
-
-### Unlink an association
-
-```bash
-proposit-core <argument-id> latest sources unlink <association-id>
-```
-
-### Remove a source
-
-```bash
-proposit-core <argument-id> latest sources remove <source-id>
-```
+Source entities live in a global `SourceLibrary` and claim-source associations are managed via a global `ClaimSourceLibrary`. CLI support for source management is not yet implemented.
 
 ---
 

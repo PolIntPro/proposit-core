@@ -60,14 +60,9 @@ A premise that is neither supporting nor the conclusion and whose type is `"cons
 
 ### Sources
 
-A **source** is an evidentiary reference (paper, article, URL) that supports components of an argument. Sources are argument-scoped entities managed by the `ArgumentEngine`.
+A **source** is an evidentiary reference (paper, article, URL). Source entities live in a global `SourceLibrary` with versioning and freeze semantics (same as `ClaimLibrary`).
 
-Sources are connected to argument components via two types of **associations**:
-
-- **Variable–source association** — links a source to a propositional variable (supporting a statement's truth claim).
-- **Expression–source association** — links a source to a specific expression within a premise (supporting a logical relationship).
-
-Associations are immutable — create or delete only, no update. When all associations for a source are removed, the source is automatically deleted (orphan cleanup).
+Claim-source associations are managed by `ClaimSourceLibrary<TAssoc>` — a standalone global class that links a claim version to a source version. Associations are immutable: create or delete only, no update. `ClaimSourceLibrary` validates both the claim and source references on `add()`.
 
 The `@polintpro/proposit-core/extensions/ieee` subpath export provides `IEEESourceSchema` — an extended source type with IEEE citation reference schemas covering 33 reference types.
 

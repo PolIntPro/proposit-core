@@ -2,9 +2,9 @@
 
 ## `ArgumentEngine`
 
-### `new ArgumentEngine(argument, claimLibrary, sourceLibrary, options?)`
+### `new ArgumentEngine(argument, claimLibrary, sourceLibrary, claimSourceLibrary, options?)`
 
-Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Requires a `claimLibrary` implementing `TClaimLookup` (used to validate claim references on variables) and a `sourceLibrary` implementing `TSourceLookup` (used to validate source references on associations). Accepts an optional `config?: TLogicEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`). `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes.
+Creates an engine scoped to `argument` (`{ id, version, title, description }`, without `checksum` — it is computed lazily). Requires a `claimLibrary` implementing `TClaimLookup` (used to validate claim references on variables), a `sourceLibrary` implementing `TSourceLookup`, and a `claimSourceLibrary` implementing `TClaimSourceLookup` (the global claim-source association store). Accepts an optional `config?: TLogicEngineOptions` parameter with `checksumConfig?: TCoreChecksumConfig` (configures which fields are included in entity checksums) and `positionConfig?: TCorePositionConfig` (configures the position range for expression ordering — defaults to signed int32: `[-2147483647, 2147483647]` with initial `0`). `TLogicEngineOptions` is the universal config type accepted by all engine/manager classes.
 
 ---
 
@@ -177,7 +177,7 @@ Returns a cross-premise summary of every variable referenced by expressions, key
 
 ### `validateEvaluability()` → `TValidationResult`
 
-Checks whether the argument is structurally ready to evaluate. Returns `{ ok, issues }`. Source validation checks include: `SOURCE_VARIABLE_ASSOCIATION_INVALID_VARIABLE`, `SOURCE_EXPRESSION_ASSOCIATION_INVALID_PREMISE`, `SOURCE_EXPRESSION_ASSOCIATION_INVALID_EXPRESSION` (errors), and `SOURCE_ORPHANED` (warning).
+Checks whether the argument is structurally ready to evaluate. Returns `{ ok, issues }`.
 
 ---
 
@@ -222,13 +222,13 @@ Returns a `TReactiveSnapshot` with structurally-shared sub-objects. Unchanged sl
 
 ### `snapshot()` → `TArgumentEngineSnapshot`
 
-Returns a serialisable snapshot of the full engine state (`{ argument, variables, premises, conclusionPremiseId, config, sources }`). Each premise snapshot includes its metadata and expression snapshot. Can be used to reconstruct the engine via `ArgumentEngine.fromSnapshot()` or to restore state in place via `rollback()`.
+Returns a serialisable snapshot of the full engine state (`{ argument, variables, premises, conclusionPremiseId, config }`). Each premise snapshot includes its metadata and expression snapshot. Can be used to reconstruct the engine via `ArgumentEngine.fromSnapshot()` or to restore state in place via `rollback()`.
 
 ---
 
-### `static fromSnapshot(snapshot, claimLibrary, sourceLibrary)` → `ArgumentEngine`
+### `static fromSnapshot(snapshot, claimLibrary, sourceLibrary, claimSourceLibrary)` → `ArgumentEngine`
 
-Reconstructs an `ArgumentEngine` from a previously captured snapshot. Requires the same `claimLibrary` (implementing `TClaimLookup`) and `sourceLibrary` (implementing `TSourceLookup`) that would be passed to the constructor. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
+Reconstructs an `ArgumentEngine` from a previously captured snapshot. Requires the same `claimLibrary` (implementing `TClaimLookup`), `sourceLibrary` (implementing `TSourceLookup`), and `claimSourceLibrary` (implementing `TClaimSourceLookup`) that would be passed to the constructor. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
 
 ---
 
@@ -238,9 +238,9 @@ Restores the engine's internal state in place from a previously captured snapsho
 
 ---
 
-### `static fromData(argument, claimLibrary, sourceLibrary, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
+### `static fromData(argument, claimLibrary, sourceLibrary, claimSourceLibrary, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
 
-Bulk-loads an engine from flat arrays (as returned by DB queries). Requires `claimLibrary` and `sourceLibrary` instances. Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
+Bulk-loads an engine from flat arrays (as returned by DB queries). Requires `claimLibrary`, `sourceLibrary`, and `claimSourceLibrary` instances. Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
 
 ---
 
@@ -250,59 +250,69 @@ Renders the full argument as a multi-line string. Each premise is prefixed with 
 
 ---
 
-### Source Association Management
+## `ClaimSourceLibrary<TAssoc>`
 
-#### `addVariableSourceAssociation(sourceId, sourceVersion, variableId)` → `TCoreMutationResult<TCoreVariableSourceAssociation>`
+Global standalone repository for claim-source associations. Implements `TClaimSourceLookup<TAssoc>`. Associations link a claim version to a source version. Create-or-delete only — no update path.
 
-Creates an association between a source version and a variable. Throws if the source version does not exist in the source library, or if the variable does not exist.
+Pass an instance to `ArgumentEngine` constructor (and `fromSnapshot`) as the fourth parameter.
 
----
+### `new ClaimSourceLibrary(claimLookup, sourceLookup, options?)`
 
-#### `removeVariableSourceAssociation(associationId)` → `TCoreMutationResult<TCoreVariableSourceAssociation | undefined>`
-
-Removes a variable–source association by ID. Returns the removed association, or `undefined` if not found.
+Creates an empty library. Validates against `claimLookup` (implementing `TClaimLookup`) and `sourceLookup` (implementing `TSourceLookup`) on every `add()` call. Accepts an optional `{ checksumConfig? }` parameter.
 
 ---
 
-#### `addExpressionSourceAssociation(sourceId, sourceVersion, expressionId, premiseId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
+### `add(assoc)` → `TAssoc`
 
-Creates an association between a source version and an expression within a specific premise. Throws if the source version does not exist in the source library, or if the premise or expression does not exist.
-
----
-
-#### `removeExpressionSourceAssociation(associationId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation | undefined>`
-
-Removes an expression–source association by ID. Returns the removed association, or `undefined` if not found.
+Adds a new association (without `checksum` — it is computed automatically). The `assoc` parameter is `Omit<TAssoc, "checksum">`. Throws if an association with the given `id` already exists, or if the referenced claim version or source version does not exist in the respective lookup.
 
 ---
 
-#### `getAssociationsForSource(sourceId)` → `{ variable, expression }`
+### `remove(id)` → `TAssoc`
 
-Returns all variable and expression associations for a given source ID (across all versions of that source).
-
----
-
-#### `getAssociationsForVariable(variableId)` → `TCoreVariableSourceAssociation[]`
-
-Returns all source associations for a given variable.
+Removes an association by ID and returns the removed entity. Throws if the association does not exist.
 
 ---
 
-#### `getAssociationsForExpression(expressionId)` → `TCoreExpressionSourceAssociation[]`
+### `get(id)` → `TAssoc | undefined`
 
-Returns all source associations for a given expression.
-
----
-
-#### `getAllVariableSourceAssociations()` → `TCoreVariableSourceAssociation[]`
-
-Returns all variable–source associations across the argument.
+Returns an association by ID, or `undefined` if not found.
 
 ---
 
-#### `getAllExpressionSourceAssociations()` → `TCoreExpressionSourceAssociation[]`
+### `getForClaim(claimId)` → `TAssoc[]`
 
-Returns all expression–source associations across the argument.
+Returns all associations for the given claim ID (across all versions).
+
+---
+
+### `getForSource(sourceId)` → `TAssoc[]`
+
+Returns all associations for the given source ID (across all versions).
+
+---
+
+### `getAll()` → `TAssoc[]`
+
+Returns all associations.
+
+---
+
+### `filter(predicate)` → `TAssoc[]`
+
+Returns associations matching the given predicate.
+
+---
+
+### `snapshot()` → `TClaimSourceLibrarySnapshot<TAssoc>`
+
+Returns a serialisable snapshot `{ claimSourceAssociations: TAssoc[] }`.
+
+---
+
+### `static fromSnapshot(snapshot, claimLookup, sourceLookup, options?)` → `ClaimSourceLibrary<TAssoc>`
+
+Reconstructs a `ClaimSourceLibrary` from a previously captured snapshot. Does not re-validate associations against the lookups.
 
 ---
 
@@ -374,9 +384,9 @@ Reconstructs a `ClaimLibrary` from a previously captured snapshot.
 
 ## `SourceLibrary<TSource>`
 
-Global versioned repository for source entities. Implements `TSourceLookup<TSource>`. Pass an instance to `ArgumentEngine` constructor and `fromSnapshot` to enable source reference validation on associations.
+Global versioned repository for source entities. Implements `TSourceLookup<TSource>`. Pass an instance to `ArgumentEngine` constructor and `fromSnapshot` to enable source reference validation on `ClaimSourceLibrary` associations.
 
-Has the same versioning and freeze semantics as `ClaimLibrary`. Source entities live here — `SourceManager` within `ArgumentEngine` manages associations only.
+Has the same versioning and freeze semantics as `ClaimLibrary`.
 
 ### `new SourceLibrary(options?)`
 
@@ -572,26 +582,6 @@ Reconstructs a `PremiseEngine` from a snapshot, with the argument and `VariableM
 
 ---
 
-### Source Convenience Methods
-
-#### `addExpressionSourceAssociation(sourceId, expressionId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation>`
-
-Creates an expression–source association, automatically filling in this premise's ID. Throws if the expression doesn't exist in this premise.
-
----
-
-#### `removeExpressionSourceAssociation(associationId)` → `TCoreMutationResult<TCoreExpressionSourceAssociation | undefined>`
-
-Removes an expression–source association by ID.
-
----
-
-#### `getSourceAssociationsForExpression(expressionId)` → `TCoreExpressionSourceAssociation[]`
-
-Returns source associations for a specific expression in this premise.
-
----
-
 ## Standalone Functions
 
 ### `diffArguments(engineA, engineB, options?)` → `TCoreArgumentDiff`
@@ -611,9 +601,7 @@ const diff = diffArguments(engineA, engineB, {
 })
 ```
 
-Default comparators exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`, `defaultCompareVariableSourceAssociation`, `defaultCompareExpressionSourceAssociation`.
-
-The diff result includes `variableSourceAssociations` and `expressionSourceAssociations` fields with the same add/remove/modify structure.
+Default comparators exported: `defaultCompareArgument`, `defaultCompareVariable`, `defaultComparePremise`, `defaultCompareExpression`.
 
 ---
 
@@ -663,7 +651,7 @@ const ast: TFormulaAST = parseFormula("(P and Q) implies R")
 
 ### `DEFAULT_CHECKSUM_CONFIG`
 
-Readonly default checksum configuration with `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`). Used by `ArgumentEngine` and `PremiseEngine` when no custom config is provided.
+Readonly default checksum configuration with `Set<string>` fields for each entity type (`expressionFields`, `variableFields`, `premiseFields`, `argumentFields`, `roleFields`, `claimFields`, `sourceFields`, `claimSourceAssociationFields`). Used by `ArgumentEngine`, `PremiseEngine`, and `ClaimSourceLibrary` when no custom config is provided.
 
 ---
 
@@ -721,17 +709,17 @@ A version of `TPropositionalExpression` with both the `position` and `checksum` 
 
 Hierarchical snapshot types for capturing and restoring engine state:
 
-| Type                         | Contains                                                                                                                                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TExpressionManagerSnapshot` | `expressions` (with checksums), `config`                                                                                                                          |
-| `TVariableManagerSnapshot`   | `variables`, `config`                                                                                                                                             |
-| `TPremiseEngineSnapshot`     | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                                                                                          |
-| `TSourceManagerSnapshot`     | `variableSourceAssociations`, `expressionSourceAssociations`                                                                                                      |
-| `TArgumentEngineSnapshot`    | `argument`, `variables` snapshot, `premises` snapshots, `sources` snapshot, `conclusionPremiseId`, `config`                                                       |
-| `TReactiveSnapshot`          | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles`, `variableSourceAssociations`, `expressionSourceAssociations` Records |
-| `TReactivePremiseSnapshot`   | `premise`, `expressions` (Record by ID), `rootExpressionId`                                                                                                       |
-| `TClaimLibrarySnapshot`      | `claims` (all versions of all claims)                                                                                                                             |
-| `TSourceLibrarySnapshot`     | `sources` (all versions of all sources)                                                                                                                           |
+| Type                          | Contains                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `TExpressionManagerSnapshot`  | `expressions` (with checksums), `config`                                                    |
+| `TVariableManagerSnapshot`    | `variables`, `config`                                                                       |
+| `TPremiseEngineSnapshot`      | `premise` metadata, `rootExpressionId`, `expressions` snapshot, `config`                    |
+| `TArgumentEngineSnapshot`     | `argument`, `variables` snapshot, `premises` snapshots, `conclusionPremiseId`, `config`     |
+| `TReactiveSnapshot`           | `argument`, `variables` (Record by ID), `premises` (Record by ID with expressions), `roles` |
+| `TReactivePremiseSnapshot`    | `premise`, `expressions` (Record by ID), `rootExpressionId`                                 |
+| `TClaimLibrarySnapshot`       | `claims` (all versions of all claims)                                                       |
+| `TSourceLibrarySnapshot`      | `sources` (all versions of all sources)                                                     |
+| `TClaimSourceLibrarySnapshot` | `claimSourceAssociations` (all associations)                                                |
 
 `TReactiveSnapshot` is the type returned by `getSnapshot()` — optimized for React with Record-based lookups and structural sharing. The other snapshot types are for serialization and restoration.
 
@@ -739,24 +727,16 @@ Each snapshot captures only what the class **owns**. Dependencies (e.g., variabl
 
 ---
 
-### `SourceManager`
+### Source and Claim-Source Types
 
-Internal manager class for source associations (variable–source and expression–source). Shared across `ArgumentEngine` and `PremiseEngine` instances (similar to `VariableManager`). Manages association storage, indices, mutations, queries, and snapshot/restore. Source entities themselves live in `SourceLibrary` — `SourceManager` is association-only and non-generic. Exported from the library barrel for advanced use cases.
-
----
-
-### Source Types
-
-| Type                               | Description                                                                                                |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `TCoreSource`                      | Base source entity (`{ id, version, frozen, checksum }`)                                                   |
-| `TCoreClaim`                       | Base claim entity (`{ id, version, frozen, checksum }`)                                                    |
-| `TCoreVariableSourceAssociation`   | Links a source version to a variable (`{ sourceId, sourceVersion, variableId, … }`)                        |
-| `TCoreExpressionSourceAssociation` | Links a source version to an expression within a premise                                                   |
-| `TSourceAssociationRemovalResult`  | Return type of bulk association removal (`{ removedVariableAssociations, removedExpressionAssociations }`) |
-| `TSourceManagement`                | Interface contract for source association management methods on `ArgumentEngine`                           |
-| `TSourceManagerSnapshot`           | Snapshot type for `SourceManager` state                                                                    |
-| `TClaimLookup`                     | Narrow read-only interface for claim lookups (`get(id, version)`)                                          |
-| `TSourceLookup`                    | Narrow read-only interface for source lookups (`get(id, version)`)                                         |
-| `TClaimLibrarySnapshot`            | Snapshot type for `ClaimLibrary` state                                                                     |
-| `TSourceLibrarySnapshot`           | Snapshot type for `SourceLibrary` state                                                                    |
+| Type                          | Description                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| `TCoreSource`                 | Base source entity (`{ id, version, frozen, checksum }`)                                            |
+| `TCoreClaim`                  | Base claim entity (`{ id, version, frozen, checksum }`)                                             |
+| `TCoreClaimSourceAssociation` | Links a claim version to a source version (`{ claimId, claimVersion, sourceId, sourceVersion, … }`) |
+| `TClaimLookup`                | Narrow read-only interface for claim lookups (`get(id, version)`)                                   |
+| `TSourceLookup`               | Narrow read-only interface for source lookups (`get(id, version)`)                                  |
+| `TClaimSourceLookup`          | Narrow read-only interface for claim-source lookups (`getForClaim`, `getForSource`, `get`)          |
+| `TClaimLibrarySnapshot`       | Snapshot type for `ClaimLibrary` state                                                              |
+| `TSourceLibrarySnapshot`      | Snapshot type for `SourceLibrary` state                                                             |
+| `TClaimSourceLibrarySnapshot` | Snapshot type for `ClaimSourceLibrary` state                                                        |

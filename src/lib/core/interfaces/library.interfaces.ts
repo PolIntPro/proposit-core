@@ -25,16 +25,23 @@ export type TSourceLibrarySnapshot<TSource extends TCoreSource = TCoreSource> =
         sources: TSource[]
     }
 
-/** Narrow read-only interface for claim-source association lookups. */
+/**
+ * Narrow read-only interface for claim-source association lookups.
+ * Implemented by `ClaimSourceLibrary`. Passed to `ArgumentEngine` as the
+ * fourth constructor parameter.
+ */
 export interface TClaimSourceLookup<
     TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
 > {
+    /** Returns all associations for the given claim ID. */
     getForClaim(claimId: string): TAssoc[]
+    /** Returns all associations for the given source ID. */
     getForSource(sourceId: string): TAssoc[]
+    /** Returns an association by ID, or `undefined` if not found. */
     get(id: string): TAssoc | undefined
 }
 
-/** Serializable snapshot of a ClaimSourceLibrary. */
+/** Serializable snapshot of a ClaimSourceLibrary (`{ claimSourceAssociations }`). */
 export type TClaimSourceLibrarySnapshot<
     TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
 > = {

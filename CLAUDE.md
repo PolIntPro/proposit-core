@@ -36,11 +36,9 @@ Non-obvious constraints enforced by the code that are easy to violate:
 - **`updateExpression` restricted swaps:** Only `and↔or` and `implies↔iff`. `not` cannot be changed (delete and re-create).
 - **Publish semantics:** Publishing marks the current version as published and copies it to a new unpublished version. All mutating CLI commands reject published versions.
 - **Variables require claim references:** Every variable must have `claimId` and `claimVersion` fields referencing a valid entry in the `ClaimLibrary`.
-- **Libraries are required by ArgumentEngine:** Constructor is `(argument, claimLibrary, sourceLibrary, options?)`. Libraries are validated at variable-add and source-association-add time.
+- **Libraries are required by ArgumentEngine:** Constructor is `(argument, claimLibrary, sourceLibrary, claimSourceLibrary, options?)`. Libraries are validated at variable-add time (claim library) and by `ClaimSourceLibrary` on association add (claim and source libraries).
 - **Claim and source libraries:** `ClaimLibrary` and `SourceLibrary` are global, versioned repositories with freeze semantics. `freeze()` locks the current version and auto-creates a new mutable copy. No deletion.
-- **Sources are library-scoped:** Source entities live in `SourceLibrary` (not argument-scoped). `SourceManager` manages associations only — no source CRUD, no orphan cleanup.
-- **Association immutability:** Source associations (variable–source and expression–source) are create-or-delete only — no update path. Associations include `sourceVersion`.
-- **Source cascade order:** Target removal → association removal. `removeVariable` cascades variable–source associations; `removeExpression` cascades expression–source associations; `removePremise` cascades all expression–source associations for that premise's expressions.
+- **Claim-source associations are global:** `ClaimSourceLibrary` is a standalone class (not argument-scoped). Create-or-delete only — no update path. Validates against `TClaimLookup` and `TSourceLookup` on `add()`. Associations link a claim version to a source version.
 
 ## Testing
 
@@ -70,5 +68,4 @@ Defined in the `brain-style` skill. Enforced by ESLint (`@typescript-eslint/nami
 - `src/lib/core/interfaces/argument-engine.interfaces.ts` [Public-Engine-API] — JSDoc for ArgumentEngine interface methods; update when ArgumentEngine public method signatures, parameters, return types, or thrown errors change
 - `src/lib/core/interfaces/premise-engine.interfaces.ts` [Public-Engine-API] — JSDoc for PremiseEngine interface methods; update when PremiseEngine public method signatures, parameters, return types, or thrown errors change
 - `src/lib/core/interfaces/shared.interfaces.ts` [Public-Engine-API] — JSDoc for shared engine interfaces (TDisplayable, TChecksummable); update when shared method signatures change
-- `src/lib/core/interfaces/source-management.interfaces.ts` [Public-Engine-API] — JSDoc for TSourceManagement interface methods; update when source management method signatures, parameters, return types, or thrown errors change
-- `src/lib/core/interfaces/library.interfaces.ts` [Public-Engine-API] — JSDoc for TClaimLookup, TSourceLookup, and library snapshot interfaces; update when library interface signatures change
+- `src/lib/core/interfaces/library.interfaces.ts` [Public-Engine-API] — JSDoc for TClaimLookup, TSourceLookup, TClaimSourceLookup, and library snapshot interfaces; update when library interface signatures change
