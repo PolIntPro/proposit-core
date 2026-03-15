@@ -120,7 +120,7 @@ Added to `src/lib/core/interfaces/library.interfaces.ts` alongside `TClaimLookup
 
 ### `ArgumentEngine` constructor
 
-Adds `TAssoc` as a new generic parameter with a default, and a 4th library parameter (read-only):
+Adds `TAssoc` as a 7th generic parameter (after existing `TSource` and `TClaim`), and a 4th library parameter (read-only):
 
 ```typescript
 class ArgumentEngine<
@@ -128,19 +128,23 @@ class ArgumentEngine<
     TPremise extends TCorePremise = TCorePremise,
     TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
     TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+    TSource extends TCoreSource = TCoreSource,
+    TClaim extends TCoreClaim = TCoreClaim,
     TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
 > {
     constructor(
-        argument: TArg,
-        claimLibrary: TClaimLookup,
-        sourceLibrary: TSourceLookup,
+        argument: TOptionalChecksum<TArg>,
+        claimLibrary: TClaimLookup<TClaim>,
+        sourceLibrary: TSourceLookup<TSource>,
         claimSourceLibrary: TClaimSourceLookup<TAssoc>,
-        options?: TArgumentEngineOptions
+        options?: TLogicEngineOptions
     )
 }
 ```
 
 `ArgumentEngine` does not mutate claim-source associations. It can query them (e.g., "what sources support the claim behind variable P?") but `ClaimSourceLibrary` is managed externally.
+
+`TArgumentEngineSnapshot` gains an optional `claimSourceAssociations` field for hydration convenience, though the library is managed externally. `fromSnapshot()` and `rollback()` remove their variable-association restoration code.
 
 ### `SourceManager` changes
 
@@ -150,6 +154,11 @@ The entire variable-association half is removed:
 - `TSourceAssociationRemovalResult` replaced by `TCoreExpressionSourceAssociation[]` (single-field wrapper no longer needed)
 - `TSourceManagerSnapshot` drops `variableSourceAssociations`
 - `getAssociationsForSource` simplified: returns `TCoreExpressionSourceAssociation[]` instead of `{ variable, expression }` (only expression associations remain)
+- `sourceToAssociations` reverse index now only tracks expression associations; the `getAssociationsForSource` implementation simplifies to a direct lookup into `expressionAssociations`
+
+### `PremiseEngine` changes
+
+`PremiseEngine` has call sites that access `.removedExpressionAssociations` on the old `TSourceAssociationRemovalResult` return type (in `removeExpression` cascade logic). These update to use the new `TCoreExpressionSourceAssociation[]` return type directly.
 
 ### `TSourceManagement` interface changes
 
@@ -246,6 +255,16 @@ Affected test blocks in `test/diff-renderer.test.ts`:
 New tests to add:
 - `ClaimSourceLibrary` — add/remove, validation against `ClaimLookup`/`SourceLookup`, `getForClaim`, `getForSource`, `filter`, snapshot/restore, duplicate ID rejection, missing claim/source rejection
 - Generic `TAssoc` extension — verify extended fields are preserved through add/snapshot/filter
+
+## Documentation sync
+
+Per CLAUDE.md Documentation Sync rules, the following files need updating:
+- `docs/api-reference.md` — remove variable-source association sections, add claim-source association sections, update `ArgumentEngine` constructor signature and generics, update `TSourceManagement` methods, update `TReactiveSnapshot`/`TCoreChangeset`/diff types
+- `README.md` — update "Variable-source association" concept references to claim-source
+- `CLI_EXAMPLES.md` — replace `sources link-variable` examples with `sources link-claim`
+- `scripts/smoke-test.sh` — replace `sources link-variable` calls with `sources link-claim`
+- `CLAUDE.md` — update design rules: constructor signature, cascade semantics (remove variable-source cascade), association immutability, libraries-required-by-ArgumentEngine
+- `src/lib/core/interfaces/source-management.interfaces.ts` — update JSDoc for removed/changed methods
 
 ## Breaking changes
 
