@@ -99,10 +99,10 @@ export const CorePropositionalVariableSchema = Type.Object(
             description:
                 'Human-readable symbol for this variable (e.g. "P", "Q").',
         }),
-        assertionId: UUID,
-        assertionVersion: Type.Number({
+        claimId: UUID,
+        claimVersion: Type.Number({
             description:
-                "The version of the assertion this variable references.",
+                "The version of the claim this variable references.",
         }),
         checksum: Type.String({
             description: "Entity-level checksum for sync detection.",
@@ -111,7 +111,7 @@ export const CorePropositionalVariableSchema = Type.Object(
     {
         additionalProperties: true,
         description:
-            "A named propositional variable belonging to a specific argument version, referencing a global assertion.",
+            "A named propositional variable belonging to a specific argument version, referencing a global claim.",
     }
 )
 

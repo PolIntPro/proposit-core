@@ -1,11 +1,11 @@
 import Type, { type Static } from "typebox"
 import { UUID } from "./shared.js"
 
-export const CoreAssertionSchema = Type.Object(
+export const CoreClaimSchema = Type.Object(
     {
         id: UUID,
         version: Type.Number({
-            description: "Assertion version number. Starts at 0.",
+            description: "Claim version number. Starts at 0.",
         }),
         frozen: Type.Boolean({
             description:
@@ -18,7 +18,7 @@ export const CoreAssertionSchema = Type.Object(
     {
         additionalProperties: true,
         description:
-            "A global assertion representing propositional content. Variables reference assertions by ID and version.",
+            "A global claim representing propositional content. Variables reference claims by ID and version.",
     }
 )
-export type TCoreAssertion = Static<typeof CoreAssertionSchema>
+export type TCoreClaim = Static<typeof CoreClaimSchema>
