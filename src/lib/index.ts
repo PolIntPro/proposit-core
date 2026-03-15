@@ -13,7 +13,7 @@ export type { TPremiseEngineSnapshot } from "./core/premise-engine.js"
 export type * from "./core/interfaces/index.js"
 export type { TExpressionManagerSnapshot } from "./core/expression-manager.js"
 export type { TVariableManagerSnapshot } from "./core/variable-manager.js"
-export { AssertionLibrary } from "./core/assertion-library.js"
+export { ClaimLibrary } from "./core/claim-library.js"
 export { SourceLibrary } from "./core/source-library.js"
 export { SourceManager } from "./core/source-manager.js"
 export type {
