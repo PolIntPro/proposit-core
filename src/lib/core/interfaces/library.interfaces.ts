@@ -1,5 +1,8 @@
 import type { TCoreClaim } from "../../schemata/claim.js"
-import type { TCoreSource } from "../../schemata/source.js"
+import type {
+    TCoreClaimSourceAssociation,
+    TCoreSource,
+} from "../../schemata/source.js"
 
 /** Narrow read-only interface for claim lookups. Used by ArgumentEngine for validation. */
 export interface TClaimLookup<TClaim extends TCoreClaim = TCoreClaim> {
@@ -21,3 +24,19 @@ export type TSourceLibrarySnapshot<TSource extends TCoreSource = TCoreSource> =
     {
         sources: TSource[]
     }
+
+/** Narrow read-only interface for claim-source association lookups. */
+export interface TClaimSourceLookup<
+    TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
+> {
+    getForClaim(claimId: string): TAssoc[]
+    getForSource(sourceId: string): TAssoc[]
+    get(id: string): TAssoc | undefined
+}
+
+/** Serializable snapshot of a ClaimSourceLibrary. */
+export type TClaimSourceLibrarySnapshot<
+    TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
+> = {
+    claimSourceAssociations: TAssoc[]
+}

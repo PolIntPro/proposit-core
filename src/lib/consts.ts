@@ -42,6 +42,13 @@ export const DEFAULT_CHECKSUM_CONFIG: Readonly<TCoreChecksumConfig> = {
         "argumentId",
         "argumentVersion",
     ]),
+    claimSourceAssociationFields: new Set([
+        "id",
+        "claimId",
+        "claimVersion",
+        "sourceId",
+        "sourceVersion",
+    ]),
 }
 
 /**
@@ -61,6 +68,7 @@ export function createChecksumConfig(
         "sourceFields",
         "variableSourceAssociationFields",
         "expressionSourceAssociationFields",
+        "claimSourceAssociationFields",
     ] as const
     const result: TCoreChecksumConfig = {}
     for (const key of keys) {

@@ -40,6 +40,31 @@ export type TCoreVariableSourceAssociation = Static<
     typeof CoreVariableSourceAssociationSchema
 >
 
+export const CoreClaimSourceAssociationSchema = Type.Object(
+    {
+        id: UUID,
+        claimId: UUID,
+        claimVersion: Type.Number({
+            description: "The version of the claim this association pins to.",
+        }),
+        sourceId: UUID,
+        sourceVersion: Type.Number({
+            description: "The version of the source this association pins to.",
+        }),
+        checksum: Type.String({
+            description: "Association checksum for sync detection.",
+        }),
+    },
+    {
+        additionalProperties: true,
+        description:
+            "An association between a claim and a source. Extended via generics for additional fields (e.g., createdBy).",
+    }
+)
+export type TCoreClaimSourceAssociation = Static<
+    typeof CoreClaimSourceAssociationSchema
+>
+
 export const CoreExpressionSourceAssociationSchema = Type.Object({
     id: UUID,
     sourceId: UUID,

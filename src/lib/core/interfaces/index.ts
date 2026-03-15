@@ -27,4 +27,6 @@ export type {
     TSourceLookup,
     TClaimLibrarySnapshot,
     TSourceLibrarySnapshot,
+    TClaimSourceLookup,
+    TClaimSourceLibrarySnapshot,
 } from "./library.interfaces.js"

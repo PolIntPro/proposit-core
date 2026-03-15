@@ -18,4 +18,6 @@ export interface TCoreChecksumConfig {
     variableSourceAssociationFields?: Set<string>
     /** Fields to hash for expression-source associations. */
     expressionSourceAssociationFields?: Set<string>
+    /** Fields to hash for claim-source associations. */
+    claimSourceAssociationFields?: Set<string>
 }
