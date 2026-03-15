@@ -41,12 +41,18 @@ Pure terminology rename. No behavioral, structural, or architectural changes. Ev
 | `assertionId` | `claimId` |
 | `assertionVersion` | `claimVersion` |
 
+### Fields (on snapshot type)
+
+| Before | After |
+|---|---|
+| `TAssertionLibrarySnapshot.assertions` | `TClaimLibrarySnapshot.claims` |
+
 ### Parameters & Properties
 
 | Before | After |
 |---|---|
 | `assertionLibrary` | `claimLibrary` |
-| `assertionFields` (checksum config) | `claimFields` |
+| `assertionFields` (checksum config type + default) | `claimFields` |
 
 ### Generic Type Parameters
 
@@ -67,19 +73,21 @@ Bottom-up rename in dependency order. Each layer compiles before moving to the n
 
 ### Layer 1 — Schemata
 - Rename `src/lib/schemata/assertion.ts` → `claim.ts`
-- Rename `CoreAssertionSchema` → `CoreClaimSchema`, `TCoreAssertion` → `TCoreClaim`
-- Update `src/lib/schemata/propositional.ts`: `assertionId` → `claimId`, `assertionVersion` → `claimVersion`, JSDoc
+- Rename `CoreAssertionSchema` → `CoreClaimSchema`, `TCoreAssertion` → `TCoreClaim`, update JSDoc descriptions
+- Update `src/lib/schemata/propositional.ts`: `assertionId` → `claimId`, `assertionVersion` → `claimVersion`, JSDoc descriptions
 - Update `src/lib/schemata/index.ts` re-export path
 
 ### Layer 2 — Interfaces & Types
-- Update `src/lib/core/interfaces/library.interfaces.ts`: rename types, generic params
+- Update `src/lib/core/interfaces/library.interfaces.ts`: rename types, generic params, `assertions` field → `claims`, JSDoc
+- Update `src/lib/core/interfaces/argument-engine.interfaces.ts`: `assertionId`/`assertionVersion` in `updateVariable` signature and JSDoc
 - Update `src/lib/core/interfaces/index.ts` re-exports
+- Update `src/lib/types/checksum.ts`: `assertionFields` → `claimFields` on `TCoreChecksumConfig`
 
 ### Layer 3 — Core Implementation
 - Rename `src/lib/core/assertion-library.ts` → `claim-library.ts`
-- Rename class `AssertionLibrary` → `ClaimLibrary`, all internals, error messages
-- Update `src/lib/consts.ts`: `assertionFields` → `claimFields`, field name strings
-- Update `src/lib/core/argument-engine.ts`: parameter names, validation, error messages
+- Rename class `AssertionLibrary` → `ClaimLibrary`, all internals, error messages, snapshot `assertions` → `claims`
+- Update `src/lib/consts.ts`: `assertionFields` → `claimFields`, string literals `"assertionId"` → `"claimId"`, `"assertionVersion"` → `"claimVersion"`, `"assertionFields"` → `"claimFields"` in config keys
+- Update `src/lib/core/argument-engine.ts`: parameter names, validation, error messages (4 distinct error strings), inline comments
 - Update `src/lib/core/diff.ts`: field comparison references
 
 ### Layer 4 — Barrel Exports
@@ -91,7 +99,7 @@ Bottom-up rename in dependency order. Each layer compiles before moving to the n
 - Update `src/cli/commands/variables.ts`: TODO comment
 
 ### Layer 6 — Tests
-- Update `test/core.test.ts`: ~134 fixture occurrences, `AssertionLibrary` instantiation
+- Update `test/core.test.ts`: ~134 fixture occurrences, `AssertionLibrary` instantiation, `aLib()` and `makeVar()` helpers
 - Update `test/diff-renderer.test.ts`: fixture occurrences
 
 ### Layer 7 — Documentation
