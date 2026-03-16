@@ -83,6 +83,8 @@ import type {
     TParsedPremise,
     TParsedArgumentResponse,
 } from "../src/lib/parsing/schemata"
+import { buildParsingPrompt } from "../src/lib/parsing/prompt-builder"
+import { ArgumentParser } from "../src/lib/parsing/argument-parser"
 import Type from "typebox"
 
 type TVariableInput = TOptionalChecksum<TClaimBoundVariable>
@@ -12495,6 +12497,132 @@ describe("Parsing — response schemas", () => {
             const props = jsonSchema.properties as Record<string, unknown>
             expect(props).toBeDefined()
             expect(props.argument).toBeDefined()
+        })
+    })
+
+    describe("Parsing — prompt builder", () => {
+        it("includes core instructions with default schema", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
+            expect(prompt).toContain("expert argument analyst")
+            expect(prompt).toContain("propositional argument")
+            expect(prompt).toContain("uncategorizedText")
+            expect(prompt).toContain("selectionRationale")
+            expect(prompt).toContain("failureText")
+            expect(prompt).toContain("implies")
+            expect(prompt).toContain("third person")
+        })
+
+        it("includes formula syntax rules", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
+            expect(prompt).toContain("and")
+            expect(prompt).toContain("or")
+            expect(prompt).toContain("not")
+            expect(prompt).toContain("implies")
+            expect(prompt).toContain("iff")
+            expect(prompt).toContain("parentheses")
+        })
+
+        it("includes root-only constraint for implies and iff", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
+            expect(prompt).toMatch(/implies.*root/i)
+            expect(prompt).toMatch(/iff.*root/i)
+        })
+
+        it("discovers extension fields and generates constraint instructions", () => {
+            const extended = buildParsingResponseSchema({
+                claimSchema: Type.Object({
+                    title: Type.String({
+                        maxLength: 50,
+                        description: "A short title for the claim",
+                    }),
+                    body: Type.String({ maxLength: 500 }),
+                }),
+            })
+            const prompt = buildParsingPrompt(extended)
+            expect(prompt).toContain("title")
+            expect(prompt).toContain("50")
+            expect(prompt).toContain("body")
+            expect(prompt).toContain("500")
+        })
+
+        it("appends customInstructions", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema, {
+                customInstructions: 'CMV means "change my view"',
+            })
+            expect(prompt).toContain('CMV means "change my view"')
+        })
+
+        it("does not include extension instructions for core-only schema", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
+            expect(prompt).not.toContain("maxLength")
+        })
+    })
+
+    // -----------------------------------------------------------------------
+    // Parsing — ArgumentParser
+    // -----------------------------------------------------------------------
+    describe("Parsing — ArgumentParser", () => {
+        function validResponse(): TParsedArgumentResponse {
+            return {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "C1",
+                            role: "premise",
+                            sourceMiniIds: ["S1"],
+                        },
+                        {
+                            miniId: "C2",
+                            role: "conclusion",
+                            sourceMiniIds: [],
+                        },
+                    ],
+                    variables: [
+                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
+                        { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
+                    ],
+                    sources: [{ miniId: "S1", text: "Some source" }],
+                    premises: [
+                        { miniId: "P1", formula: "P implies Q" },
+                        { miniId: "P2", formula: "P" },
+                    ],
+                    conclusionPremiseMiniId: "P1",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+        }
+
+        describe("validate", () => {
+            it("accepts a valid response", () => {
+                const parser = new ArgumentParser()
+                const result = parser.validate(validResponse())
+                expect(result.argument).toBeDefined()
+                expect(result.argument!.claims).toHaveLength(2)
+            })
+
+            it("accepts null argument with failureText", () => {
+                const parser = new ArgumentParser()
+                const result = parser.validate({
+                    argument: null,
+                    uncategorizedText: null,
+                    selectionRationale: null,
+                    failureText: "Could not parse",
+                })
+                expect(result.argument).toBeNull()
+                expect(result.failureText).toBe("Could not parse")
+            })
+
+            it("throws on malformed input", () => {
+                const parser = new ArgumentParser()
+                expect(() => parser.validate("not an object")).toThrow()
+            })
+
+            it("throws on missing required fields", () => {
+                const parser = new ArgumentParser()
+                expect(() => parser.validate({ argument: {} })).toThrow()
+            })
         })
     })
 })
