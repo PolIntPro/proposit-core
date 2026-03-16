@@ -8,6 +8,11 @@ import {
     requireConfirmation,
 } from "../output.js"
 import { readVersionMeta } from "../storage/arguments.js"
+import {
+    isClaimBound,
+    isPremiseBound,
+    type TCorePropositionalVariable,
+} from "../../lib/schemata/index.js"
 
 async function assertNotPublished(
     argumentId: string,
@@ -61,6 +66,46 @@ export function registerVariableCommands(
             printLine(newId)
         })
 
+    vars.command("bind <symbol>")
+        .description(
+            "Register a premise-bound variable whose truth value derives from another premise"
+        )
+        .requiredOption("--premiseId <premise_id>", "ID of the premise to bind")
+        .option(
+            "--id <variable_id>",
+            "Explicit variable ID (default: generated UUID)"
+        )
+        .action(
+            async (
+                symbol: string,
+                opts: { premiseId: string; id?: string }
+            ) => {
+                await assertNotPublished(argumentId, version)
+                const engine = await hydrateEngine(argumentId, version)
+
+                const newId = opts.id ?? randomUUID()
+
+                try {
+                    engine.bindVariableToPremise({
+                        id: newId,
+                        argumentId,
+                        argumentVersion: version,
+                        symbol,
+                        boundPremiseId: opts.premiseId,
+                        boundArgumentId: argumentId,
+                        boundArgumentVersion: version,
+                    })
+                } catch (err) {
+                    errorExit(
+                        err instanceof Error ? err.message : String(err)
+                    )
+                }
+
+                await persistEngine(engine)
+                printLine(newId)
+            }
+        )
+
     vars.command("list")
         .description("List all variables")
         .option("--json", "Output as JSON")
@@ -72,7 +117,17 @@ export function registerVariableCommands(
                 printJson(variables)
             } else {
                 for (const v of variables) {
-                    printLine(`${v.id} | ${v.symbol}`)
+                    const typed =
+                        v as unknown as TCorePropositionalVariable
+                    let binding = ""
+                    if (isClaimBound(typed)) {
+                        const cv = typed
+                        binding = ` (claim: ${cv.claimId}@${cv.claimVersion})`
+                    } else if (isPremiseBound(typed)) {
+                        const pv = typed
+                        binding = ` (bound to premise: ${pv.boundPremiseId})`
+                    }
+                    printLine(`${v.id} | ${v.symbol}${binding}`)
                 }
             }
         })
