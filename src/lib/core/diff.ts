@@ -25,12 +25,12 @@ export function defaultCompareArgument(
     return []
 }
 
-/** Compares two variables and returns field-level changes for `symbol`, `claimId`, and `claimVersion`. */
-export function defaultCompareVariable(
-    before: TCorePropositionalVariable,
-    after: TCorePropositionalVariable
-): TCoreFieldChange[] {
+/** Compares two variables and returns field-level changes for `symbol` and binding-specific fields. */
+export function defaultCompareVariable<
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+>(before: TVar, after: TVar): TCoreFieldChange[] {
     const changes: TCoreFieldChange[] = []
+
     if (before.symbol !== after.symbol) {
         changes.push({
             field: "symbol",
@@ -38,20 +38,23 @@ export function defaultCompareVariable(
             after: after.symbol,
         })
     }
-    if (before.claimId !== after.claimId) {
-        changes.push({
-            field: "claimId",
-            before: before.claimId,
-            after: after.claimId,
-        })
+
+    const bindingFields = [
+        "claimId",
+        "claimVersion",
+        "boundPremiseId",
+        "boundArgumentId",
+        "boundArgumentVersion",
+    ] as const
+
+    for (const field of bindingFields) {
+        const bVal = (before as Record<string, unknown>)[field]
+        const aVal = (after as Record<string, unknown>)[field]
+        if (bVal !== aVal) {
+            changes.push({ field, before: bVal, after: aVal })
+        }
     }
-    if (before.claimVersion !== after.claimVersion) {
-        changes.push({
-            field: "claimVersion",
-            before: before.claimVersion,
-            after: after.claimVersion,
-        })
-    }
+
     return changes
 }
 

@@ -11570,3 +11570,69 @@ describe("Premise-variable associations — updateVariable", () => {
         ).toThrow()
     })
 })
+
+// ---------------------------------------------------------------------------
+// Premise-variable associations — diff
+// ---------------------------------------------------------------------------
+
+describe("Premise-variable associations — diff", () => {
+    it("detects changes on premise-bound variable fields", () => {
+        const before: TCorePropositionalVariable = {
+            id: "v1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+            checksum: "",
+        }
+        const after: TCorePropositionalVariable = {
+            id: "v1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p2",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+            checksum: "",
+        }
+        const changes = defaultCompareVariable(before, after)
+        expect(changes).toHaveLength(1)
+        expect(changes[0].field).toBe("boundPremiseId")
+    })
+
+    it("detects cross-variant change", () => {
+        const before: TCorePropositionalVariable = {
+            id: "v1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            claimId: "c1",
+            claimVersion: 0,
+            checksum: "",
+        }
+        const after: TCorePropositionalVariable = {
+            id: "v1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+            checksum: "",
+        }
+        const changes = defaultCompareVariable<TCorePropositionalVariable>(
+            before,
+            after
+        )
+        const fields = changes.map((c) => c.field).sort()
+        expect(fields).toEqual([
+            "boundArgumentId",
+            "boundArgumentVersion",
+            "boundPremiseId",
+            "claimId",
+            "claimVersion",
+        ])
+    })
+})
