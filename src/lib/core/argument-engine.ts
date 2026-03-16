@@ -1388,8 +1388,7 @@ export class ArgumentEngine<
                 ) {
                     return assignment.variables[variableId] ?? null
                 }
-                const boundPremiseId = (variable)
-                    .boundPremiseId
+                const boundPremiseId = variable.boundPremiseId
                 const boundPremise = this.premises.get(boundPremiseId)
                 if (!boundPremise) {
                     resolverCache.set(variableId, null)
