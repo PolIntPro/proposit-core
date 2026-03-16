@@ -968,10 +968,7 @@ export class PremiseEngine<
                     const variable = this.variables.getVariable(
                         expression.variableId
                     )
-                    if (
-                        variable &&
-                        isPremiseBound(variable)
-                    ) {
+                    if (variable && isPremiseBound(variable)) {
                         value = options.resolver(expression.variableId)
                     } else {
                         value =
@@ -1040,10 +1037,7 @@ export class PremiseEngine<
         for (const variableId of referencedVariableIds) {
             if (options?.resolver) {
                 const variable = this.variables.getVariable(variableId)
-                if (
-                    variable &&
-                    isPremiseBound(variable)
-                ) {
+                if (variable && isPremiseBound(variable)) {
                     variableValues[variableId] = options.resolver(variableId)
                     continue
                 }

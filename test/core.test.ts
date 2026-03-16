@@ -11565,9 +11565,7 @@ describe("Premise-variable associations — updateVariable", () => {
 
     it("rejects binding-type conversion on premise-bound variable", () => {
         const engine = makeEngine()
-        expect(() =>
-            engine.updateVariable("vQ", { claimId: "c1" })
-        ).toThrow()
+        expect(() => engine.updateVariable("vQ", { claimId: "c1" })).toThrow()
     })
 })
 

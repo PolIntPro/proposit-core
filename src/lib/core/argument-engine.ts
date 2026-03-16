@@ -634,8 +634,7 @@ export class ArgumentEngine<
             return { result: undefined, changes: {} }
         }
 
-        const existingVar =
-            existing as unknown as TCorePropositionalVariable
+        const existingVar = existing as unknown as TCorePropositionalVariable
         const updatesObj = updates
 
         // Reject binding-type conversion
@@ -982,22 +981,14 @@ export class ArgumentEngine<
         }
         // Restore claim-bound variables first, then premise-bound variables
         for (const v of snapshot.variables.variables) {
-            if (
-                isClaimBound(
-                    v as unknown as TCorePropositionalVariable
-                )
-            ) {
+            if (isClaimBound(v as unknown as TCorePropositionalVariable)) {
                 engine.addVariable(
                     v as unknown as TOptionalChecksum<TClaimBoundVariable>
                 )
             }
         }
         for (const v of snapshot.variables.variables) {
-            if (
-                isPremiseBound(
-                    v as unknown as TCorePropositionalVariable
-                )
-            ) {
+            if (isPremiseBound(v as unknown as TCorePropositionalVariable)) {
                 engine.bindVariableToPremise(
                     v as unknown as TOptionalChecksum<TPremiseBoundVariable>
                 )
@@ -1047,11 +1038,7 @@ export class ArgumentEngine<
 
         // Register claim-bound variables first (no dependencies)
         for (const v of variables) {
-            if (
-                isClaimBound(
-                    v as unknown as TCorePropositionalVariable
-                )
-            ) {
+            if (isClaimBound(v as unknown as TCorePropositionalVariable)) {
                 engine.addVariable(
                     v as unknown as TOptionalChecksum<TClaimBoundVariable>
                 )
@@ -1080,11 +1067,7 @@ export class ArgumentEngine<
 
         // Register premise-bound variables (depend on premises)
         for (const v of variables) {
-            if (
-                isPremiseBound(
-                    v as unknown as TCorePropositionalVariable
-                )
-            ) {
+            if (isPremiseBound(v as unknown as TCorePropositionalVariable)) {
                 engine.bindVariableToPremise(
                     v as unknown as TOptionalChecksum<TPremiseBoundVariable>
                 )
@@ -1467,10 +1450,7 @@ export class ArgumentEngine<
                     return resolverCache.get(variableId)!
                 }
                 const variable = this.variables.getVariable(variableId)
-                if (
-                    !variable ||
-                    !isPremiseBound(variable)
-                ) {
+                if (!variable || !isPremiseBound(variable)) {
                     return assignment.variables[variableId] ?? null
                 }
                 const boundPremiseId = variable.boundPremiseId
