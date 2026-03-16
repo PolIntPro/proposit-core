@@ -110,7 +110,9 @@ All expression mutation methods that accept variable-type expressions check for 
 
 **`updateVariable(variableId, updates)`**
 
-Accepts symbol changes for both variable types. Claim-bound variables can also update `claimId`/`claimVersion` (existing behavior, with claim library validation). Premise-bound variables can update `boundPremiseId` (to rebind to a different premise, with circularity validation). Does not accept binding-type conversion (claim-bound to premise-bound or vice versa). To change binding type, delete and recreate the variable. If called with fields from the wrong variant, throws an error.
+Accepts symbol changes for both variable types. Claim-bound variables can also update `claimId`/`claimVersion` (with claim library validation). Premise-bound variables can update `boundPremiseId` (to rebind to a different premise, with circularity validation). Does not accept binding-type conversion (claim-bound to premise-bound or vice versa). To change binding type, delete and recreate the variable. If called with fields from the wrong variant, throws an error.
+
+**Note:** The current `VariableManager.updateVariable` only processes `symbol` updates — other fields are silently ignored. This is a pre-existing bug. As part of this feature, `VariableManager.updateVariable` must be generalized to apply all provided fields (not just `symbol`), since both `claimId`/`claimVersion` and `boundPremiseId` updates need to persist.
 
 **`checkValidity` / `evaluate`**
 
@@ -124,7 +126,9 @@ Assignment generation filters out premise-bound variables — only claim-bound v
 
 ### Snapshot Restoration
 
-`fromSnapshot`, `fromData`, and `rollback` must handle both variable types during restoration. When iterating variables from a snapshot, check the variant: call `addVariable` for claim-bound variables and `bindVariableToPremise` for premise-bound variables. Premise-bound variables must be restored after the premises they reference, so restoration order is: argument → premises (with expressions) → claim-bound variables → premise-bound variables. This is a change from the current restoration order (which restores variables before premises); claim-bound variables have no dependency on premise ordering, so moving them after premises is safe. Snapshot JSON round-tripping preserves discriminant fields (`claimId` vs `boundPremiseId`) naturally since both schema variants use `additionalProperties: true`.
+`fromSnapshot` and `fromData` must handle both variable types during restoration. When iterating variables from a snapshot, check the variant: call `addVariable` for claim-bound variables and `bindVariableToPremise` for premise-bound variables. Premise-bound variables must be restored after the premises they reference, so restoration order is: argument → premises (with expressions) → claim-bound variables → premise-bound variables. This is a change from the current restoration order (which restores variables before premises); claim-bound variables have no dependency on premise ordering, so moving them after premises is safe. Snapshot JSON round-tripping preserves discriminant fields (`claimId` vs `boundPremiseId`) naturally since both schema variants use `additionalProperties: true`.
+
+`rollback` requires no changes. It uses `VariableManager.fromSnapshot()` which directly reconstructs the variable store from raw data without validation. Since `VariableManager` stores `TVar` generically without inspecting binding fields, both variants are restored transparently.
 
 ### Internal Components
 
@@ -177,7 +181,7 @@ If a bound premise's tree contains another premise-bound variable, the evaluator
 
 ### Caching
 
-A premise-bound variable produces the same value for a given assignment regardless of where it appears. The resolver callback maintains a `Map<string, boolean | null>` cache keyed by variable ID, scoped to a single `ArgumentEngine.evaluate` call (one cache per assignment, including `rejectedExpressionIds`). When the resolver is asked to resolve a variable it has already computed for the current assignment, it returns the cached value. The cache is created fresh for each assignment.
+A premise-bound variable produces the same value for a given assignment regardless of where it appears. The resolver callback maintains a `Map<string, boolean | null>` cache keyed by variable ID, scoped to a single `ArgumentEngine.evaluate` invocation (one cache per `(assignment, rejectedExpressionIds)` pair). When the resolver is asked to resolve a variable it has already computed, it returns the cached value. The cache is created fresh for each `evaluate` call.
 
 ### Validation
 
