@@ -11,21 +11,21 @@ A companion `src/extensions/basics/` module demonstrates the extension pattern b
 
 ## Decisions
 
-| Decision | Choice |
-|----------|--------|
-| Scope | Raw text → full proposit model (claims, sources, variables, premises with formula-string ASTs) |
-| Argument count | Single argument; `selectionRationale` explains choice if multiple found |
-| Unprocessable content | `uncategorizedText` field for irrelevant/unprocessable text |
-| Source representation | Minimal — raw text/URL + miniId; developer maps to their `TSource` |
-| Ingestion phases | Two-phase: validate response → build engine + libraries |
-| Prompt strategy | Hybrid — hand-crafted core prose + schema-driven extension instructions |
-| Schema constraint discovery | Prompt builder reads `minLength`/`maxLength`/`description` from TypeBox attributes |
-| Builder extensibility | Subclassable class with protected mapping hooks |
-| Formula format | Formula strings (e.g., `"V1 and V2 implies V3"`) parsed by existing `parseFormula()` |
-| Module location | `src/lib/parsing/` (core), `src/extensions/basics/` (metadata extension) |
-| Naming | "parsing" — `ArgumentParser`, `TParsedArgumentResponse`, etc. |
-| Metadata fields | Not in core schemas; provided by basics extension (title/body on claims, title on premises and arguments) |
-| Cross-reference identifiers | `miniId` — short placeholder for future UUIDs, avoids collision with propositional variable "symbol" |
+| Decision                    | Choice                                                                                                    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Scope                       | Raw text → full proposit model (claims, sources, variables, premises with formula-string ASTs)            |
+| Argument count              | Single argument; `selectionRationale` explains choice if multiple found                                   |
+| Unprocessable content       | `uncategorizedText` field for irrelevant/unprocessable text                                               |
+| Source representation       | Minimal — raw text/URL + miniId; developer maps to their `TSource`                                        |
+| Ingestion phases            | Two-phase: validate response → build engine + libraries                                                   |
+| Prompt strategy             | Hybrid — hand-crafted core prose + schema-driven extension instructions                                   |
+| Schema constraint discovery | Prompt builder reads `minLength`/`maxLength`/`description` from TypeBox attributes                        |
+| Builder extensibility       | Subclassable class with protected mapping hooks                                                           |
+| Formula format              | Formula strings (e.g., `"V1 and V2 implies V3"`) parsed by existing `parseFormula()`                      |
+| Module location             | `src/lib/parsing/` (core), `src/extensions/basics/` (metadata extension)                                  |
+| Naming                      | "parsing" — `ArgumentParser`, `TParsedArgumentResponse`, etc.                                             |
+| Metadata fields             | Not in core schemas; provided by basics extension (title/body on claims, title on premises and arguments) |
+| Cross-reference identifiers | `miniId` — short placeholder for future UUIDs, avoids collision with propositional variable "symbol"      |
 
 ## Module Layout
 
@@ -74,15 +74,15 @@ All schemas use `additionalProperties: true` for developer extensibility.
 }
 ```
 
-The `role` field is informational metadata — it communicates the AI's assessment of each claim's function in the argument. The authoritative conclusion designation is `conclusionPremiseMiniId` on the argument object, which references a *premise* (not a claim), consistent with `ArgumentEngine.setConclusionPremise()`.
+The `role` field is informational metadata — it communicates the AI's assessment of each claim's function in the argument. The authoritative conclusion designation is `conclusionPremiseMiniId` on the argument object, which references a _premise_ (not a claim), consistent with `ArgumentEngine.setConclusionPremise()`.
 
 ### `TParsedVariable`
 
 ```typescript
 {
-  miniId: string              // e.g., "V1" — used in formula strings
-  symbol: string              // Propositional symbol, e.g., "P", "Q"
-  claimMiniId: string         // Which claim this variable is bound to
+    miniId: string // e.g., "V1" — used in formula strings
+    symbol: string // Propositional symbol, e.g., "P", "Q"
+    claimMiniId: string // Which claim this variable is bound to
 }
 ```
 
@@ -94,8 +94,8 @@ One variable per claim within an argument. If multiple premises reference the sa
 
 ```typescript
 {
-  miniId: string              // e.g., "S1"
-  text: string                // Citation/URL as it appears in the text
+    miniId: string // e.g., "S1"
+    text: string // Citation/URL as it appears in the text
 }
 ```
 
@@ -105,12 +105,12 @@ Note: `TCoreSource` has no `text` field — it only has system fields (`id`, `ve
 
 ```typescript
 {
-  miniId: string              // e.g., "P1"
-  formula: string             // e.g., "V1 and V2 implies V3"
+    miniId: string // e.g., "P1"
+    formula: string // e.g., "P and Q implies R"
 }
 ```
 
-Formula strings use the syntax accepted by `parseFormula()`: variable miniIds as operand names, `and`, `or`, `not`, `implies`, `iff` as operators, parentheses for grouping.
+Formula strings use the syntax accepted by `parseFormula()`: variable **symbols** (not miniIds) as operand names, `and`, `or`, `not`, `implies`, `iff` as operators (word-based), parentheses for grouping. The parser also accepts symbolic operators (`&&`, `||`, `!`, `->`, `<->`, `∧`, `∨`, `¬`, `→`, `↔`).
 
 **Root-only constraint:** `implies` and `iff` operators must appear only at the root of a formula (they cannot be nested). This matches the engine's invariant enforced by `ExpressionManager`. The prompt builder includes this constraint in its formula syntax instructions.
 
@@ -118,26 +118,26 @@ Formula strings use the syntax accepted by `parseFormula()`: variable miniIds as
 
 ```typescript
 type TPromptOptions = {
-  customInstructions?: string
+    customInstructions?: string
 }
 
 function buildParsingPrompt(
-  responseSchema: TSchema,
-  options?: TPromptOptions
+    responseSchema: TSchema,
+    options?: TPromptOptions
 ): string
 ```
 
 ### Behavior
 
 1. **Core prompt** — hand-crafted prose adapted from the server's existing prompts:
-   - "You are an expert argument analyst. Analyze the provided text and convert it into a structured propositional argument."
-   - Instructions for identifying claims, assigning variables (one per claim, shared across premises), writing formula strings
-   - Content that doesn't fit → `uncategorizedText`
-   - Multiple arguments → pick the most substantial, explain in `selectionRationale`
-   - Can't parse → set `argument` to null, explain in `failureText`
-   - Formula syntax rules (operators: `and`, `or`, `not`, `implies`, `iff`; parentheses for grouping)
-   - Root-only constraint: `implies` and `iff` must appear only at the root level of a formula, never nested inside other operators
-   - Third person, active voice, present tense
+    - "You are an expert argument analyst. Analyze the provided text and convert it into a structured propositional argument."
+    - Instructions for identifying claims, assigning variables (one per claim, shared across premises), writing formula strings
+    - Content that doesn't fit → `uncategorizedText`
+    - Multiple arguments → pick the most substantial, explain in `selectionRationale`
+    - Can't parse → set `argument` to null, explain in `failureText`
+    - Formula syntax rules (operators: `and`, `or`, `not`, `implies`, `iff`; parentheses for grouping)
+    - Root-only constraint: `implies` and `iff` must appear only at the root level of a formula, never nested inside other operators
+    - Third person, active voice, present tense
 
 2. **Schema-driven extension instructions** — walks the response schema to discover fields beyond the core set. For each extension field, generates an instruction line using the field's `description`, `minLength`, and `maxLength` TypeBox attributes.
 
@@ -147,17 +147,15 @@ function buildParsingPrompt(
 
 ```typescript
 type TParsingSchemaOptions = {
-  claimSchema?: TSchema
-  sourceSchema?: TSchema
-  variableSchema?: TSchema
-  premiseSchema?: TSchema
-  parsedArgumentSchema?: TSchema   // Extends the inner parsed argument object, not TCoreArgument
-  responseSchema?: TSchema         // Extends the outer TParsedArgumentResponse
+    claimSchema?: TSchema
+    sourceSchema?: TSchema
+    variableSchema?: TSchema
+    premiseSchema?: TSchema
+    parsedArgumentSchema?: TSchema // Extends the inner parsed argument object, not TCoreArgument
+    responseSchema?: TSchema // Extends the outer TParsedArgumentResponse
 }
 
-function buildParsingResponseSchema(
-  options?: TParsingSchemaOptions
-): TSchema
+function buildParsingResponseSchema(options?: TParsingSchemaOptions): TSchema
 ```
 
 With no options, returns the core response schema. When extensions are provided, merges the developer's additional fields into the corresponding schema objects. The resulting schema is passed to both `buildParsingPrompt()` and `getParsingResponseSchema()`.
@@ -165,9 +163,7 @@ With no options, returns the core response schema. When extensions are provided,
 ## Response Schema Utility
 
 ```typescript
-function getParsingResponseSchema(
-  schema?: TSchema
-): object
+function getParsingResponseSchema(schema?: TSchema): object
 ```
 
 Converts the TypeBox response schema to a standard JSON Schema object for use with any AI model's structured output configuration. Model-agnostic — the developer handles model-specific wrapping.
@@ -189,12 +185,15 @@ class ArgumentParser<
 ### Two-Phase API
 
 **Phase 1 — Validate:**
+
 ```typescript
 validate(raw: unknown): TParsedArgumentResponse
 ```
+
 Validates raw JSON against the response schema (core or extended). Throws on invalid input.
 
 **Phase 2 — Build:**
+
 ```typescript
 build(response: TParsedArgumentResponse): {
   engine: ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc>
@@ -240,6 +239,7 @@ Mapping hooks return extension fields only. System fields (`id`, `version`, `fro
 ### Extended Schemas (`src/extensions/basics/schemata.ts`)
 
 Core entity extensions:
+
 - `TBasicsArgument` = `TCoreArgument & { title: string, description?: string }`
 - `TBasicsClaim` = `TCoreClaim & { title: string, body: string }`
 - `TBasicsPremise` = `TCorePremise & { title: string }`
@@ -247,6 +247,7 @@ Core entity extensions:
 Note: `TBasicsArgument.description` is optional and not populated by the parsing pipeline. It exists on the entity type for non-parsing workflows (e.g., manual argument creation).
 
 Parsing response extensions (passed to `buildParsingResponseSchema()`):
+
 - `claimSchema`: `TParsedClaim` + `title: Type.String({ maxLength: 50 })`, `body: Type.String({ maxLength: 500 })`
 - `premiseSchema`: `TParsedPremise` + `title: Type.String({ maxLength: 50 })`
 - `parsedArgumentSchema`: argument-level object + `title: Type.String({ maxLength: 50 })`
@@ -280,11 +281,18 @@ Exports a `BasicsParsingSchema` — the result of calling `buildParsingResponseS
 ```typescript
 export { ArgumentParser } from "./parsing/argument-parser.js"
 export { buildParsingPrompt } from "./parsing/prompt-builder.js"
-export { buildParsingResponseSchema, getParsingResponseSchema } from "./parsing/schemata.js"
+export {
+    buildParsingResponseSchema,
+    getParsingResponseSchema,
+} from "./parsing/schemata.js"
 export type {
-  TParsedArgumentResponse, TParsedClaim, TParsedSource,
-  TParsedVariable, TParsedPremise, TPromptOptions,
-  TParsingSchemaOptions
+    TParsedArgumentResponse,
+    TParsedClaim,
+    TParsedSource,
+    TParsedVariable,
+    TParsedPremise,
+    TPromptOptions,
+    TParsingSchemaOptions,
 } from "./parsing/index.js"
 ```
 
@@ -295,7 +303,11 @@ Imported separately via `proposit-core/extensions/basics`:
 ```typescript
 export { BasicsArgumentParser } from "./argument-parser.js"
 export { BasicsParsingSchema } from "./schemata.js"
-export type { TBasicsArgument, TBasicsClaim, TBasicsPremise } from "./schemata.js"
+export type {
+    TBasicsArgument,
+    TBasicsClaim,
+    TBasicsPremise,
+} from "./schemata.js"
 ```
 
 ## Testing
