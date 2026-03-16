@@ -4,6 +4,38 @@ Core engine for building, evaluating, and checking the logical validity of propo
 
 Also ships a **CLI** (`proposit-core`) for managing arguments, premises, variables, expressions, and analyses stored on disk.
 
+## Visual Overview
+
+```mermaid
+flowchart TD
+    AE["ArgumentEngine"]
+
+    AE --> PM["PremiseEngine (0..N)"]
+    AE --> VM["Variables (0..N, shared)"]
+    AE --> Roles["Roles"]
+
+    PM --> EM["ExpressionManager"]
+    EM --> ET["Expression Tree"]
+
+    VM --> CBV["Claim-Bound\n(claimId, claimVersion)"]
+    VM --> PBV["Premise-Bound\n(boundPremiseId,\nboundArgumentId,\nboundArgumentVersion)"]
+
+    CBV -.-> CL
+    PBV -.->|"references specific premise\n(may be cross-argument)"| PM
+
+    Roles -.->|"conclusionPremiseId\n(supporting & constraint\nroles are derived)"| PM
+
+    subgraph Injected["Injected Libraries"]
+        CL["ClaimLibrary"]
+        SL["SourceLibrary"]
+        CSL["ClaimSourceLibrary"]
+    end
+
+    AE -.-> Injected
+
+    style Injected fill:none,stroke:#888,stroke-dasharray: 5 5
+```
+
 ## Installation
 
 ```bash
