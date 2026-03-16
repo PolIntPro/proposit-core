@@ -10787,6 +10787,7 @@ describe("Premise-variable associations — removePremise cascade", () => {
             argumentId: "a1",
             argumentVersion: 0,
             premiseId: "p2",
+            parentId: null,
             type: "variable",
             variableId: "vQ",
         })
