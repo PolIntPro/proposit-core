@@ -470,9 +470,7 @@ export class ArgumentParser<
     // Protected mapping hooks — override to inject custom fields
     // -----------------------------------------------------------------------
 
-    protected mapArgument(
-        _parsed: TParsedArgument
-    ): Record<string, unknown> {
+    protected mapArgument(_parsed: TParsedArgument): Record<string, unknown> {
         return {}
     }
 

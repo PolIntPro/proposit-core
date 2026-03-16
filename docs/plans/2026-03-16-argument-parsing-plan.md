@@ -16,34 +16,34 @@
 
 ### New files — Core parsing (`src/lib/parsing/`)
 
-| File | Responsibility |
-|------|---------------|
-| `src/lib/parsing/types.ts` | `TPromptOptions`, `TParsingSchemaOptions` types |
-| `src/lib/parsing/schemata.ts` | TypeBox response schemas (`ParsedArgumentResponseSchema`, etc.), `buildParsingResponseSchema()`, `getParsingResponseSchema()` |
-| `src/lib/parsing/prompt-builder.ts` | `buildParsingPrompt()` — hand-crafted core prompt + schema-driven extension instructions |
-| `src/lib/parsing/argument-parser.ts` | `ArgumentParser` class — validate + build + protected mapping hooks |
-| `src/lib/parsing/index.ts` | Barrel re-exports |
+| File                                 | Responsibility                                                                                                                |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/parsing/types.ts`           | `TPromptOptions`, `TParsingSchemaOptions` types                                                                               |
+| `src/lib/parsing/schemata.ts`        | TypeBox response schemas (`ParsedArgumentResponseSchema`, etc.), `buildParsingResponseSchema()`, `getParsingResponseSchema()` |
+| `src/lib/parsing/prompt-builder.ts`  | `buildParsingPrompt()` — hand-crafted core prompt + schema-driven extension instructions                                      |
+| `src/lib/parsing/argument-parser.ts` | `ArgumentParser` class — validate + build + protected mapping hooks                                                           |
+| `src/lib/parsing/index.ts`           | Barrel re-exports                                                                                                             |
 
 ### New files — Basics extension (`src/extensions/basics/`)
 
-| File | Responsibility |
-|------|---------------|
-| `src/extensions/basics/schemata.ts` | `TBasicsArgument`, `TBasicsClaim`, `TBasicsPremise` entity schemas + `BasicsParsingSchema` |
-| `src/extensions/basics/argument-parser.ts` | `BasicsArgumentParser` subclass with metadata mapping hooks |
-| `src/extensions/basics/index.ts` | Barrel re-exports |
+| File                                       | Responsibility                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `src/extensions/basics/schemata.ts`        | `TBasicsArgument`, `TBasicsClaim`, `TBasicsPremise` entity schemas + `BasicsParsingSchema` |
+| `src/extensions/basics/argument-parser.ts` | `BasicsArgumentParser` subclass with metadata mapping hooks                                |
+| `src/extensions/basics/index.ts`           | Barrel re-exports                                                                          |
 
 ### New test files
 
-| File | Responsibility |
-|------|---------------|
+| File                             | Responsibility         |
+| -------------------------------- | ---------------------- |
 | `test/extensions/basics.test.ts` | Basics extension tests |
 
 ### Modified files
 
-| File | Change |
-|------|--------|
-| `src/lib/index.ts` | Add parsing module exports |
-| `package.json` | Add `./extensions/basics` export entry |
+| File                | Change                                    |
+| ------------------- | ----------------------------------------- |
+| `src/lib/index.ts`  | Add parsing module exports                |
+| `package.json`      | Add `./extensions/basics` export entry    |
 | `test/core.test.ts` | Add parsing module test `describe` blocks |
 
 ---
@@ -53,6 +53,7 @@
 ### Task 1: Parsing types
 
 **Files:**
+
 - Create: `src/lib/parsing/types.ts`
 
 - [ ] **Step 1: Create types file**
@@ -90,6 +91,7 @@ git commit -m "feat(parsing): add TPromptOptions and TParsingSchemaOptions types
 ### Task 2: Core response schemas
 
 **Files:**
+
 - Create: `src/lib/parsing/schemata.ts`
 - Test: `test/core.test.ts` (new describe block)
 
@@ -169,9 +171,7 @@ describe("Parsing — response schemas", () => {
                 miniId: "S1",
                 text: "https://example.com",
             }
-            expect(() =>
-                Value.Parse(ParsedSourceSchema, source)
-            ).not.toThrow()
+            expect(() => Value.Parse(ParsedSourceSchema, source)).not.toThrow()
         })
     })
 
@@ -204,9 +204,7 @@ describe("Parsing — response schemas", () => {
                         { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
                     ],
                     sources: [],
-                    premises: [
-                        { miniId: "P1", formula: "V1 implies V2" },
-                    ],
+                    premises: [{ miniId: "P1", formula: "V1 implies V2" }],
                     conclusionPremiseMiniId: "P1",
                 },
                 uncategorizedText: null,
@@ -360,6 +358,7 @@ git commit -m "feat(parsing): add core response schemas with tests"
 ### Task 3: Schema extension mechanism — `buildParsingResponseSchema`
 
 **Files:**
+
 - Modify: `src/lib/parsing/schemata.ts`
 - Test: `test/core.test.ts`
 
@@ -373,12 +372,8 @@ describe("buildParsingResponseSchema", () => {
         const schema = buildParsingResponseSchema()
         const response: TParsedArgumentResponse = {
             argument: {
-                claims: [
-                    { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                ],
-                variables: [
-                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                ],
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
                 sources: [],
                 premises: [{ miniId: "P1", formula: "V1" }],
                 conclusionPremiseMiniId: "P1",
@@ -406,9 +401,7 @@ describe("buildParsingResponseSchema", () => {
                         title: "My claim",
                     },
                 ],
-                variables: [
-                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                ],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
                 sources: [],
                 premises: [{ miniId: "P1", formula: "V1" }],
                 conclusionPremiseMiniId: "P1",
@@ -428,12 +421,8 @@ describe("buildParsingResponseSchema", () => {
         })
         const response = {
             argument: {
-                claims: [
-                    { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                ],
-                variables: [
-                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                ],
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
                 sources: [],
                 premises: [{ miniId: "P1", formula: "V1" }],
                 conclusionPremiseMiniId: "P1",
@@ -470,9 +459,7 @@ describe("buildParsingResponseSchema", () => {
                         body: "Body",
                     },
                 ],
-                variables: [
-                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                ],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
                 sources: [],
                 premises: [
                     {
@@ -507,10 +494,7 @@ Add to `src/lib/parsing/schemata.ts`:
  * Merges a base TypeBox Object schema with an extension Object schema,
  * combining their properties. Both schemas must be Type.Object instances.
  */
-function mergeObjectSchemas(
-    base: TObject,
-    extension: TObject
-): TObject {
+function mergeObjectSchemas(base: TObject, extension: TObject): TObject {
     return Type.Object(
         { ...base.properties, ...extension.properties },
         { additionalProperties: true }
@@ -527,10 +511,7 @@ export function buildParsingResponseSchema(
     if (!options) return ParsedArgumentResponseSchema
 
     const claimSch = options.claimSchema
-        ? mergeObjectSchemas(
-              ParsedClaimSchema,
-              options.claimSchema as TObject
-          )
+        ? mergeObjectSchemas(ParsedClaimSchema, options.claimSchema as TObject)
         : ParsedClaimSchema
 
     const variableSch = options.variableSchema
@@ -608,6 +589,7 @@ git commit -m "feat(parsing): add buildParsingResponseSchema with extension merg
 ### Task 4: JSON Schema utility — `getParsingResponseSchema`
 
 **Files:**
+
 - Modify: `src/lib/parsing/schemata.ts`
 - Test: `test/core.test.ts`
 
@@ -621,7 +603,8 @@ describe("getParsingResponseSchema", () => {
         const jsonSchema = getParsingResponseSchema()
         expect(jsonSchema).toHaveProperty("type", "object")
         expect(jsonSchema).toHaveProperty("properties")
-        const props = (jsonSchema as Record<string, unknown>).properties as Record<string, unknown>
+        const props = (jsonSchema as Record<string, unknown>)
+            .properties as Record<string, unknown>
         expect(props).toHaveProperty("argument")
         expect(props).toHaveProperty("uncategorizedText")
         expect(props).toHaveProperty("failureText")
@@ -687,6 +670,7 @@ git commit -m "feat(parsing): add getParsingResponseSchema JSON Schema utility"
 ### Task 5: Core prompt builder
 
 **Files:**
+
 - Create: `src/lib/parsing/prompt-builder.ts`
 - Test: `test/core.test.ts`
 
@@ -823,16 +807,10 @@ Write formulas using variable miniIds as operands and the following operators:
  * Used to detect extension fields added by developers.
  */
 const CORE_CLAIM_KEYS = new Set(Object.keys(ParsedClaimSchema.properties))
-const CORE_VARIABLE_KEYS = new Set(
-    Object.keys(ParsedVariableSchema.properties)
-)
+const CORE_VARIABLE_KEYS = new Set(Object.keys(ParsedVariableSchema.properties))
 const CORE_SOURCE_KEYS = new Set(Object.keys(ParsedSourceSchema.properties))
-const CORE_PREMISE_KEYS = new Set(
-    Object.keys(ParsedPremiseSchema.properties)
-)
-const CORE_ARGUMENT_KEYS = new Set(
-    Object.keys(ParsedArgumentSchema.properties)
-)
+const CORE_PREMISE_KEYS = new Set(Object.keys(ParsedPremiseSchema.properties))
+const CORE_ARGUMENT_KEYS = new Set(Object.keys(ParsedArgumentSchema.properties))
 
 interface TFieldMeta {
     name: string
@@ -971,8 +949,7 @@ export function buildParsingPrompt(
                 | TSchema
                 | undefined
             if (premisesSch && "items" in premisesSch) {
-                const premiseItemSch = (premisesSch as { items: TObject })
-                    .items
+                const premiseItemSch = (premisesSch as { items: TObject }).items
                 const premiseExtFields = extractExtensionFields(
                     premiseItemSch,
                     CORE_PREMISE_KEYS
@@ -993,9 +970,7 @@ export function buildParsingPrompt(
     }
 
     if (options?.customInstructions) {
-        sections.push(
-            "## Additional Context\n\n" + options.customInstructions
-        )
+        sections.push("## Additional Context\n\n" + options.customInstructions)
     }
 
     return sections.join("\n\n")
@@ -1041,6 +1016,7 @@ git commit -m "feat(parsing): add prompt builder with schema-driven extension di
 ### Task 6: ArgumentParser — validate phase
 
 **Files:**
+
 - Create: `src/lib/parsing/argument-parser.ts`
 - Test: `test/core.test.ts`
 
@@ -1065,9 +1041,7 @@ describe("Parsing — ArgumentParser", () => {
                     { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
                 ],
                 sources: [],
-                premises: [
-                    { miniId: "P1", formula: "V1 implies V2" },
-                ],
+                premises: [{ miniId: "P1", formula: "V1 implies V2" }],
                 conclusionPremiseMiniId: "P1",
             },
             uncategorizedText: null,
@@ -1133,7 +1107,10 @@ import type {
     TCorePropositionalVariable,
 } from "../schemata/propositional.js"
 import type { TCoreClaim } from "../schemata/claim.js"
-import type { TCoreSource, TCoreClaimSourceAssociation } from "../schemata/source.js"
+import type {
+    TCoreSource,
+    TCoreClaimSourceAssociation,
+} from "../schemata/source.js"
 import {
     ParsedArgumentResponseSchema,
     type TParsedArgumentResponse,
@@ -1192,37 +1169,35 @@ export class ArgumentParser<
      */
     public build(
         _response: TParsedArgumentResponse
-    ): TArgumentParserResult<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
+    ): TArgumentParserResult<
+        TArg,
+        TPremise,
+        TExpr,
+        TVar,
+        TSource,
+        TClaim,
+        TAssoc
+    > {
         throw new Error("Not yet implemented")
     }
 
-    protected mapArgument(
-        _parsed: TParsedArgument
-    ): Record<string, unknown> {
+    protected mapArgument(_parsed: TParsedArgument): Record<string, unknown> {
         return {}
     }
 
-    protected mapClaim(
-        _parsed: TParsedClaim
-    ): Record<string, unknown> {
+    protected mapClaim(_parsed: TParsedClaim): Record<string, unknown> {
         return {}
     }
 
-    protected mapSource(
-        _parsed: TParsedSource
-    ): Record<string, unknown> {
+    protected mapSource(_parsed: TParsedSource): Record<string, unknown> {
         return {}
     }
 
-    protected mapVariable(
-        _parsed: TParsedVariable
-    ): Record<string, unknown> {
+    protected mapVariable(_parsed: TParsedVariable): Record<string, unknown> {
         return {}
     }
 
-    protected mapPremise(
-        _parsed: TParsedPremise
-    ): Record<string, unknown> {
+    protected mapPremise(_parsed: TParsedPremise): Record<string, unknown> {
         return {}
     }
 
@@ -1251,6 +1226,7 @@ git commit -m "feat(parsing): add ArgumentParser with validate phase and mapping
 ### Task 7: ArgumentParser — build phase
 
 **Files:**
+
 - Modify: `src/lib/parsing/argument-parser.ts`
 - Test: `test/core.test.ts`
 
@@ -1259,421 +1235,382 @@ git commit -m "feat(parsing): add ArgumentParser with validate phase and mapping
 Add inside the existing `"Parsing — ArgumentParser"` describe block, after the `validate` tests. Reuse `validResponse()` from Task 6.
 
 ```typescript
-    describe("build", () => {
-        it("produces ArgumentEngine and libraries from valid response", () => {
-            const parser = new ArgumentParser()
-            const response = validResponse()
-            const result = parser.build(response)
+describe("build", () => {
+    it("produces ArgumentEngine and libraries from valid response", () => {
+        const parser = new ArgumentParser()
+        const response = validResponse()
+        const result = parser.build(response)
 
-            expect(result.engine).toBeDefined()
-            expect(result.claimLibrary).toBeDefined()
-            expect(result.sourceLibrary).toBeDefined()
-            expect(result.claimSourceLibrary).toBeDefined()
-        })
+        expect(result.engine).toBeDefined()
+        expect(result.claimLibrary).toBeDefined()
+        expect(result.sourceLibrary).toBeDefined()
+        expect(result.claimSourceLibrary).toBeDefined()
+    })
 
-        it("creates claims in the claim library", () => {
-            const parser = new ArgumentParser()
-            const result = parser.build(validResponse())
+    it("creates claims in the claim library", () => {
+        const parser = new ArgumentParser()
+        const result = parser.build(validResponse())
 
-            const claims = result.claimLibrary.getAll()
-            expect(claims).toHaveLength(2)
-        })
+        const claims = result.claimLibrary.getAll()
+        expect(claims).toHaveLength(2)
+    })
 
-        it("creates variables bound to claims", () => {
-            const parser = new ArgumentParser()
-            const result = parser.build(validResponse())
+    it("creates variables bound to claims", () => {
+        const parser = new ArgumentParser()
+        const result = parser.build(validResponse())
 
-            const snap = result.engine.snapshot()
-            const vars = snap.variables.variables
-            expect(vars).toHaveLength(2)
-            // Variables should have symbols from the parsed response
-            const symbols = vars.map((v) => v.symbol).sort()
-            expect(symbols).toEqual(["P", "Q"])
-        })
+        const snap = result.engine.snapshot()
+        const vars = snap.variables.variables
+        expect(vars).toHaveLength(2)
+        // Variables should have symbols from the parsed response
+        const symbols = vars.map((v) => v.symbol).sort()
+        expect(symbols).toEqual(["P", "Q"])
+    })
 
-        it("creates premises with expression trees from formulas", () => {
-            const parser = new ArgumentParser()
-            const result = parser.build(validResponse())
+    it("creates premises with expression trees from formulas", () => {
+        const parser = new ArgumentParser()
+        const result = parser.build(validResponse())
 
-            const snap = result.engine.snapshot()
-            expect(snap.premises).toHaveLength(1)
-            // "V1 implies V2" should produce an operator expression tree
-            const premiseSnap = snap.premises[0]
-            expect(premiseSnap.rootExpressionId).toBeDefined()
-            expect(premiseSnap.expressions.expressions.length).toBeGreaterThan(0)
-        })
+        const snap = result.engine.snapshot()
+        expect(snap.premises).toHaveLength(1)
+        // "V1 implies V2" should produce an operator expression tree
+        const premiseSnap = snap.premises[0]
+        expect(premiseSnap.rootExpressionId).toBeDefined()
+        expect(premiseSnap.expressions.expressions.length).toBeGreaterThan(0)
+    })
 
-        it("sets conclusion role based on conclusionPremiseMiniId", () => {
-            const parser = new ArgumentParser()
-            const result = parser.build(validResponse())
+    it("sets conclusion role based on conclusionPremiseMiniId", () => {
+        const parser = new ArgumentParser()
+        const result = parser.build(validResponse())
 
-            const snap = result.engine.snapshot()
-            expect(snap.conclusionPremiseId).toBeDefined()
-        })
+        const snap = result.engine.snapshot()
+        expect(snap.conclusionPremiseId).toBeDefined()
+    })
 
-        it("wires claim-source associations", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        {
-                            miniId: "C1",
-                            role: "premise",
-                            sourceMiniIds: ["S1"],
-                        },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [
-                        { miniId: "S1", text: "https://example.com" },
-                    ],
-                    premises: [{ miniId: "P1", formula: "V1" }],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
+    it("wires claim-source associations", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    {
+                        miniId: "C1",
+                        role: "premise",
+                        sourceMiniIds: ["S1"],
+                    },
+                ],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [{ miniId: "S1", text: "https://example.com" }],
+                premises: [{ miniId: "P1", formula: "V1" }],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        const result = parser.build(response)
+
+        const assocSnapshot = result.claimSourceLibrary.snapshot()
+        expect(assocSnapshot.claimSourceAssociations).toHaveLength(1)
+    })
+
+    it("shares variables across premises referencing the same claim", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    { miniId: "C1", role: "premise", sourceMiniIds: [] },
+                    { miniId: "C2", role: "premise", sourceMiniIds: [] },
+                    {
+                        miniId: "C3",
+                        role: "conclusion",
+                        sourceMiniIds: [],
+                    },
+                ],
+                variables: [
+                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
+                    { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
+                    { miniId: "V3", symbol: "R", claimMiniId: "C3" },
+                ],
+                sources: [],
+                premises: [
+                    { miniId: "P1", formula: "V1 and V2 implies V3" },
+                    { miniId: "P2", formula: "V1 implies V2" },
+                ],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        const result = parser.build(response)
+
+        const snap = result.engine.snapshot()
+        // Only 3 variables total, shared across both premises
+        expect(snap.variables.variables).toHaveLength(3)
+        expect(snap.premises).toHaveLength(2)
+    })
+
+    it("throws on null argument", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: null,
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: "Cannot parse",
+        }
+        expect(() => parser.build(response)).toThrow(/argument is null/i)
+    })
+
+    it("throws on formula referencing undeclared variable miniId", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [],
+                premises: [
+                    {
+                        miniId: "P1",
+                        formula: "V1 and V99",
+                    },
+                ],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        expect(() => parser.build(response)).toThrow(/V99/)
+    })
+
+    it("throws on nested implies in formula", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    { miniId: "C1", role: "premise", sourceMiniIds: [] },
+                    { miniId: "C2", role: "premise", sourceMiniIds: [] },
+                    {
+                        miniId: "C3",
+                        role: "conclusion",
+                        sourceMiniIds: [],
+                    },
+                ],
+                variables: [
+                    { miniId: "V1", symbol: "P", claimMiniId: "C1" },
+                    { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
+                    { miniId: "V3", symbol: "R", claimMiniId: "C3" },
+                ],
+                sources: [],
+                premises: [
+                    {
+                        miniId: "P1",
+                        formula: "V1 and (V2 implies V3)",
+                    },
+                ],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        expect(() => parser.build(response)).toThrow(/implies/i)
+    })
+
+    it("throws on variable referencing undeclared claim miniId", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C99" }],
+                sources: [],
+                premises: [{ miniId: "P1", formula: "V1" }],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        expect(() => parser.build(response)).toThrow(/C99/)
+    })
+
+    it("throws on unresolvable conclusionPremiseMiniId", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [],
+                premises: [{ miniId: "P1", formula: "V1" }],
+                conclusionPremiseMiniId: "P99",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        expect(() => parser.build(response)).toThrow(/P99/)
+    })
+
+    it("throws on invalid formula syntax", () => {
+        const parser = new ArgumentParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [{ miniId: "C1", role: "premise", sourceMiniIds: [] }],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [],
+                premises: [{ miniId: "P1", formula: "V1 &&& V2" }],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        expect(() => parser.build(response)).toThrow(/P1/)
+    })
+})
+
+describe("subclass hooks", () => {
+    it("calls mapClaim and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapClaim(parsed: TParsedClaim) {
+                return {
+                    customField: `claim-${parsed.miniId}`,
+                }
             }
-            const result = parser.build(response)
-
-            const assocSnapshot = result.claimSourceLibrary.snapshot()
-            expect(
-                assocSnapshot.claimSourceAssociations
-            ).toHaveLength(1)
-        })
-
-        it("shares variables across premises referencing the same claim", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                        { miniId: "C2", role: "premise", sourceMiniIds: [] },
-                        {
-                            miniId: "C3",
-                            role: "conclusion",
-                            sourceMiniIds: [],
-                        },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                        { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
-                        { miniId: "V3", symbol: "R", claimMiniId: "C3" },
-                    ],
-                    sources: [],
-                    premises: [
-                        { miniId: "P1", formula: "V1 and V2 implies V3" },
-                        { miniId: "P2", formula: "V1 implies V2" },
-                    ],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            const result = parser.build(response)
-
-            const snap = result.engine.snapshot()
-            // Only 3 variables total, shared across both premises
-            expect(snap.variables.variables).toHaveLength(3)
-            expect(snap.premises).toHaveLength(2)
-        })
-
-        it("throws on null argument", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: null,
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: "Cannot parse",
-            }
-            expect(() => parser.build(response)).toThrow(
-                /argument is null/i
+        }
+        const parser = new TestParser()
+        const result = parser.build(validResponse())
+        const claims = result.claimLibrary.getAll()
+        expect(
+            claims.some(
+                (c) => (c as Record<string, unknown>).customField === "claim-C1"
             )
-        })
-
-        it("throws on formula referencing undeclared variable miniId", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [],
-                    premises: [
-                        {
-                            miniId: "P1",
-                            formula: "V1 and V99",
-                        },
-                    ],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            expect(() => parser.build(response)).toThrow(/V99/)
-        })
-
-        it("throws on nested implies in formula", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                        { miniId: "C2", role: "premise", sourceMiniIds: [] },
-                        {
-                            miniId: "C3",
-                            role: "conclusion",
-                            sourceMiniIds: [],
-                        },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                        { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
-                        { miniId: "V3", symbol: "R", claimMiniId: "C3" },
-                    ],
-                    sources: [],
-                    premises: [
-                        {
-                            miniId: "P1",
-                            formula: "V1 and (V2 implies V3)",
-                        },
-                    ],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            expect(() => parser.build(response)).toThrow(/implies/i)
-        })
-
-        it("throws on variable referencing undeclared claim miniId", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C99" },
-                    ],
-                    sources: [],
-                    premises: [{ miniId: "P1", formula: "V1" }],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            expect(() => parser.build(response)).toThrow(/C99/)
-        })
-
-        it("throws on unresolvable conclusionPremiseMiniId", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [],
-                    premises: [{ miniId: "P1", formula: "V1" }],
-                    conclusionPremiseMiniId: "P99",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            expect(() => parser.build(response)).toThrow(/P99/)
-        })
-
-        it("throws on invalid formula syntax", () => {
-            const parser = new ArgumentParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        { miniId: "C1", role: "premise", sourceMiniIds: [] },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [],
-                    premises: [
-                        { miniId: "P1", formula: "V1 &&& V2" },
-                    ],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            expect(() => parser.build(response)).toThrow(/P1/)
-        })
+        ).toBe(true)
     })
 
-    describe("subclass hooks", () => {
-        it("calls mapClaim and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapClaim(parsed: TParsedClaim) {
-                    return {
-                        customField: `claim-${parsed.miniId}`,
-                    }
+    it("calls mapPremise and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapPremise(parsed: TParsedPremise) {
+                return {
+                    customField: `premise-${parsed.miniId}`,
                 }
             }
-            const parser = new TestParser()
-            const result = parser.build(validResponse())
-            const claims = result.claimLibrary.getAll()
-            expect(
-                claims.some(
-                    (c) =>
-                        (c as Record<string, unknown>).customField ===
-                        "claim-C1"
-                )
-            ).toBe(true)
-        })
-
-        it("calls mapPremise and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapPremise(parsed: TParsedPremise) {
-                    return {
-                        customField: `premise-${parsed.miniId}`,
-                    }
-                }
-            }
-            const parser = new TestParser()
-            const result = parser.build(validResponse())
-            const snap = result.engine.snapshot()
-            expect(
-                snap.premises.some(
-                    (p) =>
-                        (p.premise as Record<string, unknown>)
-                            .customField === "premise-P1"
-                )
-            ).toBe(true)
-        })
-
-        it("calls mapVariable and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapVariable(parsed: TParsedVariable) {
-                    return {
-                        customField: `var-${parsed.miniId}`,
-                    }
-                }
-            }
-            const parser = new TestParser()
-            const result = parser.build(validResponse())
-            const snap = result.engine.snapshot()
-            expect(
-                snap.variables.variables.some(
-                    (v) =>
-                        (v as Record<string, unknown>).customField ===
-                        "var-V1"
-                )
-            ).toBe(true)
-        })
-
-        it("calls mapArgument and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapArgument() {
-                    return { customField: "arg-extra" }
-                }
-            }
-            const parser = new TestParser()
-            const result = parser.build(validResponse())
-            const snap = result.engine.snapshot()
-            expect(
-                (snap.argument as Record<string, unknown>).customField
-            ).toBe("arg-extra")
-        })
-
-        it("calls mapSource and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapSource(parsed: TParsedSource) {
-                    return { customField: `source-${parsed.miniId}` }
-                }
-            }
-            const parser = new TestParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        {
-                            miniId: "C1",
-                            role: "premise",
-                            sourceMiniIds: [],
-                        },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [
-                        { miniId: "S1", text: "https://example.com" },
-                    ],
-                    premises: [{ miniId: "P1", formula: "V1" }],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            const result = parser.build(response)
-            const sources = result.sourceLibrary.getAll()
-            expect(
-                sources.some(
-                    (s) =>
-                        (s as Record<string, unknown>).customField ===
-                        "source-S1"
-                )
-            ).toBe(true)
-        })
-
-        it("calls mapClaimSourceAssociation and reflects extension fields", () => {
-            class TestParser extends ArgumentParser {
-                protected mapClaimSourceAssociation() {
-                    return { customField: "assoc-extra" }
-                }
-            }
-            const parser = new TestParser()
-            const response: TParsedArgumentResponse = {
-                argument: {
-                    claims: [
-                        {
-                            miniId: "C1",
-                            role: "premise",
-                            sourceMiniIds: ["S1"],
-                        },
-                    ],
-                    variables: [
-                        { miniId: "V1", symbol: "P", claimMiniId: "C1" },
-                    ],
-                    sources: [
-                        { miniId: "S1", text: "https://example.com" },
-                    ],
-                    premises: [{ miniId: "P1", formula: "V1" }],
-                    conclusionPremiseMiniId: "P1",
-                },
-                uncategorizedText: null,
-                selectionRationale: null,
-                failureText: null,
-            }
-            const result = parser.build(response)
-            const assocs = result.claimSourceLibrary.snapshot().claimSourceAssociations
-            expect(
-                assocs.some(
-                    (a) =>
-                        (a as Record<string, unknown>).customField ===
-                        "assoc-extra"
-                )
-            ).toBe(true)
-        })
+        }
+        const parser = new TestParser()
+        const result = parser.build(validResponse())
+        const snap = result.engine.snapshot()
+        expect(
+            snap.premises.some(
+                (p) =>
+                    (p.premise as Record<string, unknown>).customField ===
+                    "premise-P1"
+            )
+        ).toBe(true)
     })
+
+    it("calls mapVariable and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapVariable(parsed: TParsedVariable) {
+                return {
+                    customField: `var-${parsed.miniId}`,
+                }
+            }
+        }
+        const parser = new TestParser()
+        const result = parser.build(validResponse())
+        const snap = result.engine.snapshot()
+        expect(
+            snap.variables.variables.some(
+                (v) => (v as Record<string, unknown>).customField === "var-V1"
+            )
+        ).toBe(true)
+    })
+
+    it("calls mapArgument and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapArgument() {
+                return { customField: "arg-extra" }
+            }
+        }
+        const parser = new TestParser()
+        const result = parser.build(validResponse())
+        const snap = result.engine.snapshot()
+        expect((snap.argument as Record<string, unknown>).customField).toBe(
+            "arg-extra"
+        )
+    })
+
+    it("calls mapSource and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapSource(parsed: TParsedSource) {
+                return { customField: `source-${parsed.miniId}` }
+            }
+        }
+        const parser = new TestParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    {
+                        miniId: "C1",
+                        role: "premise",
+                        sourceMiniIds: [],
+                    },
+                ],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [{ miniId: "S1", text: "https://example.com" }],
+                premises: [{ miniId: "P1", formula: "V1" }],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        const result = parser.build(response)
+        const sources = result.sourceLibrary.getAll()
+        expect(
+            sources.some(
+                (s) =>
+                    (s as Record<string, unknown>).customField === "source-S1"
+            )
+        ).toBe(true)
+    })
+
+    it("calls mapClaimSourceAssociation and reflects extension fields", () => {
+        class TestParser extends ArgumentParser {
+            protected mapClaimSourceAssociation() {
+                return { customField: "assoc-extra" }
+            }
+        }
+        const parser = new TestParser()
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    {
+                        miniId: "C1",
+                        role: "premise",
+                        sourceMiniIds: ["S1"],
+                    },
+                ],
+                variables: [{ miniId: "V1", symbol: "P", claimMiniId: "C1" }],
+                sources: [{ miniId: "S1", text: "https://example.com" }],
+                premises: [{ miniId: "P1", formula: "V1" }],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+        const result = parser.build(response)
+        const assocs =
+            result.claimSourceLibrary.snapshot().claimSourceAssociations
+        expect(
+            assocs.some(
+                (a) =>
+                    (a as Record<string, unknown>).customField === "assoc-extra"
+            )
+        ).toBe(true)
+    })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -2062,6 +1999,7 @@ git commit -m "feat(parsing): implement ArgumentParser build phase with formula 
 ### Task 8: Parsing barrel and library exports
 
 **Files:**
+
 - Create: `src/lib/parsing/index.ts`
 - Modify: `src/lib/index.ts`
 
@@ -2121,6 +2059,7 @@ git commit -m "feat(parsing): add barrel exports for parsing module"
 ### Task 9: Basics entity schemas
 
 **Files:**
+
 - Create: `src/extensions/basics/schemata.ts`
 
 - [ ] **Step 1: Create basics schemas**
@@ -2211,6 +2150,7 @@ git commit -m "feat(basics): add entity schemas and parsing response extensions"
 ### Task 10: BasicsArgumentParser
 
 **Files:**
+
 - Create: `src/extensions/basics/argument-parser.ts`
 
 - [ ] **Step 1: Create BasicsArgumentParser**
@@ -2249,9 +2189,7 @@ export class BasicsArgumentParser extends ArgumentParser<
         super(BasicsParsingSchema)
     }
 
-    protected mapArgument(
-        parsed: TParsedArgument
-    ): Record<string, unknown> {
+    protected mapArgument(parsed: TParsedArgument): Record<string, unknown> {
         const ext = parsed as Record<string, unknown>
         return {
             ...(ext.title !== undefined ? { title: ext.title } : {}),
@@ -2266,9 +2204,7 @@ export class BasicsArgumentParser extends ArgumentParser<
         }
     }
 
-    protected mapPremise(
-        parsed: TParsedPremise
-    ): Record<string, unknown> {
+    protected mapPremise(parsed: TParsedPremise): Record<string, unknown> {
         const ext = parsed as Record<string, unknown>
         return {
             ...(ext.title !== undefined ? { title: ext.title } : {}),
@@ -2292,6 +2228,7 @@ git commit -m "feat(basics): add BasicsArgumentParser subclass"
 ### Task 11: Basics barrel and package.json exports
 
 **Files:**
+
 - Create: `src/extensions/basics/index.ts`
 - Modify: `package.json`
 
@@ -2341,6 +2278,7 @@ git commit -m "feat(basics): add barrel exports and package.json entry"
 **Depends on:** Task 11 (barrel + package.json exports)
 
 **Files:**
+
 - Create: `test/extensions/basics.test.ts`
 
 - [ ] **Step 1: Write basics extension tests**
@@ -2421,9 +2359,7 @@ describe("Basics extension", () => {
                 checksum: "abc",
                 title: "My argument",
             }
-            expect(() =>
-                Value.Parse(BasicsArgumentSchema, arg)
-            ).not.toThrow()
+            expect(() => Value.Parse(BasicsArgumentSchema, arg)).not.toThrow()
         })
 
         it("BasicsClaimSchema extends core with title and body", () => {
@@ -2435,9 +2371,7 @@ describe("Basics extension", () => {
                 title: "My claim",
                 body: "Full description",
             }
-            expect(() =>
-                Value.Parse(BasicsClaimSchema, claim)
-            ).not.toThrow()
+            expect(() => Value.Parse(BasicsClaimSchema, claim)).not.toThrow()
         })
 
         it("BasicsPremiseSchema extends core with title", () => {
@@ -2457,12 +2391,11 @@ describe("Basics extension", () => {
     describe("BasicsArgumentParser", () => {
         it("maps title/body onto claims", () => {
             const parser = new BasicsArgumentParser()
-            const result = parser.build(
-                parser.validate(basicsResponse())
-            )
+            const result = parser.build(parser.validate(basicsResponse()))
             const claims = result.claimLibrary.getAll()
             const claim = claims.find(
-                (c) => (c as Record<string, unknown>).title === "Earth is warming"
+                (c) =>
+                    (c as Record<string, unknown>).title === "Earth is warming"
             )
             expect(claim).toBeDefined()
             expect((claim as Record<string, unknown>).body).toBe(
@@ -2472,25 +2405,21 @@ describe("Basics extension", () => {
 
         it("maps title onto premises", () => {
             const parser = new BasicsArgumentParser()
-            const result = parser.build(
-                parser.validate(basicsResponse())
-            )
+            const result = parser.build(parser.validate(basicsResponse()))
             const snap = result.engine.snapshot()
             const premise = snap.premises[0]
-            expect(
-                (premise.premise as Record<string, unknown>).title
-            ).toBe("Warming implies action")
+            expect((premise.premise as Record<string, unknown>).title).toBe(
+                "Warming implies action"
+            )
         })
 
         it("maps title onto argument", () => {
             const parser = new BasicsArgumentParser()
-            const result = parser.build(
-                parser.validate(basicsResponse())
-            )
+            const result = parser.build(parser.validate(basicsResponse()))
             const snap = result.engine.snapshot()
-            expect(
-                (snap.argument as Record<string, unknown>).title
-            ).toBe("Climate argument")
+            expect((snap.argument as Record<string, unknown>).title).toBe(
+                "Climate argument"
+            )
         })
 
         it("round-trip: parse → build → snapshot preserves metadata", () => {
@@ -2508,9 +2437,7 @@ describe("Basics extension", () => {
 
             // Variables exist with correct symbols
             expect(snap.variables.variables).toHaveLength(2)
-            const symbols = snap.variables.variables
-                .map((v) => v.symbol)
-                .sort()
+            const symbols = snap.variables.variables.map((v) => v.symbol).sort()
             expect(symbols).toEqual(["P", "Q"])
 
             // Expression tree exists

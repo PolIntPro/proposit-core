@@ -12865,7 +12865,8 @@ describe("Parsing — response schemas", () => {
                 const result = parser.build(validResponse())
                 const assocs = result.claimSourceLibrary.getAll()
                 expect(assocs).toHaveLength(1)
-                const link = (assocs[0] as Record<string, unknown>).link as string
+                const link = (assocs[0] as Record<string, unknown>)
+                    .link as string
                 // Link format is "claimMiniId-realClaimUUID"
                 expect(link).toMatch(/^C1-/)
             })
