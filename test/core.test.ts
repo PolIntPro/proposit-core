@@ -10691,3 +10691,55 @@ describe("Premise-variable associations — bindVariableToPremise", () => {
         expect(engine.getVariable("vR")).toBeDefined()
     })
 })
+
+// ---------------------------------------------------------------------------
+// Premise-variable associations — getVariablesBoundToPremise
+// ---------------------------------------------------------------------------
+
+describe("Premise-variable associations — getVariablesBoundToPremise", () => {
+    it("returns variables bound to a specific premise", () => {
+        const claimLibrary = new ClaimLibrary()
+        claimLibrary.create({ id: "c1" })
+        const sourceLibrary = new SourceLibrary()
+        const csLibrary = new ClaimSourceLibrary(claimLibrary, sourceLibrary)
+        const engine = new ArgumentEngine(
+            { id: "a1", version: 0 },
+            claimLibrary,
+            sourceLibrary,
+            csLibrary
+        )
+        engine.createPremiseWithId("p1")
+        engine.createPremiseWithId("p2")
+        engine.addVariable({
+            id: "vA",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "A",
+            claimId: "c1",
+            claimVersion: 0,
+        } as TClaimBoundVariable)
+        engine.bindVariableToPremise({
+            id: "vQ",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+        })
+        engine.bindVariableToPremise({
+            id: "vR",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "R",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+        })
+
+        const bound = engine.getVariablesBoundToPremise("p1")
+        expect(bound).toHaveLength(2)
+        expect(bound.map((v) => v.id).sort()).toEqual(["vQ", "vR"])
+        expect(engine.getVariablesBoundToPremise("p2")).toHaveLength(0)
+    })
+})

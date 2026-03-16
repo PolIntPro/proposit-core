@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import {
     isClaimBound,
+    isPremiseBound,
     type TClaimBoundVariable,
     type TPremiseBoundVariable,
     type TCoreArgument,
@@ -660,6 +661,13 @@ export class ArgumentEngine<
             map.set(keyFn(v), v)
         }
         return map
+    }
+
+    public getVariablesBoundToPremise(premiseId: string): TVar[] {
+        return this.variables.toArray().filter((v) => {
+            const base = v as unknown as TCorePropositionalVariable
+            return isPremiseBound(base) && base.boundPremiseId === premiseId
+        })
     }
 
     public getExpression(expressionId: string): TExpr | undefined {
