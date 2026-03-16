@@ -19,24 +19,24 @@ Formula
   = _ expr:Implication _ { return expr; }
 
 Implication
-  = left:Disjunction _ op:("→" / "->" / "↔" / "<->") _ right:Disjunction {
-      const type = (op === "→" || op === "->") ? "implies" : "iff";
+  = left:Disjunction _ op:("→" / "->" / "↔" / "<->" / "implies"i / "iff"i) _ right:Disjunction {
+      const type = (op === "→" || op === "->" || op.toLowerCase() === "implies") ? "implies" : "iff";
       return binaryNode(type, left, right);
     }
   / Disjunction
 
 Disjunction
-  = first:Conjunction rest:(_ ("∨" / "||") _ c:Conjunction { return c; })* {
+  = first:Conjunction rest:(_ ("∨" / "||" / "or"i) _ c:Conjunction { return c; })* {
       return naryNode("or", first, rest);
     }
 
 Conjunction
-  = first:Unary rest:(_ ("∧" / "&&") _ u:Unary { return u; })* {
+  = first:Unary rest:(_ ("∧" / "&&" / "and"i) _ u:Unary { return u; })* {
       return naryNode("and", first, rest);
     }
 
 Unary
-  = ("¬" / "!") _ operand:Unary { return notNode(operand); }
+  = ("¬" / "!" / "not"i) _ operand:Unary { return notNode(operand); }
   / Atom
 
 Atom
