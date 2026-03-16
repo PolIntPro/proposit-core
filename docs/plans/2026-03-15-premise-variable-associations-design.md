@@ -70,9 +70,13 @@ The union type: `TCorePropositionalVariable = TClaimBoundVariable | TPremiseBoun
 
 Runtime discrimination: check for the presence of `claimId` vs `boundPremiseId`. Type guards `isClaimBound(v)` and `isPremiseBound(v)` make downstream code clean.
 
+### TypeBox Schema Approach
+
+Since TypeBox generics (`Generic`/`Parameter`/`Call`) don't work in v1.1.0, define two separate `Type.Object` schemas (`ClaimBoundVariableSchema` and `PremiseBoundVariableSchema`), each with their respective required fields and `additionalProperties: true`. The TypeScript union type is derived from `Type.Static` of each. `CorePropositionalVariableSchema` becomes a `Type.Union` of the two.
+
 ### Checksum Fields
 
-`variableFields` in `TCoreChecksumConfig` includes all six binding fields. For any given variable, only one group is present — absent fields are excluded from checksum computation. Claim-bound variables produce the same checksums as before.
+`variableFields` in `TCoreChecksumConfig` adds the three new fields: `boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`. For any given variable, only one group is present. The `entityChecksum` function already handles absent/undefined fields gracefully (they serialize as `undefined` in `canonicalSerialize`), so claim-bound variables produce the same checksums as before.
 
 ### Current Validation Restriction
 
@@ -100,15 +104,33 @@ Returns all variables bound to a given premise. Useful for cascade logic and for
 
 After removing the premise, scans variables for `boundPremiseId === premiseId` and cascades their removal via `removeVariable` (which in turn cascades through expressions).
 
-**`addExpression` / `appendExpression`**
+**`addExpression` / `appendExpression` / `addExpressionRelative` / `insertExpression`**
 
-When adding a variable-expression that references a variable, checks for circularity. If the referenced variable is premise-bound to the premise being modified (directly or transitively), rejects with an error.
+All expression mutation methods that accept variable-type expressions check for circularity. If the referenced variable is premise-bound to the premise being modified (directly or transitively), rejects with an error.
+
+**`updateVariable(variableId, updates)`**
+
+Accepts symbol changes for both variable types. Claim-bound variables can also update `claimId`/`claimVersion` (existing behavior, with claim library validation). Does not accept binding-type conversion (claim-bound to premise-bound or vice versa). To change binding type, delete and recreate the variable. If called on a premise-bound variable with `claimId`/`claimVersion` fields (or vice versa), throws an error.
+
+**`checkValidity` / `evaluate`**
+
+Assignment generation filters out premise-bound variables — only claim-bound variable IDs are included in the truth table column set. The current code collects variable IDs by scanning variable-type expressions; this must add a filtering step that looks up each collected variable ID in `VariableManager` and excludes premise-bound variables. `referencedVariableIds` in evaluation results includes only claim-bound variables (premise-bound variables are computed, not assigned by callers).
 
 ### Unchanged Methods
 
 **`removeVariable(variableId)`** — Works the same for both claim-bound and premise-bound variables. Removes the variable and cascades through expressions.
 
-**`addVariable(variable)`** — Continues to accept claim-bound variables only. Premise-bound variables are created via `bindVariableToPremise`.
+**`addVariable(variable)`** — Continues to accept claim-bound variables only. Premise-bound variables are created via `bindVariableToPremise`. Since `TVar` is now a union type, `addVariable` must use a type guard (`isClaimBound`) to confirm the variable is claim-bound before accessing `claimId`/`claimVersion` for claim library validation. Throws if a premise-bound variable is passed.
+
+### Snapshot Restoration
+
+`fromSnapshot`, `fromData`, and `rollback` must handle both variable types during restoration. When iterating variables from a snapshot, check the variant: call `addVariable` for claim-bound variables and `bindVariableToPremise` for premise-bound variables. Premise-bound variables must be restored after the premises they reference, so restoration order is: argument → premises (with expressions) → claim-bound variables → premise-bound variables. Snapshot JSON round-tripping preserves discriminant fields (`claimId` vs `boundPremiseId`) naturally since both schema variants use `additionalProperties: true`.
+
+### Internal Components
+
+**`VariableManager`** — No changes needed. It is a generic registry that stores `TVar` without inspecting binding-specific fields. All binding validation happens in `ArgumentEngine`.
+
+**`TPremiseBoundVariableInput`** — Defined as `TOptionalChecksum<TPremiseBoundVariable>`, consistent with the existing `addVariable` pattern which accepts `TOptionalChecksum<TVar>`.
 
 ## 3. Circularity Prevention
 
@@ -130,16 +152,20 @@ When adding a variable-expression to a premise, check whether the referenced var
 3. For each such variable, if it is premise-bound to Premise X, reject
 4. Recursively check each such variable's binding chain
 
-The acyclicity invariant (enforced incrementally) guarantees this walk terminates. Cost is proportional to binding chain depth, which is very shallow in practice (1-2 levels).
+The acyclicity invariant (enforced incrementally) guarantees this walk terminates. Cost is proportional to binding chain depth, which is very shallow in practice (1-2 levels). As a safety net, the implementation should include a depth limit equal to the number of premises in the argument and throw if exceeded.
 
 ## 4. Evaluation Changes
+
+### Evaluation Architecture
+
+Currently, `PremiseEngine.evaluate` is self-contained — it evaluates its own expression tree using the assignment map. It has no reference to other premises. To support premise-bound variable resolution, `ArgumentEngine.evaluate` passes a **resolver callback** into each `PremiseEngine.evaluate` call. The resolver accepts a variable ID and the current assignment, and returns the resolved truth value by evaluating the bound premise's expression tree. This keeps `PremiseEngine` decoupled from `ArgumentEngine` while enabling cross-premise resolution.
 
 ### Variable Resolution
 
 When the evaluator encounters a variable-expression:
 1. Check if the variable is claim-bound or premise-bound
 2. If **claim-bound**: look up truth value from the current assignment (existing behavior)
-3. If **premise-bound**: evaluate the target premise's expression tree under the current assignment and return the result (lazy resolution)
+3. If **premise-bound**: call the resolver callback, which evaluates the target premise's expression tree under the current assignment and returns the result (lazy resolution)
 
 ### Assignment Generation
 
@@ -151,7 +177,11 @@ If a bound premise's tree contains another premise-bound variable, the evaluator
 
 ### Caching
 
-A premise-bound variable produces the same value for a given assignment regardless of where it appears. The evaluator caches resolved values per-variable per-assignment to avoid redundant tree walks.
+A premise-bound variable produces the same value for a given assignment regardless of where it appears. The resolver callback maintains a `Map<string, boolean | null>` cache keyed by variable ID, scoped to a single `ArgumentEngine.evaluate` call (one cache per assignment, including `rejectedExpressionIds`). When the resolver is asked to resolve a variable it has already computed for the current assignment, it returns the cached value. The cache is created fresh for each assignment.
+
+### Validation
+
+`validateEvaluability` should flag premise-bound variables whose target premise has no root expression (empty tree) as a warning. Evaluation of such variables returns `null`/unknown, which is valid under Kleene logic but may indicate an incomplete argument.
 
 ## 5. Snapshot and Diff Impact
 
@@ -161,7 +191,7 @@ No structural changes. `TVariableManagerSnapshot<TVar>` already serializes all v
 
 ### Diff
 
-Variable diffs compare variable entities through the existing variable comparator. The new fields (`boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`) participate in diffing. A variable changing from claim-bound to premise-bound shows up as field-level changes. `defaultCompareVariable` updated to include new fields.
+Variable diffs compare variable entities through the existing variable comparator. The new fields (`boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`) participate in diffing. `defaultCompareVariable` updated to handle both variants. It uses the `isClaimBound`/`isPremiseBound` type guards on both `before` and `after` to determine variants. If both are the same variant, it compares variant-specific fields normally. If variants differ (claim-bound → premise-bound or vice versa), it reports changes on all binding fields from both variants (treating absent fields as `undefined` for comparison purposes).
 
 ### Changesets
 
@@ -201,3 +231,7 @@ Removing a claim from `ClaimLibrary` does not cascade into variables (claims are
 **`variables list`** — Updated to display binding type. Claim-bound variables show claim reference; premise-bound variables show bound premise ID.
 
 **`variables delete`** — Unchanged. Handles both types via existing `removeVariable` cascade.
+
+## 8. Documentation Updates
+
+The CLAUDE.md design rule "Variables require claim references" must be updated to reflect the claim-XOR-premise binding model. Other documentation sync targets (per CLAUDE.md's Documentation Sync section) should be updated as appropriate when public API signatures change.
