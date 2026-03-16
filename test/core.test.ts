@@ -10743,3 +10743,59 @@ describe("Premise-variable associations — getVariablesBoundToPremise", () => {
         expect(engine.getVariablesBoundToPremise("p2")).toHaveLength(0)
     })
 })
+
+// ---------------------------------------------------------------------------
+// Premise-variable associations — removePremise cascade
+// ---------------------------------------------------------------------------
+
+describe("Premise-variable associations — removePremise cascade", () => {
+    it("removes bound variables when their target premise is removed", () => {
+        const claimLibrary = new ClaimLibrary()
+        claimLibrary.create({ id: "c1" })
+        const sourceLibrary = new SourceLibrary()
+        const csLibrary = new ClaimSourceLibrary(claimLibrary, sourceLibrary)
+        const engine = new ArgumentEngine(
+            { id: "a1", version: 0 },
+            claimLibrary,
+            sourceLibrary,
+            csLibrary
+        )
+        engine.createPremiseWithId("p1")
+        engine.createPremiseWithId("p2")
+        engine.addVariable({
+            id: "vA",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "A",
+            claimId: "c1",
+            claimVersion: 0,
+        } as TClaimBoundVariable)
+        engine.bindVariableToPremise({
+            id: "vQ",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+        })
+
+        // Add Q to premise 2's expression tree
+        const p2 = engine.getPremise("p2")!
+        p2.appendExpression(null, {
+            id: "e1",
+            argumentId: "a1",
+            argumentVersion: 0,
+            premiseId: "p2",
+            type: "variable",
+            variableId: "vQ",
+        })
+
+        // Remove p1 — should cascade: remove vQ, which cascades to remove e1 from p2
+        engine.removePremise("p1")
+
+        expect(engine.getVariable("vQ")).toBeUndefined()
+        expect(p2.getExpressions()).toHaveLength(0)
+        expect(engine.getVariable("vA")).toBeDefined()
+    })
+})

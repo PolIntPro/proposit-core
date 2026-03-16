@@ -432,6 +432,21 @@ export class ArgumentEngine<
             this.conclusionPremiseId = undefined
             collector.setRoles(this.getRoleState())
         }
+        // Cascade: remove variables bound to the deleted premise
+        const boundVars = this.getVariablesBoundToPremise(premiseId)
+        for (const v of boundVars) {
+            const removeResult = this.removeVariable(v.id)
+            if (removeResult.changes.variables) {
+                for (const rv of removeResult.changes.variables.removed) {
+                    collector.removedVariable(rv)
+                }
+            }
+            if (removeResult.changes.expressions) {
+                for (const re of removeResult.changes.expressions.removed) {
+                    collector.removedExpression(re)
+                }
+            }
+        }
         this.markDirty()
         const changes = collector.toChangeset()
         this.markReactiveDirty(changes)
