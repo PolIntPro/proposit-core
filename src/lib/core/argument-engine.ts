@@ -627,30 +627,72 @@ export class ArgumentEngine<
 
     public updateVariable(
         variableId: string,
-        updates: {
-            symbol?: string
-            claimId?: string
-            claimVersion?: number
-        }
+        updates: Record<string, unknown>
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg> {
-        // Validate: claimId and claimVersion must be provided together
-        const hasClaimId = updates.claimId !== undefined
-        const hasClaimVersion = updates.claimVersion !== undefined
-        if (hasClaimId !== hasClaimVersion) {
-            throw new Error(
-                "claimId and claimVersion must be provided together."
-            )
+        const existing = this.variables.getVariable(variableId)
+        if (!existing) {
+            return { result: undefined, changes: {} }
         }
-        // Validate claim reference if provided
-        if (hasClaimId && hasClaimVersion) {
-            if (
-                !this.claimLibrary.get(updates.claimId!, updates.claimVersion!)
-            ) {
+
+        const existingVar =
+            existing as unknown as TCorePropositionalVariable
+        const updatesObj = updates
+
+        // Reject binding-type conversion
+        if (isClaimBound(existingVar)) {
+            const premiseBoundFields = [
+                "boundPremiseId",
+                "boundArgumentId",
+                "boundArgumentVersion",
+            ] as const
+            for (const f of premiseBoundFields) {
+                if (updatesObj[f] !== undefined) {
+                    throw new Error(
+                        `Cannot set "${f}" on a claim-bound variable. Delete and re-create to change binding type.`
+                    )
+                }
+            }
+            // Validate: claimId and claimVersion must be provided together
+            const hasClaimId = updatesObj.claimId !== undefined
+            const hasClaimVersion = updatesObj.claimVersion !== undefined
+            if (hasClaimId !== hasClaimVersion) {
                 throw new Error(
-                    `Claim "${updates.claimId}" version ${updates.claimVersion} does not exist in the claim library.`
+                    "claimId and claimVersion must be provided together."
                 )
             }
+            // Validate claim reference if provided
+            if (hasClaimId && hasClaimVersion) {
+                if (
+                    !this.claimLibrary.get(
+                        updatesObj.claimId as string,
+                        updatesObj.claimVersion as number
+                    )
+                ) {
+                    throw new Error(
+                        `Claim "${String(updatesObj.claimId)}" version ${String(updatesObj.claimVersion)} does not exist in the claim library.`
+                    )
+                }
+            }
+        } else if (isPremiseBound(existingVar)) {
+            const claimBoundFields = ["claimId", "claimVersion"] as const
+            for (const f of claimBoundFields) {
+                if (updatesObj[f] !== undefined) {
+                    throw new Error(
+                        `Cannot set "${f}" on a premise-bound variable. Delete and re-create to change binding type.`
+                    )
+                }
+            }
+            // Validate boundPremiseId if provided
+            if (updatesObj.boundPremiseId !== undefined) {
+                const newPremiseId = updatesObj.boundPremiseId as string
+                if (!this.premises.has(newPremiseId)) {
+                    throw new Error(
+                        `Bound premise "${newPremiseId}" does not exist in this argument.`
+                    )
+                }
+            }
         }
+
         const updated = this.variables.updateVariable(
             variableId,
             updates as Partial<TVar>

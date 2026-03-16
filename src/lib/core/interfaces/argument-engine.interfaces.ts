@@ -157,19 +157,19 @@ export interface TVariableManagement<
      * same VariableManager, the update is immediately visible everywhere.
      *
      * @param variableId - The ID of the variable to update.
-     * @param updates - Fields to update (`symbol`, `claimId`, `claimVersion`).
-     *   `claimId` and `claimVersion` must be provided together.
+     * @param updates - Fields to update. For claim-bound variables: `symbol`,
+     *   `claimId`, `claimVersion`. For premise-bound variables: `symbol`,
+     *   `boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`.
+     *   `claimId` and `claimVersion` must be provided together on claim-bound variables.
      * @returns The updated variable, or `undefined` if not found.
      * @throws If the new symbol is already in use by a different variable.
      * @throws If the new claim reference does not exist in the claim library.
+     * @throws If updates include fields from the wrong binding type (e.g., `boundPremiseId` on a claim-bound variable).
+     * @throws If the new `boundPremiseId` does not exist in this argument.
      */
     updateVariable(
         variableId: string,
-        updates: {
-            symbol?: string
-            claimId?: string
-            claimVersion?: number
-        }
+        updates: Record<string, unknown>
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg>
     /**
      * Removes a variable and cascade-deletes all expressions referencing it

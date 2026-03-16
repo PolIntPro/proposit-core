@@ -16,6 +16,7 @@ import {
     isClaimBound,
     isPremiseBound,
     type TClaimBoundVariable,
+    type TPremiseBoundVariable,
     type TCoreArgument,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
@@ -11499,5 +11500,73 @@ describe("Premise-variable associations — lazy evaluation", () => {
             expect(result.isValid).toBe(true)
             expect(result.counterexamples!.length).toBe(0)
         }
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Premise-variable associations — updateVariable
+// ---------------------------------------------------------------------------
+
+describe("Premise-variable associations — updateVariable", () => {
+    function makeEngine() {
+        const claimLibrary = new ClaimLibrary()
+        claimLibrary.create({ id: "c1" })
+        claimLibrary.create({ id: "c2" })
+        const sourceLibrary = new SourceLibrary()
+        const csLibrary = new ClaimSourceLibrary(claimLibrary, sourceLibrary)
+        const engine = new ArgumentEngine(
+            { id: "a1", version: 0 },
+            claimLibrary,
+            sourceLibrary,
+            csLibrary
+        )
+        engine.createPremiseWithId("p1")
+        engine.createPremiseWithId("p2")
+        engine.addVariable({
+            id: "vA",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "A",
+            claimId: "c1",
+            claimVersion: 0,
+        } as TClaimBoundVariable)
+        engine.bindVariableToPremise({
+            id: "vQ",
+            argumentId: "a1",
+            argumentVersion: 0,
+            symbol: "Q",
+            boundPremiseId: "p1",
+            boundArgumentId: "a1",
+            boundArgumentVersion: 0,
+        })
+        return engine
+    }
+
+    it("updates symbol on premise-bound variable", () => {
+        const engine = makeEngine()
+        engine.updateVariable("vQ", { symbol: "R" })
+        expect(engine.getVariable("vQ")!.symbol).toBe("R")
+    })
+
+    it("rebinds premise-bound variable to different premise", () => {
+        const engine = makeEngine()
+        engine.updateVariable("vQ", { boundPremiseId: "p2" })
+        const v = engine.getVariable("vQ")!
+        expect(isPremiseBound(v)).toBe(true)
+        expect((v as TPremiseBoundVariable).boundPremiseId).toBe("p2")
+    })
+
+    it("rejects binding-type conversion on claim-bound variable", () => {
+        const engine = makeEngine()
+        expect(() =>
+            engine.updateVariable("vA", { boundPremiseId: "p1" })
+        ).toThrow()
+    })
+
+    it("rejects binding-type conversion on premise-bound variable", () => {
+        const engine = makeEngine()
+        expect(() =>
+            engine.updateVariable("vQ", { claimId: "c1" })
+        ).toThrow()
     })
 })
