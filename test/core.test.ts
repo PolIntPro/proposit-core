@@ -12854,19 +12854,20 @@ describe("Parsing — response schemas", () => {
             it("mapClaimSourceAssociation reflects on association entities", () => {
                 class Custom extends ArgumentParser {
                     protected override mapClaimSourceAssociation(
-                        claimMiniId: string,
-                        sourceMiniId: string
+                        parsed: TParsedClaim,
+                        claimId: string,
+                        _sourceId: string
                     ): Record<string, unknown> {
-                        return { link: `${claimMiniId}-${sourceMiniId}` }
+                        return { link: `${parsed.miniId}-${claimId}` }
                     }
                 }
                 const parser = new Custom()
                 const result = parser.build(validResponse())
                 const assocs = result.claimSourceLibrary.getAll()
                 expect(assocs).toHaveLength(1)
-                expect((assocs[0] as Record<string, unknown>).link).toBe(
-                    "C1-S1"
-                )
+                const link = (assocs[0] as Record<string, unknown>).link as string
+                // Link format is "claimMiniId-realClaimUUID"
+                expect(link).toMatch(/^C1-/)
             })
         })
     })

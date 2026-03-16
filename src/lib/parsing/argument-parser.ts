@@ -22,6 +22,7 @@ import { ClaimSourceLibrary } from "../core/claim-source-library.js"
 import { ParsedArgumentResponseSchema } from "./schemata.js"
 import type {
     TParsedArgumentResponse,
+    TParsedArgument,
     TParsedClaim,
     TParsedVariable,
     TParsedSource,
@@ -316,7 +317,7 @@ export class ArgumentParser<
         // 2. Create argument
         const argumentId = randomUUID()
         const argumentVersion = 0
-        const argumentExtras = this.mapArgument(response)
+        const argumentExtras = this.mapArgument(arg)
         const argument = {
             ...argumentExtras,
             id: argumentId,
@@ -373,10 +374,15 @@ export class ArgumentParser<
             const claimRef = claimMiniIdToId.get(parsedClaim.miniId)!
             for (const sourceMiniId of parsedClaim.sourceMiniIds) {
                 const sourceRef = sourceMiniIdToId.get(sourceMiniId)
-                if (!sourceRef) continue
+                if (!sourceRef) {
+                    throw new Error(
+                        `Claim "${parsedClaim.miniId}" references undeclared source "${sourceMiniId}".`
+                    )
+                }
                 const extras = this.mapClaimSourceAssociation(
-                    parsedClaim.miniId,
-                    sourceMiniId
+                    parsedClaim,
+                    claimRef.id,
+                    sourceRef.id
                 )
                 claimSourceLibrary.add({
                     ...extras,
@@ -465,7 +471,7 @@ export class ArgumentParser<
     // -----------------------------------------------------------------------
 
     protected mapArgument(
-        _parsed: TParsedArgumentResponse
+        _parsed: TParsedArgument
     ): Record<string, unknown> {
         return {}
     }
@@ -487,8 +493,9 @@ export class ArgumentParser<
     }
 
     protected mapClaimSourceAssociation(
-        _claimMiniId: string,
-        _sourceMiniId: string
+        _parsed: TParsedClaim,
+        _claimId: string,
+        _sourceId: string
     ): Record<string, unknown> {
         return {}
     }

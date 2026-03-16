@@ -1,8 +1,8 @@
 import { ArgumentParser } from "../../lib/parsing/argument-parser.js"
 import type {
+    TParsedArgument,
     TParsedClaim,
     TParsedPremise,
-    TParsedArgumentResponse,
 } from "../../lib/parsing/schemata.js"
 import { BasicsParsingSchema } from "./schemata.js"
 import type {
@@ -32,12 +32,10 @@ export class BasicsArgumentParser extends ArgumentParser<
         super(BasicsParsingSchema)
     }
 
-    protected mapArgument(
-        parsed: TParsedArgumentResponse
-    ): Record<string, unknown> {
-        const ext = parsed.argument as Record<string, unknown> | null
+    protected mapArgument(parsed: TParsedArgument): Record<string, unknown> {
+        const ext = parsed as Record<string, unknown>
         return {
-            ...(ext?.title !== undefined ? { title: ext.title } : {}),
+            ...(ext.title !== undefined ? { title: ext.title } : {}),
         }
     }
 
