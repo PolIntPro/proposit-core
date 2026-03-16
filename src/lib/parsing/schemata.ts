@@ -68,3 +68,78 @@ export const ParsedArgumentResponseSchema = Type.Object(
     { additionalProperties: true }
 )
 export type TParsedArgumentResponse = Static<typeof ParsedArgumentResponseSchema>
+
+function mergeObjectSchemas(base: TObject, extension: TObject): TObject {
+    return Type.Object(
+        { ...base.properties, ...extension.properties },
+        { additionalProperties: true }
+    )
+}
+
+export function buildParsingResponseSchema(
+    options?: TParsingSchemaOptions
+): TSchema {
+    if (!options) return ParsedArgumentResponseSchema
+
+    const claimSch = options.claimSchema
+        ? mergeObjectSchemas(ParsedClaimSchema, options.claimSchema as TObject)
+        : ParsedClaimSchema
+
+    const variableSch = options.variableSchema
+        ? mergeObjectSchemas(
+              ParsedVariableSchema,
+              options.variableSchema as TObject
+          )
+        : ParsedVariableSchema
+
+    const sourceSch = options.sourceSchema
+        ? mergeObjectSchemas(
+              ParsedSourceSchema,
+              options.sourceSchema as TObject
+          )
+        : ParsedSourceSchema
+
+    const premiseSch = options.premiseSchema
+        ? mergeObjectSchemas(
+              ParsedPremiseSchema,
+              options.premiseSchema as TObject
+          )
+        : ParsedPremiseSchema
+
+    const baseArgProps = {
+        claims: Type.Array(claimSch, { minItems: 1 }),
+        variables: Type.Array(variableSch, { minItems: 1 }),
+        sources: Type.Array(sourceSch),
+        premises: Type.Array(premiseSch, { minItems: 1 }),
+        conclusionPremiseMiniId: Type.String(),
+    }
+
+    const argSch = options.parsedArgumentSchema
+        ? Type.Object(
+              {
+                  ...baseArgProps,
+                  ...(options.parsedArgumentSchema as TObject).properties,
+              },
+              { additionalProperties: true }
+          )
+        : Type.Object(baseArgProps, { additionalProperties: true })
+
+    const baseResponseProps = {
+        argument: Nullable(argSch),
+        uncategorizedText: Nullable(Type.String()),
+        selectionRationale: Nullable(Type.String()),
+        failureText: Nullable(Type.String()),
+    }
+
+    const responseSch = options.responseSchema
+        ? Type.Object(
+              {
+                  ...baseResponseProps,
+                  ...(options.responseSchema as TObject).properties,
+              },
+              { additionalProperties: true }
+          )
+        : Type.Object(baseResponseProps, { additionalProperties: true })
+
+    return responseSch
+}

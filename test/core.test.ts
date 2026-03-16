@@ -12303,4 +12303,171 @@ describe("Parsing — response schemas", () => {
             ).toBe(true)
         })
     })
+
+    describe("buildParsingResponseSchema", () => {
+        it("returns core schema with no options", () => {
+            const schema = buildParsingResponseSchema()
+            const response = {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "c1",
+                            role: "premise",
+                            sourceMiniIds: [],
+                        },
+                    ],
+                    variables: [
+                        { miniId: "v1", symbol: "P", claimMiniId: "c1" },
+                    ],
+                    sources: [],
+                    premises: [{ miniId: "p1", formula: "P" }],
+                    conclusionPremiseMiniId: "p1",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+            expect(Value.Check(schema, response)).toBe(true)
+        })
+
+        it("merges claim extension fields", () => {
+            const schema = buildParsingResponseSchema({
+                claimSchema: Type.Object({
+                    confidence: Type.Number(),
+                }),
+            })
+            const response = {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "c1",
+                            role: "premise",
+                            sourceMiniIds: [],
+                            confidence: 0.9,
+                        },
+                    ],
+                    variables: [
+                        { miniId: "v1", symbol: "P", claimMiniId: "c1" },
+                    ],
+                    sources: [],
+                    premises: [{ miniId: "p1", formula: "P" }],
+                    conclusionPremiseMiniId: "p1",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+            expect(Value.Check(schema, response)).toBe(true)
+
+            // Should reject when required extension field is missing
+            const invalid = {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "c1",
+                            role: "premise",
+                            sourceMiniIds: [],
+                            // confidence missing
+                        },
+                    ],
+                    variables: [
+                        { miniId: "v1", symbol: "P", claimMiniId: "c1" },
+                    ],
+                    sources: [],
+                    premises: [{ miniId: "p1", formula: "P" }],
+                    conclusionPremiseMiniId: "p1",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+            expect(Value.Check(schema, invalid)).toBe(false)
+        })
+
+        it("merges parsedArgumentSchema extension fields", () => {
+            const schema = buildParsingResponseSchema({
+                parsedArgumentSchema: Type.Object({
+                    argumentTitle: Type.String(),
+                }),
+            })
+            const response = {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "c1",
+                            role: "premise",
+                            sourceMiniIds: [],
+                        },
+                    ],
+                    variables: [
+                        { miniId: "v1", symbol: "P", claimMiniId: "c1" },
+                    ],
+                    sources: [],
+                    premises: [{ miniId: "p1", formula: "P" }],
+                    conclusionPremiseMiniId: "p1",
+                    argumentTitle: "My argument",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+            expect(Value.Check(schema, response)).toBe(true)
+        })
+
+        it("merges multiple extension schemas simultaneously", () => {
+            const schema = buildParsingResponseSchema({
+                claimSchema: Type.Object({
+                    confidence: Type.Number(),
+                }),
+                sourceSchema: Type.Object({
+                    url: Type.String(),
+                }),
+                premiseSchema: Type.Object({
+                    label: Type.String(),
+                }),
+                variableSchema: Type.Object({
+                    description: Type.String(),
+                }),
+            })
+            const response = {
+                argument: {
+                    claims: [
+                        {
+                            miniId: "c1",
+                            role: "premise",
+                            sourceMiniIds: ["s1"],
+                            confidence: 0.95,
+                        },
+                    ],
+                    variables: [
+                        {
+                            miniId: "v1",
+                            symbol: "P",
+                            claimMiniId: "c1",
+                            description: "Prop P",
+                        },
+                    ],
+                    sources: [
+                        {
+                            miniId: "s1",
+                            text: "Source text",
+                            url: "https://example.com",
+                        },
+                    ],
+                    premises: [
+                        {
+                            miniId: "p1",
+                            formula: "P",
+                            label: "First premise",
+                        },
+                    ],
+                    conclusionPremiseMiniId: "p1",
+                },
+                uncategorizedText: null,
+                selectionRationale: null,
+                failureText: null,
+            }
+            expect(Value.Check(schema, response)).toBe(true)
+        })
+    })
 })
