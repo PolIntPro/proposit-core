@@ -76,7 +76,7 @@ Since TypeBox generics (`Generic`/`Parameter`/`Call`) don't work in v1.1.0, defi
 
 ### Checksum Fields
 
-`variableFields` in `TCoreChecksumConfig` adds the three new fields: `boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`. For any given variable, only one group is present. The `entityChecksum` function already handles absent/undefined fields gracefully (they serialize as `undefined` in `canonicalSerialize`), so claim-bound variables produce the same checksums as before.
+`variableFields` in `TCoreChecksumConfig` adds the three new fields: `boundPremiseId`, `boundArgumentId`, `boundArgumentVersion`. For any given variable, only one group is present. The `entityChecksum` function excludes absent fields via its `if (field in entity)` guard, so claim-bound variables produce the same checksums as before (new fields are simply not present on the entity).
 
 ### Current Validation Restriction
 
@@ -96,7 +96,7 @@ Creates a premise-bound variable. Validates:
 
 **`getVariablesBoundToPremise(premiseId: string): TVar[]`**
 
-Returns all variables bound to a given premise. Useful for cascade logic and for callers to understand bindings.
+Returns all variables bound to a given premise. Useful for cascade logic and for callers to understand bindings. Implemented as a linear scan of all variables (filtering by `boundPremiseId`). The variable count per argument is small enough that an index is unnecessary.
 
 ### Modified Methods
 
@@ -106,11 +106,11 @@ After removing the premise, scans variables for `boundPremiseId === premiseId` a
 
 **`addExpression` / `appendExpression` / `addExpressionRelative` / `insertExpression`**
 
-All expression mutation methods that accept variable-type expressions check for circularity. If the referenced variable is premise-bound to the premise being modified (directly or transitively), rejects with an error.
+All expression mutation methods that accept variable-type expressions check for circularity. If the referenced variable is premise-bound to the premise being modified (directly or transitively), rejects with an error. Since these methods live on `PremiseEngine` (not `ArgumentEngine`), and the transitive check requires cross-premise access, `ArgumentEngine` injects a **circularity-checking callback** into `PremiseEngine` (same pattern as the evaluation resolver callback). The callback accepts a variable ID and premise ID, and returns whether adding that variable to that premise would create a cycle. `PremiseEngine` calls the callback in its expression mutation methods; if no callback is set, only the direct check runs (safe for `PremiseEngine` instances used outside an `ArgumentEngine` context).
 
 **`updateVariable(variableId, updates)`**
 
-Accepts symbol changes for both variable types. Claim-bound variables can also update `claimId`/`claimVersion` (existing behavior, with claim library validation). Does not accept binding-type conversion (claim-bound to premise-bound or vice versa). To change binding type, delete and recreate the variable. If called on a premise-bound variable with `claimId`/`claimVersion` fields (or vice versa), throws an error.
+Accepts symbol changes for both variable types. Claim-bound variables can also update `claimId`/`claimVersion` (existing behavior, with claim library validation). Premise-bound variables can update `boundPremiseId` (to rebind to a different premise, with circularity validation). Does not accept binding-type conversion (claim-bound to premise-bound or vice versa). To change binding type, delete and recreate the variable. If called with fields from the wrong variant, throws an error.
 
 **`checkValidity` / `evaluate`**
 
@@ -124,7 +124,7 @@ Assignment generation filters out premise-bound variables — only claim-bound v
 
 ### Snapshot Restoration
 
-`fromSnapshot`, `fromData`, and `rollback` must handle both variable types during restoration. When iterating variables from a snapshot, check the variant: call `addVariable` for claim-bound variables and `bindVariableToPremise` for premise-bound variables. Premise-bound variables must be restored after the premises they reference, so restoration order is: argument → premises (with expressions) → claim-bound variables → premise-bound variables. Snapshot JSON round-tripping preserves discriminant fields (`claimId` vs `boundPremiseId`) naturally since both schema variants use `additionalProperties: true`.
+`fromSnapshot`, `fromData`, and `rollback` must handle both variable types during restoration. When iterating variables from a snapshot, check the variant: call `addVariable` for claim-bound variables and `bindVariableToPremise` for premise-bound variables. Premise-bound variables must be restored after the premises they reference, so restoration order is: argument → premises (with expressions) → claim-bound variables → premise-bound variables. This is a change from the current restoration order (which restores variables before premises); claim-bound variables have no dependency on premise ordering, so moving them after premises is safe. Snapshot JSON round-tripping preserves discriminant fields (`claimId` vs `boundPremiseId`) naturally since both schema variants use `additionalProperties: true`.
 
 ### Internal Components
 
