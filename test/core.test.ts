@@ -12583,7 +12583,7 @@ describe("Parsing — response schemas", () => {
                     ],
                     sources: [{ miniId: "S1", text: "Some source" }],
                     premises: [
-                        { miniId: "P1", formula: "P implies Q" },
+                        { miniId: "P1", formula: "P -> Q" },
                         { miniId: "P2", formula: "P" },
                     ],
                     conclusionPremiseMiniId: "P1",
@@ -12622,6 +12622,251 @@ describe("Parsing — response schemas", () => {
             it("throws on missing required fields", () => {
                 const parser = new ArgumentParser()
                 expect(() => parser.validate({ argument: {} })).toThrow()
+            })
+        })
+
+        describe("build", () => {
+            it("produces ArgumentEngine and libraries", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                expect(result.engine).toBeDefined()
+                expect(result.claimLibrary).toBeDefined()
+                expect(result.sourceLibrary).toBeDefined()
+                expect(result.claimSourceLibrary).toBeDefined()
+            })
+
+            it("creates claims in library", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                const allClaims = result.claimLibrary.getAll()
+                expect(allClaims).toHaveLength(2)
+            })
+
+            it("creates variables bound to claims", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                const vars = snap.variables.variables
+                expect(vars).toHaveLength(2)
+                const symbols = vars.map((v) => v.symbol).sort()
+                expect(symbols).toEqual(["P", "Q"])
+                // Each should be claim-bound
+                for (const v of vars) {
+                    expect(isClaimBound(v)).toBe(true)
+                }
+            })
+
+            it("creates premises with expression trees", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                expect(snap.premises).toHaveLength(2)
+                // One premise "P -> Q" has 3 expressions (implies + 2 vars)
+                const impliesPremise = snap.premises.find(
+                    (p) => p.expressions.expressions.length === 3
+                )!
+                expect(impliesPremise).toBeDefined()
+                // The other premise "P" has 1 expression (variable)
+                const singlePremise = snap.premises.find(
+                    (p) => p.expressions.expressions.length === 1
+                )!
+                expect(singlePremise).toBeDefined()
+                expect(singlePremise.expressions.expressions[0].type).toBe(
+                    "variable"
+                )
+            })
+
+            it("sets conclusion role", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                expect(snap.conclusionPremiseId).toBeDefined()
+            })
+
+            it("wires claim-source associations", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                const assocs = result.claimSourceLibrary.getAll()
+                // C1 has sourceMiniIds: ["S1"], C2 has none
+                expect(assocs).toHaveLength(1)
+            })
+
+            it("shares variables across premises", () => {
+                const parser = new ArgumentParser()
+                // Both premises reference P: "P -> Q" and "P"
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                // Find variable P
+                const varP = snap.variables.variables.find(
+                    (v) => v.symbol === "P"
+                )!
+                // Both premises should reference variable P
+                const premisesWithP = snap.premises.filter((p) =>
+                    p.expressions.expressions.some(
+                        (e) => e.type === "variable" && e.variableId === varP.id
+                    )
+                )
+                expect(premisesWithP).toHaveLength(2)
+            })
+
+            it("throws on null argument", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument = null
+                expect(() => parser.build(resp)).toThrow(/argument is null/i)
+            })
+
+            it("throws on formula referencing undeclared variable miniId", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                // Add a premise that references an undeclared variable symbol
+                resp.argument!.premises.push({
+                    miniId: "P3",
+                    formula: "V99",
+                })
+                expect(() => parser.build(resp)).toThrow(/V99/)
+            })
+
+            it("throws on nested implies", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.premises = [
+                    {
+                        miniId: "P1",
+                        formula: "(P -> Q) && P",
+                    },
+                ]
+                expect(() => parser.build(resp)).toThrow(/implication/i)
+            })
+
+            it("throws on variable referencing undeclared claim miniId", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.variables = [
+                    { miniId: "V1", symbol: "P", claimMiniId: "C99" },
+                ]
+                resp.argument!.premises = [{ miniId: "P1", formula: "P" }]
+                resp.argument!.conclusionPremiseMiniId = "P1"
+                expect(() => parser.build(resp)).toThrow(/C99/)
+            })
+
+            it("throws on unresolvable conclusionPremiseMiniId", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.conclusionPremiseMiniId = "P99"
+                expect(() => parser.build(resp)).toThrow(/P99/)
+            })
+
+            it("throws on invalid formula syntax", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.premises = [{ miniId: "P1", formula: "P &&& Q" }]
+                // Error message should mention the premise miniId
+                expect(() => parser.build(resp)).toThrow(/P1/)
+            })
+        })
+
+        describe("subclass hooks", () => {
+            it("mapClaim reflects custom fields on built claims", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapClaim(parsed: {
+                        miniId: string
+                    }): Record<string, unknown> {
+                        return { title: `claim-${parsed.miniId}` }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const claims = result.claimLibrary.getAll()
+                expect(
+                    claims.every(
+                        (c) =>
+                            (c as Record<string, unknown>).title !== undefined
+                    )
+                ).toBe(true)
+            })
+
+            it("mapPremise reflects on premise snapshot", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapPremise(parsed: {
+                        miniId: string
+                    }): Record<string, unknown> {
+                        return { label: `p-${parsed.miniId}` }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                for (const p of snap.premises) {
+                    expect(
+                        (p.premise as Record<string, unknown>).label
+                    ).toBeDefined()
+                }
+            })
+
+            it("mapVariable reflects on variable snapshot", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapVariable(parsed: {
+                        miniId: string
+                    }): Record<string, unknown> {
+                        return { tag: `var-${parsed.miniId}` }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                for (const v of snap.variables.variables) {
+                    expect((v as Record<string, unknown>).tag).toBeDefined()
+                }
+            })
+
+            it("mapArgument reflects on argument snapshot", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapArgument(): Record<string, unknown> {
+                        return { title: "My argument" }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const snap = result.engine.snapshot()
+                expect((snap.argument as Record<string, unknown>).title).toBe(
+                    "My argument"
+                )
+            })
+
+            it("mapSource reflects on source entities", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapSource(parsed: {
+                        miniId: string
+                    }): Record<string, unknown> {
+                        return { note: `src-${parsed.miniId}` }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const sources = result.sourceLibrary.getAll()
+                expect(sources).toHaveLength(1)
+                expect((sources[0] as Record<string, unknown>).note).toBe(
+                    "src-S1"
+                )
+            })
+
+            it("mapClaimSourceAssociation reflects on association entities", () => {
+                class Custom extends ArgumentParser {
+                    protected override mapClaimSourceAssociation(
+                        claimMiniId: string,
+                        sourceMiniId: string
+                    ): Record<string, unknown> {
+                        return { link: `${claimMiniId}-${sourceMiniId}` }
+                    }
+                }
+                const parser = new Custom()
+                const result = parser.build(validResponse())
+                const assocs = result.claimSourceLibrary.getAll()
+                expect(assocs).toHaveLength(1)
+                expect((assocs[0] as Record<string, unknown>).link).toBe(
+                    "C1-S1"
+                )
             })
         })
     })
