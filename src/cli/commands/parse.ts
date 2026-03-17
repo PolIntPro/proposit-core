@@ -1,10 +1,10 @@
 import type { Command } from "commander"
-import {
-    ArgumentParser,
-    ParsedArgumentResponseSchema,
-    buildParsingPrompt,
-} from "../../lib/parsing/index.js"
+import { buildParsingPrompt } from "../../lib/parsing/index.js"
 import type { TParsedArgument } from "../../lib/parsing/index.js"
+import {
+    BasicsArgumentParser,
+    BasicsParsingSchema,
+} from "../../extensions/basics/index.js"
 import { hydrateLibraries, persistEngine, persistLibraries } from "../engine.js"
 import { ClaimLibrary } from "../../lib/core/claim-library.js"
 import { SourceLibrary } from "../../lib/core/source-library.js"
@@ -12,22 +12,24 @@ import { ClaimSourceLibrary } from "../../lib/core/claim-source-library.js"
 import { errorExit, printJson, printLine } from "../output.js"
 import { resolveApiKey, createLlmProvider } from "../llm/index.js"
 
-class CliArgumentParser extends ArgumentParser {
-    private readonly title: string
-    private readonly description: string
+class CliArgumentParser extends BasicsArgumentParser {
+    private readonly cliTitle?: string
+    private readonly cliDescription: string
 
-    constructor(title: string, description: string) {
+    constructor(title?: string, description?: string) {
         super()
-        this.title = title
-        this.description = description
+        this.cliTitle = title
+        this.cliDescription = description ?? ""
     }
 
     protected override mapArgument(
-        _parsed: TParsedArgument
+        parsed: TParsedArgument
     ): Record<string, unknown> {
+        const basicsFields = super.mapArgument(parsed)
         return {
-            title: this.title,
-            description: this.description,
+            ...basicsFields,
+            ...(this.cliTitle !== undefined ? { title: this.cliTitle } : {}),
+            description: this.cliDescription,
             createdAt: new Date(),
             published: false,
         }
@@ -50,7 +52,10 @@ export function registerParseCommand(args: Command): void {
         .option("--llm <provider>", "LLM provider name", "openai")
         .option("--api-key <key>", "API key (overrides env var)")
         .option("--model <model>", "Model override")
-        .option("--title <title>", "Argument title", "Parsed argument")
+        .option(
+            "--title <title>",
+            "Argument title (overrides LLM-generated title)"
+        )
         .option("--description <desc>", "Argument description", "")
         .option("--dry-run", "Print raw LLM JSON without persisting")
         .action(
@@ -60,7 +65,7 @@ export function registerParseCommand(args: Command): void {
                     llm: string
                     apiKey?: string
                     model?: string
-                    title: string
+                    title?: string
                     description: string
                     dryRun?: boolean
                 }
@@ -92,7 +97,7 @@ export function registerParseCommand(args: Command): void {
                 }
 
                 // 3. Build prompt and schema
-                const responseSchema = ParsedArgumentResponseSchema
+                const responseSchema = BasicsParsingSchema
                 const systemPrompt = buildParsingPrompt(responseSchema)
 
                 // 4. Call LLM
