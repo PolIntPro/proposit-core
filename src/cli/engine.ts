@@ -8,6 +8,7 @@ import type {
     TCoreArgument,
     TOptionalChecksum,
 } from "../lib/schemata/index.js"
+import { isClaimBound } from "../lib/schemata/index.js"
 import type { TCliArgumentMeta, TCliArgumentVersionMeta } from "./schemata.js"
 import { getPremisesDir } from "./config.js"
 import {
@@ -17,6 +18,14 @@ import {
     writeVersionMeta,
 } from "./storage/arguments.js"
 import {
+    readClaimLibrary,
+    readSourceLibrary,
+    readClaimSourceLibrary,
+    writeClaimLibrary,
+    writeSourceLibrary,
+    writeClaimSourceLibrary,
+} from "./storage/libraries.js"
+import {
     listPremiseIds,
     readPremiseData,
     readPremiseMeta,
@@ -25,6 +34,32 @@ import {
 } from "./storage/premises.js"
 import { readRoles, writeRoles } from "./storage/roles.js"
 import { readVariables, writeVariables } from "./storage/variables.js"
+
+export async function hydrateLibraries(): Promise<{
+    claimLibrary: ClaimLibrary
+    sourceLibrary: SourceLibrary
+    claimSourceLibrary: ClaimSourceLibrary
+}> {
+    const claimLibrary = await readClaimLibrary()
+    const sourceLibrary = await readSourceLibrary()
+    const claimSourceLibrary = await readClaimSourceLibrary(
+        claimLibrary,
+        sourceLibrary
+    )
+    return { claimLibrary, sourceLibrary, claimSourceLibrary }
+}
+
+export async function persistLibraries(
+    claimLibrary: ClaimLibrary,
+    sourceLibrary: SourceLibrary,
+    claimSourceLibrary: ClaimSourceLibrary
+): Promise<void> {
+    await Promise.all([
+        writeClaimLibrary(claimLibrary),
+        writeSourceLibrary(sourceLibrary),
+        writeClaimSourceLibrary(claimSourceLibrary),
+    ])
+}
 
 /**
  * Builds a fully-hydrated ArgumentEngine from the on-disk state for the
@@ -38,7 +73,12 @@ import { readVariables, writeVariables } from "./storage/variables.js"
  */
 export async function hydrateEngine(
     argumentId: string,
-    version: number
+    version: number,
+    libraries?: {
+        claimLibrary: ClaimLibrary
+        sourceLibrary: SourceLibrary
+        claimSourceLibrary: ClaimSourceLibrary
+    }
 ): Promise<ArgumentEngine> {
     const [argMeta, versionMeta, allVariables, roles, premiseIds] =
         await Promise.all([
@@ -53,11 +93,44 @@ export async function hydrateEngine(
         ...argMeta,
         ...versionMeta,
     }
+
+    const libs = libraries ?? (await hydrateLibraries())
+    let { claimLibrary } = libs
+    const { sourceLibrary, claimSourceLibrary } = libs
+
+    // Placeholder claim generation for backward compatibility.
+    // Arguments created before library persistence was implemented have
+    // variables referencing claims that don't exist in the library.
+    const missingClaims: { id: string; version: number }[] = []
+    for (const variable of allVariables) {
+        if (
+            isClaimBound(variable) &&
+            !claimLibrary.get(variable.claimId, variable.claimVersion)
+        ) {
+            missingClaims.push({
+                id: variable.claimId,
+                version: variable.claimVersion,
+            })
+        }
+    }
+    if (missingClaims.length > 0) {
+        const snapshot = claimLibrary.snapshot()
+        for (const missing of missingClaims) {
+            snapshot.claims.push({
+                id: missing.id,
+                version: missing.version,
+                frozen: true,
+                checksum: "",
+            } as (typeof snapshot.claims)[number])
+        }
+        claimLibrary = ClaimLibrary.fromSnapshot(snapshot)
+    }
+
     const engine = new ArgumentEngine(
         argument,
-        new ClaimLibrary(),
-        new SourceLibrary(),
-        new ClaimSourceLibrary(new ClaimLibrary(), new SourceLibrary())
+        claimLibrary,
+        sourceLibrary,
+        claimSourceLibrary
     )
 
     // Register all argument-level variables once on the engine; the shared
