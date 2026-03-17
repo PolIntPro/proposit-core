@@ -12996,3 +12996,63 @@ describe("CliArgumentParser metadata injection", () => {
         expect(arg.description).toBe("")
     })
 })
+
+describe("Library persistence", () => {
+    it("ClaimLibrary round-trips through snapshot", () => {
+        const lib = new ClaimLibrary()
+        const claim = lib.create({ id: "c1" } as Parameters<
+            typeof lib.create
+        >[0])
+        const snapshot = lib.snapshot()
+        const restored = ClaimLibrary.fromSnapshot(snapshot)
+        expect(restored.get("c1", 0)).toBeDefined()
+        expect(restored.get("c1", 0)!.id).toBe("c1")
+    })
+
+    it("SourceLibrary round-trips through snapshot", () => {
+        const lib = new SourceLibrary()
+        const source = lib.create({ id: "s1" } as Parameters<
+            typeof lib.create
+        >[0])
+        const snapshot = lib.snapshot()
+        const restored = SourceLibrary.fromSnapshot(snapshot)
+        expect(restored.get("s1", 0)).toBeDefined()
+    })
+
+    it("ClaimSourceLibrary round-trips through snapshot", () => {
+        const claimLib = new ClaimLibrary()
+        claimLib.create({ id: "c1" } as Parameters<typeof claimLib.create>[0])
+        const sourceLib = new SourceLibrary()
+        sourceLib.create({ id: "s1" } as Parameters<typeof sourceLib.create>[0])
+        const csLib = new ClaimSourceLibrary(claimLib, sourceLib)
+        csLib.add({
+            id: "a1",
+            claimId: "c1",
+            claimVersion: 0,
+            sourceId: "s1",
+            sourceVersion: 0,
+        })
+        const snapshot = csLib.snapshot()
+        const restored = ClaimSourceLibrary.fromSnapshot(
+            snapshot,
+            claimLib,
+            sourceLib
+        )
+        expect(restored.get("a1")).toBeDefined()
+        expect(restored.getAll()).toHaveLength(1)
+    })
+
+    it("placeholder claims are injected for missing claim references", () => {
+        const lib = new ClaimLibrary()
+        const snapshot = lib.snapshot()
+        snapshot.claims.push({
+            id: "c-missing",
+            version: 0,
+            frozen: true,
+            checksum: "",
+        } as (typeof snapshot.claims)[number])
+        const rebuilt = ClaimLibrary.fromSnapshot(snapshot)
+        expect(rebuilt.get("c-missing", 0)).toBeDefined()
+        expect(rebuilt.get("c-missing", 0)!.frozen).toBe(true)
+    })
+})
