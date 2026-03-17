@@ -1,5 +1,5 @@
 import { Command } from "commander"
-import { hydrateEngine } from "../engine.js"
+import { hydrateEngine, hydrateLibraries } from "../engine.js"
 import { printLine } from "../output.js"
 
 export function registerRenderCommand(
@@ -11,7 +11,8 @@ export function registerRenderCommand(
         .command("render")
         .description("Render all premises as logical expression strings")
         .action(async () => {
-            const engine = await hydrateEngine(argumentId, version)
+            const libs = await hydrateLibraries()
+            const engine = await hydrateEngine(argumentId, version, libs)
             const roles = engine.getRoleState()
             const conclusionId = roles.conclusionPremiseId
 
@@ -26,6 +27,35 @@ export function registerRenderCommand(
                 const marker = id === conclusionId ? "*" : ""
                 const display = pm.toDisplayString() || "(empty)"
                 printLine(`${id}${marker}: ${display}`)
+            }
+
+            const claims = libs.claimLibrary.getAll()
+            if (claims.length > 0) {
+                printLine("")
+                printLine("Claims:")
+                for (const claim of claims) {
+                    const extras = claim as Record<string, unknown>
+                    const frozen = claim.frozen ? " [frozen]" : ""
+                    const text =
+                        typeof extras.text === "string"
+                            ? ` | ${extras.text}`
+                            : ""
+                    printLine(`  ${claim.id}@${claim.version}${frozen}${text}`)
+                }
+            }
+
+            const sources = libs.sourceLibrary.getAll()
+            if (sources.length > 0) {
+                printLine("")
+                printLine("Sources:")
+                for (const source of sources) {
+                    const extras = source as Record<string, unknown>
+                    const text =
+                        typeof extras.text === "string"
+                            ? ` | ${extras.text}`
+                            : ""
+                    printLine(`  ${source.id}@${source.version}${text}`)
+                }
             }
         })
 }

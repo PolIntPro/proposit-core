@@ -68,6 +68,20 @@ Your response must conform to the provided JSON schema. Key fields:
 - If the input text cannot be reasonably interpreted as a propositional argument, set argument to null and provide an explanation in failureText.
 - If portions of the text are tangential or do not contribute to the argument, capture them in uncategorizedText.
 
+## Variable Symbols
+
+Each variable symbol should be a concise PascalCase summary of the claim it represents — short enough to scan at a glance, but specific enough to distinguish from other variables. Examples:
+
+| Claim | Good symbol | Bad symbol |
+|---|---|---|
+| "The GDP grew an average of 4% every year for the past decade" | GDP_Growth | G |
+| "Unrestricted free speech leads to the spread of misinformation" | FreeSpeech_Misinformation | Variable1 |
+| "Increased funding reduces classroom overcrowding" | Funding_Reduces_Overcrowding | FundingEffect |
+
+Use underscores to separate distinct concepts within a symbol when needed for clarity. Avoid single letters, numeric suffixes, or generic names like "Premise1".
+
+Abbreviations are encouraged to keep symbols short. Aim for under 20 characters when possible. Examples: "Gross Domestic Product growth is 4%" → GDP_Growth, "The cost of a degree at most universities has risen sharply" → Uni_Cost_Increase, "Regulatory intervention is necessary" → Reg_Intervention.
+
 ## Writing Style
 
 When formulating claims, write in third person, present tense, active voice. Each claim should be a clear, standalone declarative sentence.`
