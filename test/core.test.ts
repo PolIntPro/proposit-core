@@ -13000,9 +13000,7 @@ describe("CliArgumentParser metadata injection", () => {
 describe("Library persistence", () => {
     it("ClaimLibrary round-trips through snapshot", () => {
         const lib = new ClaimLibrary()
-        const claim = lib.create({ id: "c1" } as Parameters<
-            typeof lib.create
-        >[0])
+        lib.create({ id: "c1" } as Parameters<typeof lib.create>[0])
         const snapshot = lib.snapshot()
         const restored = ClaimLibrary.fromSnapshot(snapshot)
         expect(restored.get("c1", 0)).toBeDefined()
@@ -13011,9 +13009,7 @@ describe("Library persistence", () => {
 
     it("SourceLibrary round-trips through snapshot", () => {
         const lib = new SourceLibrary()
-        const source = lib.create({ id: "s1" } as Parameters<
-            typeof lib.create
-        >[0])
+        lib.create({ id: "s1" } as Parameters<typeof lib.create>[0])
         const snapshot = lib.snapshot()
         const restored = SourceLibrary.fromSnapshot(snapshot)
         expect(restored.get("s1", 0)).toBeDefined()

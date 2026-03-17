@@ -20,7 +20,10 @@ export function registerSourceCommands(program: Command): void {
             } else {
                 for (const source of all) {
                     const extras = source as Record<string, unknown>
-                    const text = extras.text ? ` | ${extras.text}` : ""
+                    const text =
+                        typeof extras.text === "string"
+                            ? ` | ${extras.text}`
+                            : ""
                     printLine(`${source.id}@${source.version}${text}`)
                 }
             }
@@ -42,7 +45,10 @@ export function registerSourceCommands(program: Command): void {
                 for (const v of versions) {
                     const extras = v as Record<string, unknown>
                     const frozen = v.frozen ? " [frozen]" : ""
-                    const text = extras.text ? ` | ${extras.text}` : ""
+                    const text =
+                        typeof extras.text === "string"
+                            ? ` | ${extras.text}`
+                            : ""
                     printLine(`v${v.version}${frozen}${text}`)
                 }
             }

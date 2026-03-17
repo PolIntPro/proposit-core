@@ -24,7 +24,9 @@ function claimSourceAssociationsPath(): string {
 export async function readClaimLibrary(): Promise<ClaimLibrary> {
     try {
         const content = await fs.readFile(claimsPath(), "utf-8")
-        const snapshot = JSON.parse(content)
+        const snapshot = JSON.parse(content) as ReturnType<
+            ClaimLibrary["snapshot"]
+        >
         return ClaimLibrary.fromSnapshot(snapshot)
     } catch {
         return new ClaimLibrary()
@@ -34,7 +36,9 @@ export async function readClaimLibrary(): Promise<ClaimLibrary> {
 export async function readSourceLibrary(): Promise<SourceLibrary> {
     try {
         const content = await fs.readFile(sourcesPath(), "utf-8")
-        const snapshot = JSON.parse(content)
+        const snapshot = JSON.parse(content) as ReturnType<
+            SourceLibrary["snapshot"]
+        >
         return SourceLibrary.fromSnapshot(snapshot)
     } catch {
         return new SourceLibrary()
@@ -50,7 +54,9 @@ export async function readClaimSourceLibrary(
             claimSourceAssociationsPath(),
             "utf-8"
         )
-        const snapshot = JSON.parse(content)
+        const snapshot = JSON.parse(content) as ReturnType<
+            ClaimSourceLibrary["snapshot"]
+        >
         return ClaimSourceLibrary.fromSnapshot(
             snapshot,
             claimLookup,
