@@ -33,6 +33,13 @@ export interface TExpressionMutations<
      * root is permitted per premise. All structural rules (`implies`/`iff`
      * root-only, child limits, position uniqueness) are enforced.
      *
+     * When `grammarConfig.autoNormalize` is `true`, operator nesting
+     * violations are auto-corrected by inserting a `formula` buffer between
+     * the parent operator and the non-`not` operator child, rather than
+     * throwing. Auto-normalize is only active for `addExpression`; compound
+     * operations (`insertExpression`, `wrapExpression`) and `removeExpression`
+     * always throw on violations regardless of this flag.
+     *
      * @param expression - The expression to add, including position and
      *   parent assignment.
      * @returns The added expression (with checksum) and changeset.
@@ -42,7 +49,7 @@ export interface TExpressionMutations<
      * @throws If the expression is a variable reference and the variable
      *   has not been registered.
      * @throws If a non-not operator would become a direct child of another
-     *   operator expression.
+     *   operator expression (when `autoNormalize` is `false`).
      */
     addExpression(
         expression: TExpressionInput<TExpr>

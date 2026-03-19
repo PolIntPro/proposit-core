@@ -240,9 +240,9 @@ Returns a serialisable snapshot of the full engine state (`{ argument, variables
 
 ---
 
-### `static fromSnapshot(snapshot, claimLibrary, sourceLibrary, claimSourceLibrary)` → `ArgumentEngine`
+### `static fromSnapshot(snapshot, claimLibrary, sourceLibrary, claimSourceLibrary, grammarConfig?)` → `ArgumentEngine`
 
-Reconstructs an `ArgumentEngine` from a previously captured snapshot. Requires the same `claimLibrary` (implementing `TClaimLookup`), `sourceLibrary` (implementing `TSourceLookup`), and `claimSourceLibrary` (implementing `TClaimSourceLookup`) that would be passed to the constructor. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`.
+Reconstructs an `ArgumentEngine` from a previously captured snapshot. Requires the same `claimLibrary` (implementing `TClaimLookup`), `sourceLibrary` (implementing `TSourceLookup`), and `claimSourceLibrary` (implementing `TClaimSourceLookup`) that would be passed to the constructor. Creates a `VariableManager` from the snapshot's variable data, then passes it as a dependency to each `PremiseEngine.fromSnapshot()`. The optional `grammarConfig` parameter overrides expression-tree grammar enforcement during restoration — defaults to `PERMISSIVE_GRAMMAR_CONFIG` so that previously saved trees load without validation errors.
 
 ---
 
@@ -252,9 +252,9 @@ Restores the engine's internal state in place from a previously captured snapsho
 
 ---
 
-### `static fromData(argument, claimLibrary, sourceLibrary, claimSourceLibrary, variables, premises, expressions, roles, config?)` → `ArgumentEngine`
+### `static fromData(argument, claimLibrary, sourceLibrary, claimSourceLibrary, variables, premises, expressions, roles, config?, grammarConfig?)` → `ArgumentEngine`
 
-Bulk-loads an engine from flat arrays (as returned by DB queries). Requires `claimLibrary`, `sourceLibrary`, and `claimSourceLibrary` instances. Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments.
+Bulk-loads an engine from flat arrays (as returned by DB queries). Requires `claimLibrary`, `sourceLibrary`, and `claimSourceLibrary` instances. Groups expressions by `premiseId`, creates a shared `VariableManager`, creates each `PremiseEngine` with its expressions loaded in BFS order, and sets roles. Generic type parameters are inferred from the arguments. The optional `grammarConfig` parameter controls grammar enforcement during loading — defaults to `PERMISSIVE_GRAMMAR_CONFIG` so that data from the database loads without validation errors regardless of how it was originally constructed.
 
 ---
 
@@ -711,19 +711,49 @@ const config = createChecksumConfig({
 
 ---
 
+## Grammar Configuration
+
+Types and constants for controlling structural rule enforcement in expression trees, exported from `types/grammar.ts`:
+
+### `TGrammarOptions`
+
+Individual structural rule toggles. Each boolean controls whether a specific constraint is enforced:
+
+| Field                            | Default | Description                                                                        |
+| -------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| `enforceFormulaBetweenOperators` | `true`  | Require a `formula` node between a parent operator and a non-`not` operator child. |
+
+### `TGrammarConfig`
+
+Extends `TGrammarOptions` with an additional control:
+
+| Field           | Default | Description                                                                                                                                                  |
+| --------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `autoNormalize` | `false` | When `true`, auto-insert `formula` buffers instead of throwing when a rule is violated. Only supported by `addExpression`; compound operations always throw. |
+
+### `DEFAULT_GRAMMAR_CONFIG`
+
+`{ enforceFormulaBetweenOperators: true, autoNormalize: false }` — all rules enforced, auto-normalize off. Used by all mutating engine operations by default.
+
+### `PERMISSIVE_GRAMMAR_CONFIG`
+
+`{ enforceFormulaBetweenOperators: false, autoNormalize: false }` — no structural rules enforced. Used by default in `fromData`, `fromSnapshot`, and `rollback` so that previously persisted trees load without validation errors.
+
+---
+
 ## Position Utilities
 
 Constants, types, and a helper for midpoint-based position computation, exported from `utils/position.ts`:
 
-| Export                    | Value / Signature                      | Description                                           |
-| ------------------------- | -------------------------------------- | ----------------------------------------------------- |
-| `POSITION_MIN`            | `-2147483647`                          | Default lower bound (signed int32).                   |
-| `POSITION_MAX`            | `2147483647`                           | Default upper bound (signed int32).                   |
-| `POSITION_INITIAL`        | `0`                                    | Default position for first children.                  |
-| `DEFAULT_POSITION_CONFIG` | `{ min, max, initial }`                | Default `TCorePositionConfig` matching the above.     |
-| `TCorePositionConfig`     | `{ min, max, initial }`                | Type for configurable position range.                 |
-| `TLogicEngineOptions`     | `{ checksumConfig?, positionConfig? }` | Universal config type for all engine/manager classes. |
-| `midpoint(a, b)`          | `a + (b - a) / 2`                      | Overflow-safe midpoint of two positions.              |
+| Export                    | Value / Signature                                      | Description                                           |
+| ------------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
+| `POSITION_MIN`            | `-2147483647`                                          | Default lower bound (signed int32).                   |
+| `POSITION_MAX`            | `2147483647`                                           | Default upper bound (signed int32).                   |
+| `POSITION_INITIAL`        | `0`                                                    | Default position for first children.                  |
+| `DEFAULT_POSITION_CONFIG` | `{ min, max, initial }`                                | Default `TCorePositionConfig` matching the above.     |
+| `TCorePositionConfig`     | `{ min, max, initial }`                                | Type for configurable position range.                 |
+| `TLogicEngineOptions`     | `{ checksumConfig?, positionConfig?, grammarConfig? }` | Universal config type for all engine/manager classes. |
+| `midpoint(a, b)`          | `a + (b - a) / 2`                                      | Overflow-safe midpoint of two positions.              |
 
 ~52 bisections at the same insertion point before losing floating-point precision.
 
