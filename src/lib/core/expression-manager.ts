@@ -71,6 +71,7 @@ export class ExpressionManager<
     private positionConfig: TCorePositionConfig
     private config?: TLogicEngineOptions
     private collector: ChangeCollector | null = null
+    private skipNestingCheck = false
 
     setCollector(collector: ChangeCollector | null): void {
         this.collector = collector
@@ -147,6 +148,18 @@ export class ExpressionManager<
             if (parent.type !== "operator" && parent.type !== "formula") {
                 throw new Error(
                     `Parent expression "${expression.parentId}" is not an operator expression.`
+                )
+            }
+
+            // Non-not operators cannot be direct children of operators.
+            if (
+                !this.skipNestingCheck &&
+                parent.type === "operator" &&
+                expression.type === "operator" &&
+                expression.operator !== "not"
+            ) {
+                throw new Error(
+                    `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
                 )
             }
 

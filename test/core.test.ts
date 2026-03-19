@@ -13052,3 +13052,113 @@ describe("Library persistence", () => {
         expect(rebuilt.get("c-missing", 0)!.frozen).toBe(true)
     })
 })
+
+describe("operator nesting restriction", () => {
+    describe("addExpression", () => {
+        it("throws when and operator is added as child of and operator", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "and"))
+            expect(() =>
+                premise.addExpression(
+                    makeOpExpr("op-child", "and", {
+                        parentId: "op-root",
+                        position: 0,
+                    })
+                )
+            ).toThrowError(
+                /cannot be direct children of operator expressions/
+            )
+        })
+
+        it("throws when or operator is added as child of not operator", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "and"))
+            premise.addExpression(
+                makeOpExpr("op-not", "not", {
+                    parentId: "op-root",
+                    position: 0,
+                })
+            )
+            expect(() =>
+                premise.addExpression(
+                    makeOpExpr("op-child", "or", {
+                        parentId: "op-not",
+                        position: 0,
+                    })
+                )
+            ).toThrowError(
+                /cannot be direct children of operator expressions/
+            )
+        })
+
+        it("allows not operator as child of and operator", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "and"))
+            expect(() =>
+                premise.addExpression(
+                    makeOpExpr("op-not", "not", {
+                        parentId: "op-root",
+                        position: 0,
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it("allows not operator as child of not operator", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "and"))
+            premise.addExpression(
+                makeOpExpr("op-not1", "not", {
+                    parentId: "op-root",
+                    position: 0,
+                })
+            )
+            expect(() =>
+                premise.addExpression(
+                    makeOpExpr("op-not2", "not", {
+                        parentId: "op-not1",
+                        position: 0,
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it("allows and operator as child of formula (formula is the buffer)", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "or"))
+            premise.addExpression(
+                makeFormulaExpr("formula-1", {
+                    parentId: "op-root",
+                    position: 0,
+                })
+            )
+            expect(() =>
+                premise.addExpression(
+                    makeOpExpr("op-child", "and", {
+                        parentId: "formula-1",
+                        position: 0,
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it("allows formula → and chain as child of or (formula buffer between operators)", () => {
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-root", "or"))
+            premise.addExpression(
+                makeFormulaExpr("formula-1", {
+                    parentId: "op-root",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeOpExpr("op-child", "and", {
+                    parentId: "formula-1",
+                    position: 0,
+                })
+            )
+            expect(premise.getExpression("op-child")).toBeDefined()
+            expect(premise.getExpression("formula-1")).toBeDefined()
+        })
+    })
+})
