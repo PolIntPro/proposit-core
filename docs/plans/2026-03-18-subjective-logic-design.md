@@ -53,7 +53,12 @@ All in a new `subjective.ts` alongside `kleene.ts`:
   - `b_out = a.belief * b.belief`
   - `d_out = a.disbelief + b.disbelief - a.disbelief * b.disbelief`
   - `u_out = a.belief * b.uncertainty + a.uncertainty * b.belief + a.uncertainty * b.uncertainty`
-- **`subjectiveOr(a, b)`** — via De Morgan: `NOT(AND(NOT a, NOT b))`
+  - `baseRate_out = a.baseRate * b.baseRate`
+- **`subjectiveOr(a, b)`** — direct formula (equivalent to De Morgan but avoids unnecessary NOT/AND overhead in n-ary reduce):
+  - `b_out = a.belief + b.belief - a.belief * b.belief`
+  - `d_out = a.disbelief * b.disbelief`
+  - `u_out = a.disbelief * b.uncertainty + a.uncertainty * b.disbelief + a.uncertainty * b.uncertainty`
+  - `baseRate_out = a.baseRate + b.baseRate - a.baseRate * b.baseRate`
 - **`subjectiveImplies(a, b)`** — material implication: `OR(NOT a, b)`
 - **`subjectiveIff(a, b)`** — biconditional: `AND(IMPLIES(a, b), IMPLIES(b, a))`
 
@@ -65,7 +70,7 @@ All in a new `subjective.ts` alongside `kleene.ts`:
 
 ## Section 2: Assignment and input format
 
-`TCoreExpressionAssignment.variables` changes from `Record<string, boolean | null>` to `Record<string, TOpinion | boolean | null>`. The evaluator normalizes all values to `TOpinion` via `toOpinion()` at the start of evaluation.
+`TCoreVariableAssignment` changes from `Record<string, TCoreTrivalentValue>` to `Record<string, TOpinion | boolean | null>`. `TCoreExpressionAssignment.variables` uses this updated type. The evaluator normalizes all values to `TOpinion` via `toOpinion()` at the start of evaluation.
 
 `rejectedExpressionIds` unchanged — rejection forces `OPINION_FALSE`, skips children.
 
@@ -84,7 +89,7 @@ Fields that change from `TCoreTrivalentValue` to `TOpinion`:
 
 All `TCoreTrivalentValue` fields become `TOpinion`:
 - `implies` variant: `leftValue`, `rightValue`, `rootValue`, `antecedentTrue`, `consequentTrue`, `isVacuouslyTrue`, `fired`, `firedAndHeld`
-- `iff` variant: `leftValue`, `rightValue`, `rootValue`, `bothSidesTrue`, `bothSidesFalse`, plus all fields in `leftToRight`/`rightToLeft` `TCoreDirectionalVacuity`
+- `iff` variant: `leftValue`, `rightValue`, `rootValue`, `bothSidesTrue`, `bothSidesFalse`, plus all fields in `leftToRight`/`rightToLeft` `TCoreDirectionalVacuity` (including `implicationValue`)
 
 ### TCoreArgumentEvaluationResult
 
@@ -124,14 +129,23 @@ Same structure, subjective operators. `isVacuouslyTrue = subjectiveNot(leftValue
 - Remove aggregate flag computation
 - Return per-premise results, assignment, and referencedVariableIds only
 
+### ArgumentEngine.evaluate() — resolver detail
+
+The resolver's fallback path for non-premise-bound variables (`assignment.variables[variableId] ?? null`) must normalize through `toOpinion()` before returning, consistent with the `TOpinion` return type.
+
 ### ArgumentEngine.checkValidity()
 
 - No changes to enumeration logic
-- Counterexample detection: instead of checking `result.isCounterexample === true`, check that conclusion root opinion equals `OPINION_FALSE` and all supporting/constraint root opinions equal `OPINION_TRUE` (exact corner equality)
+- Counterexample detection: instead of checking `result.isCounterexample === true`, recompute inline — conclusion `rootValue` has `belief === 0 && disbelief === 1` and all supporting/constraint premise `rootValue`s have `belief === 1 && disbelief === 0`. Uses strict `===` comparison (justified because boolean corner inputs produce exact corner outputs with no floating-point drift through the operator chain).
+- Admissible assignment counting: instead of reading `result.isAdmissibleAssignment`, recompute inline by checking all constraint premise `rootValue`s equal `OPINION_TRUE` via strict `===`.
 
-### kleene.ts
+### Inference diagnostics helpers
 
-Retained — may be referenced by consumers, can be deprecated later.
+`buildDirectionalVacuity()` and `implicationValue()` in `validation.ts` must be updated to use `subjective*` operators and accept/return `TOpinion` instead of `TCoreTrivalentValue`.
+
+### kleene.ts and TCoreTrivalentValue
+
+Both retained — may be referenced by consumers, can be deprecated later. `TCoreTrivalentValue` remains valid as an input type (accepted by `toOpinion()`).
 
 ## Section 5: Schema and validation
 
@@ -151,7 +165,7 @@ Validation runs at the entry point of `evaluate()` on all opinion values in the 
 
 ### CLI
 
-CLI `evaluate` command will need to accept opinion tuples. Deferred to implementation plan as a CLI-layer concern.
+CLI `evaluate` command will need to accept opinion tuples for input. The CLI `analysis evaluate` output currently prints the removed aggregate flags (`isAdmissibleAssignment`, `allSupportingPremisesTrue`, `conclusionTrue`, `isCounterexample`) — this output must be redesigned to display per-premise opinion results instead. Both are CLI-layer concerns deferred to the implementation plan.
 
 ## Section 6: Testing strategy
 
