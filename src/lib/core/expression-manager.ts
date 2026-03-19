@@ -508,16 +508,18 @@ export class ExpressionManager<
         const child = children[0]
 
         // Validate: non-not operators cannot be promoted into an operator parent.
-        if (
-            child.type === "operator" &&
-            child.operator !== "not" &&
-            target.parentId !== null
-        ) {
-            const grandparent = this.expressions.get(target.parentId)
-            if (grandparent && grandparent.type === "operator") {
-                throw new Error(
-                    `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
-                )
+        if (this.grammarConfig.enforceFormulaBetweenOperators) {
+            if (
+                child.type === "operator" &&
+                child.operator !== "not" &&
+                target.parentId !== null
+            ) {
+                const grandparent = this.expressions.get(target.parentId)
+                if (grandparent && grandparent.type === "operator") {
+                    throw new Error(
+                        `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                    )
+                }
             }
         }
 
@@ -629,6 +631,7 @@ export class ExpressionManager<
 
             // Defense-in-depth: validate promotion doesn't violate nesting or root-only rules.
             if (child.type === "operator") {
+                // Root-only — always enforced
                 if (
                     (child.operator === "implies" ||
                         child.operator === "iff") &&
@@ -638,12 +641,19 @@ export class ExpressionManager<
                         `Cannot promote: child "${child.id}" is a root-only operator ("${child.operator}") and would be placed in a non-root position.`
                     )
                 }
-                if (child.operator !== "not" && grandparentId !== null) {
-                    const grandparent = this.expressions.get(grandparentId)
-                    if (grandparent && grandparent.type === "operator") {
-                        throw new Error(
-                            `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
-                        )
+                // Nesting — grammar-configurable
+                if (this.grammarConfig.enforceFormulaBetweenOperators) {
+                    if (child.operator !== "not" && grandparentId !== null) {
+                        const grandparent =
+                            this.expressions.get(grandparentId)
+                        if (
+                            grandparent &&
+                            grandparent.type === "operator"
+                        ) {
+                            throw new Error(
+                                `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                            )
+                        }
                     }
                 }
             }
@@ -795,7 +805,7 @@ export class ExpressionManager<
     ): void {
         if (child.type !== "operator") return
 
-        // Root-only check
+        // Root-only check — always enforced
         if (
             (child.operator === "implies" || child.operator === "iff") &&
             newParentId !== null
@@ -805,13 +815,15 @@ export class ExpressionManager<
             )
         }
 
-        // Nesting check
-        if (child.operator !== "not" && newParentId !== null) {
-            const newParent = this.expressions.get(newParentId)
-            if (newParent && newParent.type === "operator") {
-                throw new Error(
-                    `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
-                )
+        // Nesting check — grammar-configurable
+        if (this.grammarConfig.enforceFormulaBetweenOperators) {
+            if (child.operator !== "not" && newParentId !== null) {
+                const newParent = this.expressions.get(newParentId)
+                if (newParent && newParent.type === "operator") {
+                    throw new Error(
+                        `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                    )
+                }
             }
         }
     }
@@ -1054,34 +1066,39 @@ export class ExpressionManager<
         }
 
         // 10a. Non-not operators cannot be direct children of operators.
-        // Check 1: new expression as child of anchor's parent.
-        if (
-            anchor.parentId !== null &&
-            expression.type === "operator" &&
-            expression.operator !== "not"
-        ) {
-            const anchorParent = this.expressions.get(anchor.parentId)
-            if (anchorParent && anchorParent.type === "operator") {
-                throw new Error(
-                    `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
-                )
-            }
-        }
-
-        // Check 2: left/right nodes as children of the new expression.
-        if (expression.type === "operator") {
-            if (leftNode?.type === "operator" && leftNode.operator !== "not") {
-                throw new Error(
-                    `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
-                )
-            }
+        if (this.grammarConfig.enforceFormulaBetweenOperators) {
+            // Check 1: new expression as child of anchor's parent.
             if (
-                rightNode?.type === "operator" &&
-                rightNode.operator !== "not"
+                anchor.parentId !== null &&
+                expression.type === "operator" &&
+                expression.operator !== "not"
             ) {
-                throw new Error(
-                    `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
-                )
+                const anchorParent = this.expressions.get(anchor.parentId)
+                if (anchorParent && anchorParent.type === "operator") {
+                    throw new Error(
+                        `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
+                    )
+                }
+            }
+
+            // Check 2: left/right nodes as children of the new expression.
+            if (expression.type === "operator") {
+                if (
+                    leftNode?.type === "operator" &&
+                    leftNode.operator !== "not"
+                ) {
+                    throw new Error(
+                        `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
+                    )
+                }
+                if (
+                    rightNode?.type === "operator" &&
+                    rightNode.operator !== "not"
+                ) {
+                    throw new Error(
+                        `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
+                    )
+                }
             }
         }
 
@@ -1232,30 +1249,37 @@ export class ExpressionManager<
         }
 
         // 10a. Non-not operators cannot be direct children of operators.
-        // Check 1: new operator as child of existing node's parent.
-        // Note: step 7 already rejects `not`, so operator.operator is always non-not here.
-        if (existingNode.parentId !== null) {
-            const existingParent = this.expressions.get(existingNode.parentId)
-            if (existingParent && existingParent.type === "operator") {
+        if (this.grammarConfig.enforceFormulaBetweenOperators) {
+            // Check 1: new operator as child of existing node's parent.
+            // Note: step 7 already rejects `not`, so operator.operator is always non-not here.
+            if (existingNode.parentId !== null) {
+                const existingParent = this.expressions.get(
+                    existingNode.parentId
+                )
+                if (existingParent && existingParent.type === "operator") {
+                    throw new Error(
+                        `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
+                    )
+                }
+            }
+
+            // Check 2: existing node and new sibling as children of the new operator.
+            if (
+                existingNode.type === "operator" &&
+                existingNode.operator !== "not"
+            ) {
                 throw new Error(
                     `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
                 )
             }
-        }
-
-        // Check 2: existing node and new sibling as children of the new operator.
-        if (
-            existingNode.type === "operator" &&
-            existingNode.operator !== "not"
-        ) {
-            throw new Error(
-                `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
-            )
-        }
-        if (newSibling.type === "operator" && newSibling.operator !== "not") {
-            throw new Error(
-                `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
-            )
+            if (
+                newSibling.type === "operator" &&
+                newSibling.operator !== "not"
+            ) {
+                throw new Error(
+                    `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
+                )
+            }
         }
 
         // Save the existing node's slot (the operator will inherit it).
