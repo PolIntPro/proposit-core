@@ -48,7 +48,9 @@ type TLogicEngineOptions = {
 
 When `grammarConfig` is omitted, `DEFAULT_GRAMMAR_CONFIG` is used — all rules enforced, auto-normalize off. This preserves current behavior.
 
-The grammar config round-trips through snapshots via the existing `TLogicEngineOptions` path. `TExpressionManagerSnapshot` already has `config?: TLogicEngineOptions`, and `snapshot()` already stores `this.config`. Adding `grammarConfig` to `TLogicEngineOptions` means it is automatically serialized and deserialized in snapshots with no additional work.
+The grammar config round-trips through snapshots via the existing `TLogicEngineOptions` path. `TExpressionManagerSnapshot` already has `config?: TLogicEngineOptions`, and `ExpressionManager.snapshot()` already stores `this.config`. Adding `grammarConfig` to `TLogicEngineOptions` means it is automatically serialized at the `ExpressionManager` level.
+
+**Required fix:** `PremiseEngine.snapshot()` currently assembles its config object by cherry-picking `checksumConfig` and `positionConfig`. It must be updated to also include `grammarConfig` (e.g., `grammarConfig: exprSnapshot.config?.grammarConfig`), or refactored to pass through the full config from `exprSnapshot.config` instead of cherry-picking fields. Without this, `grammarConfig` would be silently dropped from `TPremiseEngineSnapshot.config`.
 
 ## ExpressionManager Changes
 
