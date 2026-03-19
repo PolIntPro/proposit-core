@@ -13065,9 +13065,7 @@ describe("operator nesting restriction", () => {
                         position: 0,
                     })
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("throws when or operator is added as child of not operator", () => {
@@ -13086,9 +13084,7 @@ describe("operator nesting restriction", () => {
                         position: 0,
                     })
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("allows not operator as child of and operator", () => {
@@ -13167,21 +13163,22 @@ describe("operator nesting restriction", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeOpExpr("op-root", "and"))
             premise.addExpression(
-                makeVarExpr("v1", VAR_P.id, { parentId: "op-root", position: 0 })
+                makeVarExpr("v1", VAR_P.id, {
+                    parentId: "op-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("v2", VAR_Q.id, { parentId: "op-root", position: 1 })
+                makeVarExpr("v2", VAR_Q.id, {
+                    parentId: "op-root",
+                    position: 1,
+                })
             )
             // Inserting an `or` between `and` (parent) and `v1` (child)
             // → the `or` would become a child of `and` → violation
             expect(() =>
-                premise.insertExpression(
-                    makeOpExpr("op-new", "or"),
-                    "v1"
-                )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+                premise.insertExpression(makeOpExpr("op-new", "or"), "v1")
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("throws when inserting non-not operator under not parent", () => {
@@ -13190,22 +13187,23 @@ describe("operator nesting restriction", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeOpExpr("op-root", "and"))
             premise.addExpression(
-                makeOpExpr("op-not", "not", { parentId: "op-root", position: 0 })
+                makeOpExpr("op-not", "not", {
+                    parentId: "op-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
                 makeVarExpr("v1", VAR_P.id, { parentId: "op-not", position: 0 })
             )
             premise.addExpression(
-                makeVarExpr("v2", VAR_Q.id, { parentId: "op-root", position: 1 })
+                makeVarExpr("v2", VAR_Q.id, {
+                    parentId: "op-root",
+                    position: 1,
+                })
             )
             expect(() =>
-                premise.insertExpression(
-                    makeOpExpr("op-new", "or"),
-                    "v1"
-                )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+                premise.insertExpression(makeOpExpr("op-new", "or"), "v1")
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("throws when inserted operator would receive non-not operator children", () => {
@@ -13284,25 +13282,26 @@ describe("operator nesting restriction", () => {
                     } as TExpressionInput,
                     "op-or"
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("allows inserting not between operator and its child", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeOpExpr("op-root", "and"))
             premise.addExpression(
-                makeVarExpr("v1", VAR_P.id, { parentId: "op-root", position: 0 })
+                makeVarExpr("v1", VAR_P.id, {
+                    parentId: "op-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("v2", VAR_Q.id, { parentId: "op-root", position: 1 })
+                makeVarExpr("v2", VAR_Q.id, {
+                    parentId: "op-root",
+                    position: 1,
+                })
             )
             expect(() =>
-                premise.insertExpression(
-                    makeOpExpr("op-not", "not"),
-                    "v1"
-                )
+                premise.insertExpression(makeOpExpr("op-not", "not"), "v1")
             ).not.toThrow()
         })
 
@@ -13310,13 +13309,19 @@ describe("operator nesting restriction", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeOpExpr("op-root", "and"))
             premise.addExpression(
-                makeOpExpr("op-not", "not", { parentId: "op-root", position: 0 })
+                makeOpExpr("op-not", "not", {
+                    parentId: "op-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
                 makeVarExpr("v1", VAR_P.id, { parentId: "op-not", position: 0 })
             )
             premise.addExpression(
-                makeVarExpr("v2", VAR_Q.id, { parentId: "op-root", position: 1 })
+                makeVarExpr("v2", VAR_Q.id, {
+                    parentId: "op-root",
+                    position: 1,
+                })
             )
             expect(() =>
                 premise.insertExpression(
@@ -13334,10 +13339,16 @@ describe("operator nesting restriction", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeOpExpr("op-root", "and"))
             premise.addExpression(
-                makeVarExpr("v1", VAR_P.id, { parentId: "op-root", position: 0 })
+                makeVarExpr("v1", VAR_P.id, {
+                    parentId: "op-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
-                makeVarExpr("v2", VAR_Q.id, { parentId: "op-root", position: 1 })
+                makeVarExpr("v2", VAR_Q.id, {
+                    parentId: "op-root",
+                    position: 1,
+                })
             )
             expect(() =>
                 premise.wrapExpression(
@@ -13345,9 +13356,7 @@ describe("operator nesting restriction", () => {
                     makeVarExpr("v3", VAR_R.id) as TExpressionWithoutPosition,
                     "v1"
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("throws when existing node is a non-not operator being wrapped by a new non-not operator", () => {
@@ -13356,7 +13365,10 @@ describe("operator nesting restriction", () => {
             const premise = premiseWithVars()
             premise.addExpression(makeFormulaExpr("formula-root"))
             premise.addExpression(
-                makeOpExpr("op-or", "or", { parentId: "formula-root", position: 0 })
+                makeOpExpr("op-or", "or", {
+                    parentId: "formula-root",
+                    position: 0,
+                })
             )
             premise.addExpression(
                 makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 })
@@ -13370,9 +13382,7 @@ describe("operator nesting restriction", () => {
                     makeVarExpr("v3", VAR_R.id) as TExpressionWithoutPosition,
                     "op-or"
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("throws when new sibling is a non-not operator", () => {
@@ -13386,9 +13396,7 @@ describe("operator nesting restriction", () => {
                     makeOpExpr("sib-or", "or") as TExpressionWithoutPosition,
                     "v1"
                 )
-            ).toThrowError(
-                /cannot be direct children of operator expressions/
-            )
+            ).toThrowError(/cannot be direct children of operator expressions/)
         })
 
         it("allows wrapping with non-not operator at root", () => {
@@ -13403,6 +13411,368 @@ describe("operator nesting restriction", () => {
                     "v1"
                 )
             ).not.toThrow()
+        })
+    })
+
+    describe("removeExpression — promotion", () => {
+        it("throws when direct promotion would place non-not operator under operator", () => {
+            // Build: and → formula → or → [P, Q], plus and has second child R
+            // Remove formula (deleteSubtree: false) → or would promote under and → violation
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-and", "and"))
+            premise.addExpression(
+                makeFormulaExpr("formula-1", {
+                    parentId: "op-and",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeOpExpr("op-or", "or", {
+                    parentId: "formula-1",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 })
+            )
+            premise.addExpression(
+                makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 })
+            )
+            premise.addExpression(
+                makeVarExpr("v3", VAR_R.id, { parentId: "op-and", position: 1 })
+            )
+            expect(() =>
+                premise.removeExpression("formula-1", false)
+            ).toThrowError(
+                /would promote a non-not operator as a direct child of another operator/
+            )
+        })
+
+        it("allows direct promotion of not under operator", () => {
+            // Build: and → formula → not → P, plus and has second child Q
+            // Remove formula → not promotes under and → OK (not is exempt)
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-and", "and"))
+            premise.addExpression(
+                makeFormulaExpr("formula-1", {
+                    parentId: "op-and",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeOpExpr("op-not", "not", {
+                    parentId: "formula-1",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeVarExpr("v1", VAR_P.id, { parentId: "op-not", position: 0 })
+            )
+            premise.addExpression(
+                makeVarExpr("v2", VAR_Q.id, { parentId: "op-and", position: 1 })
+            )
+            expect(() =>
+                premise.removeExpression("formula-1", false)
+            ).not.toThrow()
+        })
+
+        it("throws when collapse promotion would place non-not operator under operator", () => {
+            // Legacy tree: and → [or → [and2 → [P, Q], R], S]
+            // Remove R → or has 1 child and2 → collapse: and2 promoted into and slot → VIOLATION
+            const em = ExpressionManager.fromSnapshot({
+                expressions: [
+                    {
+                        id: "op-and",
+                        type: "operator",
+                        operator: "and",
+                        parentId: null,
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-or",
+                        type: "operator",
+                        operator: "or",
+                        parentId: "op-and",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-and2",
+                        type: "operator",
+                        operator: "and",
+                        parentId: "op-or",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-p",
+                        type: "variable",
+                        variableId: VAR_P.id,
+                        parentId: "op-and2",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-q",
+                        type: "variable",
+                        variableId: VAR_Q.id,
+                        parentId: "op-and2",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-r",
+                        type: "variable",
+                        variableId: VAR_R.id,
+                        parentId: "op-or",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-s",
+                        type: "variable",
+                        variableId: VAR_P.id,
+                        parentId: "op-and",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                ] as TCorePropositionalExpression[],
+            })
+            expect(() => em.removeExpression("v-r", true)).toThrowError(
+                /would promote a non-not operator as a direct child of another operator/
+            )
+        })
+
+        it("allows collapse promotion of not under operator", () => {
+            // Legacy tree: and → [or → [not → P, Q], R]
+            // Remove Q → or has 1 child not → collapse: not promoted under and → OK
+            const em = ExpressionManager.fromSnapshot({
+                expressions: [
+                    {
+                        id: "op-and",
+                        type: "operator",
+                        operator: "and",
+                        parentId: null,
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-or",
+                        type: "operator",
+                        operator: "or",
+                        parentId: "op-and",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-not",
+                        type: "operator",
+                        operator: "not",
+                        parentId: "op-or",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-p",
+                        type: "variable",
+                        variableId: VAR_P.id,
+                        parentId: "op-not",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-q",
+                        type: "variable",
+                        variableId: VAR_Q.id,
+                        parentId: "op-or",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-r",
+                        type: "variable",
+                        variableId: VAR_R.id,
+                        parentId: "op-and",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                ] as TCorePropositionalExpression[],
+            })
+            expect(() => em.removeExpression("v-q", true)).not.toThrow()
+        })
+
+        it("allows cascading collapse where final promotion is safe", () => {
+            // and → [not → formula → or → [P, Q], R]
+            // Remove or (subtree) → formula(0 children) deleted → not(0 children) deleted →
+            //   and has 1 child R → R promoted to root → OK
+            const premise = premiseWithVars()
+            premise.addExpression(makeOpExpr("op-and", "and"))
+            premise.addExpression(
+                makeOpExpr("op-not", "not", { parentId: "op-and", position: 0 })
+            )
+            premise.addExpression(
+                makeFormulaExpr("formula-1", {
+                    parentId: "op-not",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeOpExpr("op-or", "or", {
+                    parentId: "formula-1",
+                    position: 0,
+                })
+            )
+            premise.addExpression(
+                makeVarExpr("v1", VAR_P.id, { parentId: "op-or", position: 0 })
+            )
+            premise.addExpression(
+                makeVarExpr("v2", VAR_Q.id, { parentId: "op-or", position: 1 })
+            )
+            premise.addExpression(
+                makeVarExpr("v3", VAR_R.id, { parentId: "op-and", position: 1 })
+            )
+            expect(() => premise.removeExpression("op-or", true)).not.toThrow()
+        })
+
+        it("throws on cascading collapse where final promotion violates nesting rule", () => {
+            // Legacy tree: and → [or → [not → P, and2 → [Q, R]], S]
+            // Remove P → not(0 children) deleted → or(1 child: and2) collapses →
+            //   and2 promoted into and slot → and2 under and → VIOLATION
+            const em = ExpressionManager.fromSnapshot({
+                expressions: [
+                    {
+                        id: "op-and",
+                        type: "operator",
+                        operator: "and",
+                        parentId: null,
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-or",
+                        type: "operator",
+                        operator: "or",
+                        parentId: "op-and",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-not",
+                        type: "operator",
+                        operator: "not",
+                        parentId: "op-or",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-p",
+                        type: "variable",
+                        variableId: VAR_P.id,
+                        parentId: "op-not",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "op-and2",
+                        type: "operator",
+                        operator: "and",
+                        parentId: "op-or",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-q",
+                        type: "variable",
+                        variableId: VAR_Q.id,
+                        parentId: "op-and2",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-r",
+                        type: "variable",
+                        variableId: VAR_R.id,
+                        parentId: "op-and2",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v-s",
+                        type: "variable",
+                        variableId: VAR_P.id,
+                        parentId: "op-and",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                ] as TCorePropositionalExpression[],
+            })
+            expect(() => em.removeExpression("v-p", true)).toThrowError(
+                /would promote a non-not operator as a direct child of another operator/
+            )
         })
     })
 })

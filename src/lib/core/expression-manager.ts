@@ -410,6 +410,9 @@ export class ExpressionManager<
             return undefined
         }
 
+        // Pre-flight: simulate collapse chain to detect nesting/root-only violations.
+        this.assertRemovalSafe(expressionId, deleteSubtree)
+
         if (deleteSubtree) {
             return this.removeSubtree(expressionId, target)
         } else {
@@ -496,6 +499,20 @@ export class ExpressionManager<
 
         // Exactly 1 child — promote it into the target's slot.
         const child = children[0]
+
+        // Validate: non-not operators cannot be promoted into an operator parent.
+        if (
+            child.type === "operator" &&
+            child.operator !== "not" &&
+            target.parentId !== null
+        ) {
+            const grandparent = this.expressions.get(target.parentId)
+            if (grandparent && grandparent.type === "operator") {
+                throw new Error(
+                    `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                )
+            }
+        }
 
         // Validate: root-only operators cannot be promoted into a non-root position.
         if (
@@ -602,6 +619,27 @@ export class ExpressionManager<
             const child = children[0]
             const grandparentId = operator.parentId
             const grandparentPosition = operator.position
+
+            // Defense-in-depth: validate promotion doesn't violate nesting or root-only rules.
+            if (child.type === "operator") {
+                if (
+                    (child.operator === "implies" ||
+                        child.operator === "iff") &&
+                    grandparentId !== null
+                ) {
+                    throw new Error(
+                        `Cannot promote: child "${child.id}" is a root-only operator ("${child.operator}") and would be placed in a non-root position.`
+                    )
+                }
+                if (child.operator !== "not" && grandparentId !== null) {
+                    const grandparent = this.expressions.get(grandparentId)
+                    if (grandparent && grandparent.type === "operator") {
+                        throw new Error(
+                            `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                        )
+                    }
+                }
+            }
 
             // Promote the surviving child into the operator's slot in the grandparent.
             const promoted = this.attachChecksum({
@@ -715,6 +753,101 @@ export class ExpressionManager<
             }
         } finally {
             this.skipNestingCheck = false
+        }
+    }
+
+    /**
+     * Simulates the collapse chain that would result from removing an expression.
+     * Throws if any promotion would violate nesting or root-only rules.
+     */
+    private assertRemovalSafe(
+        expressionId: string,
+        deleteSubtree: boolean
+    ): void {
+        const target = this.expressions.get(expressionId)
+        if (!target) return
+
+        if (!deleteSubtree) {
+            const children = this.getChildExpressions(expressionId)
+            // >1 children: removeAndPromote throws before any mutation, no nesting concern.
+            if (children.length === 1) {
+                this.assertPromotionSafe(children[0], target.parentId)
+            }
+            if (children.length === 0) {
+                this.simulateCollapseChain(target.parentId, expressionId)
+            }
+            return
+        }
+
+        // deleteSubtree: entire subtree removed, then collapse runs on parent.
+        this.simulateCollapseChain(target.parentId, expressionId)
+    }
+
+    /**
+     * Checks whether promoting `child` into a slot with the given `newParentId`
+     * would violate the nesting rule or root-only rule.
+     */
+    private assertPromotionSafe(
+        child: TExpr,
+        newParentId: string | null
+    ): void {
+        if (child.type !== "operator") return
+
+        // Root-only check
+        if (
+            (child.operator === "implies" || child.operator === "iff") &&
+            newParentId !== null
+        ) {
+            throw new Error(
+                `Cannot remove expression — would promote a root-only operator ("${child.operator}") to a non-root position`
+            )
+        }
+
+        // Nesting check
+        if (child.operator !== "not" && newParentId !== null) {
+            const newParent = this.expressions.get(newParentId)
+            if (newParent && newParent.type === "operator") {
+                throw new Error(
+                    `Cannot remove expression — would promote a non-not operator as a direct child of another operator`
+                )
+            }
+        }
+    }
+
+    /**
+     * Walks the collapse chain starting from `operatorId` after `removedChildId`
+     * is removed. At each level: if 0 remaining children, operator/formula is deleted
+     * and chain continues up. If 1 remaining child, check promotion safety.
+     */
+    private simulateCollapseChain(
+        operatorId: string | null,
+        removedChildId: string
+    ): void {
+        if (operatorId === null) return
+
+        const operator = this.expressions.get(operatorId)
+        if (!operator) return
+
+        if (operator.type !== "operator" && operator.type !== "formula") return
+
+        const children = this.getChildExpressions(operatorId)
+        const remainingChildren = children.filter(
+            (c) => c.id !== removedChildId
+        )
+
+        if (operator.type === "formula") {
+            // Formula: 0 children → deleted, recurse up.
+            if (remainingChildren.length === 0) {
+                this.simulateCollapseChain(operator.parentId, operatorId)
+            }
+            return
+        }
+
+        // operator.type === "operator"
+        if (remainingChildren.length === 0) {
+            this.simulateCollapseChain(operator.parentId, operatorId)
+        } else if (remainingChildren.length === 1) {
+            this.assertPromotionSafe(remainingChildren[0], operator.parentId)
         }
     }
 
@@ -935,18 +1068,13 @@ export class ExpressionManager<
 
         // Check 2: left/right nodes as children of the new expression.
         if (expression.type === "operator") {
-            if (
-                leftNode &&
-                leftNode.type === "operator" &&
-                leftNode.operator !== "not"
-            ) {
+            if (leftNode?.type === "operator" && leftNode.operator !== "not") {
                 throw new Error(
                     `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
                 )
             }
             if (
-                rightNode &&
-                rightNode.type === "operator" &&
+                rightNode?.type === "operator" &&
                 rightNode.operator !== "not"
             ) {
                 throw new Error(
@@ -1122,10 +1250,7 @@ export class ExpressionManager<
                 `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
             )
         }
-        if (
-            newSibling.type === "operator" &&
-            newSibling.operator !== "not"
-        ) {
+        if (newSibling.type === "operator" && newSibling.operator !== "not") {
             throw new Error(
                 `Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node`
             )
