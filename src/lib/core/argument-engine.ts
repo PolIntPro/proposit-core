@@ -27,7 +27,10 @@ import type {
     TCoreValidityCheckResult,
 } from "../types/evaluation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
-import type { TGrammarConfig } from "../types/grammar.js"
+import {
+    PERMISSIVE_GRAMMAR_CONFIG,
+    type TGrammarConfig,
+} from "../types/grammar.js"
 import type { TCorePositionConfig } from "../utils/position.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import type { TCoreMutationResult, TCoreChangeset } from "../types/mutation.js"
@@ -970,7 +973,8 @@ export class ArgumentEngine<
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>,
         claimLibrary: TClaimLookup<TClaim>,
         sourceLibrary: TSourceLookup<TSource>,
-        claimSourceLibrary: TClaimSourceLookup<TAssoc>
+        claimSourceLibrary: TClaimSourceLookup<TAssoc>,
+        grammarConfig?: TGrammarConfig
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const engine = new ArgumentEngine<
             TArg,
@@ -993,7 +997,8 @@ export class ArgumentEngine<
                 premiseSnap,
                 snapshot.argument,
                 engine.variables,
-                engine.expressionIndex
+                engine.expressionIndex,
+                grammarConfig
             )
             engine.premises.set(pe.getId(), pe)
             engine.wireCircularityCheck(pe)
@@ -1049,8 +1054,14 @@ export class ArgumentEngine<
         premises: TOptionalChecksum<TPremise>[],
         expressions: TExpressionInput<TExpr>[],
         roles: TCoreArgumentRoleState,
-        config?: TLogicEngineOptions
+        config?: TLogicEngineOptions,
+        grammarConfig?: TGrammarConfig
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
+        const loadingGrammarConfig = grammarConfig ?? PERMISSIVE_GRAMMAR_CONFIG
+        const loadingConfig: TLogicEngineOptions = {
+            ...config,
+            grammarConfig: loadingGrammarConfig,
+        }
         const engine = new ArgumentEngine<
             TArg,
             TPremise,
@@ -1059,7 +1070,13 @@ export class ArgumentEngine<
             TSource,
             TClaim,
             TAssoc
-        >(argument, claimLibrary, sourceLibrary, claimSourceLibrary, config)
+        >(
+            argument,
+            claimLibrary,
+            sourceLibrary,
+            claimSourceLibrary,
+            loadingConfig
+        )
 
         // Register claim-bound variables first (no dependencies)
         for (const v of variables) {
@@ -1123,6 +1140,9 @@ export class ArgumentEngine<
             engine.setConclusionPremise(roles.conclusionPremiseId)
         }
 
+        // After loading: restore the caller's intended grammar config
+        engine.grammarConfig = config?.grammarConfig
+
         return engine
     }
 
@@ -1141,7 +1161,8 @@ export class ArgumentEngine<
                 premiseSnap,
                 this.argument,
                 this.variables,
-                this.expressionIndex
+                this.expressionIndex,
+                PERMISSIVE_GRAMMAR_CONFIG
             )
             this.premises.set(pe.getId(), pe)
         }

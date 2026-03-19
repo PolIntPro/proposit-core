@@ -1400,11 +1400,21 @@ export class ExpressionManager<
     public static fromSnapshot<
         TExpr extends TCorePropositionalExpression =
             TCorePropositionalExpression,
-    >(snapshot: TExpressionManagerSnapshot<TExpr>): ExpressionManager<TExpr> {
-        const em = new ExpressionManager<TExpr>(snapshot.config)
+    >(
+        snapshot: TExpressionManagerSnapshot<TExpr>,
+        grammarConfig?: TGrammarConfig
+    ): ExpressionManager<TExpr> {
+        // During loading: use explicit grammarConfig, falling back to snapshot's config
+        const loadingConfig: TLogicEngineOptions = {
+            ...snapshot.config,
+            grammarConfig: grammarConfig ?? snapshot.config?.grammarConfig,
+        }
+        const em = new ExpressionManager<TExpr>(loadingConfig)
         em.loadInitialExpressions(
             snapshot.expressions as unknown as TExpressionInput<TExpr>[]
         )
+        // After loading: restore the snapshot's config for ongoing mutations
+        em.config = snapshot.config
         return em
     }
 }

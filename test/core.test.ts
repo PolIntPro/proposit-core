@@ -14607,4 +14607,231 @@ describe("grammar enforcement config", () => {
             )
         })
     })
+
+    describe("restoration paths", () => {
+        it("fromSnapshot with default config rejects operator-under-operator", () => {
+            expect(() =>
+                ExpressionManager.fromSnapshot({
+                    expressions: [
+                        {
+                            id: "op-and",
+                            type: "operator",
+                            operator: "and",
+                            parentId: null,
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                        {
+                            id: "op-or",
+                            type: "operator",
+                            operator: "or",
+                            parentId: "op-and",
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                    ] as TCorePropositionalExpression[],
+                })
+            ).toThrowError(/cannot be direct children of operator expressions/)
+        })
+
+        it("fromSnapshot with permissive grammarConfig allows operator-under-operator", () => {
+            const em = ExpressionManager.fromSnapshot(
+                {
+                    expressions: [
+                        {
+                            id: "op-and",
+                            type: "operator",
+                            operator: "and",
+                            parentId: null,
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                        {
+                            id: "op-or",
+                            type: "operator",
+                            operator: "or",
+                            parentId: "op-and",
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                    ] as TCorePropositionalExpression[],
+                },
+                PERMISSIVE_GRAMMAR_CONFIG
+            )
+            expect(em.getExpression("op-or")).toBeDefined()
+        })
+
+        it("fromSnapshot with auto-normalize config normalizes legacy tree", () => {
+            const em = ExpressionManager.fromSnapshot(
+                {
+                    expressions: [
+                        {
+                            id: "op-and",
+                            type: "operator",
+                            operator: "and",
+                            parentId: null,
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                        {
+                            id: "op-or",
+                            type: "operator",
+                            operator: "or",
+                            parentId: "op-and",
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                    ] as TCorePropositionalExpression[],
+                },
+                { enforceFormulaBetweenOperators: true, autoNormalize: true }
+            )
+            const orExpr = em.getExpression("op-or")!
+            expect(orExpr).toBeDefined()
+            expect(orExpr.parentId).not.toBe("op-and")
+            const formulaExpr = em.getExpression(orExpr.parentId!)!
+            expect(formulaExpr.type).toBe("formula")
+            expect(formulaExpr.parentId).toBe("op-and")
+        })
+
+        it("fromData with no grammar config uses permissive default", () => {
+            const arg = { id: "arg-1", version: 1 }
+            const variables = [
+                {
+                    id: "v1",
+                    symbol: "P",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    claimId: "claim-default",
+                    claimVersion: 0,
+                },
+            ]
+            const premises: TOptionalChecksum<TCorePremise>[] = [
+                { id: "p1", argumentId: "arg-1", argumentVersion: 1 },
+            ]
+            const expressions = [
+                {
+                    id: "e-and",
+                    type: "operator" as const,
+                    operator: "and" as const,
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: "p1",
+                    parentId: null,
+                    position: 0,
+                },
+                {
+                    id: "e-or",
+                    type: "operator" as const,
+                    operator: "or" as const,
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: "p1",
+                    parentId: "e-and",
+                    position: 0,
+                },
+                {
+                    id: "e-v1",
+                    type: "variable" as const,
+                    variableId: "v1",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: "p1",
+                    parentId: "e-or",
+                    position: 0,
+                },
+                {
+                    id: "e-v2",
+                    type: "variable" as const,
+                    variableId: "v1",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: "p1",
+                    parentId: "e-or",
+                    position: 1,
+                },
+                {
+                    id: "e-v3",
+                    type: "variable" as const,
+                    variableId: "v1",
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: "p1",
+                    parentId: "e-and",
+                    position: 1,
+                },
+            ]
+            expect(() =>
+                ArgumentEngine.fromData(
+                    arg,
+                    aLib(),
+                    sLib(),
+                    csLib(),
+                    variables,
+                    premises,
+                    expressions,
+                    { conclusionPremiseId: "p1" }
+                )
+            ).not.toThrow()
+        })
+
+        it("rollback to snapshot with operator-under-operator succeeds", () => {
+            const arg = { id: "arg-1", version: 1 }
+            const engine = new ArgumentEngine(arg, aLib(), sLib(), csLib())
+            engine.addVariable({
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            })
+            const { result: pm } = engine.createPremise()
+            const snapshot = engine.snapshot()
+            const premSnap = snapshot.premises[0]
+            premSnap.expressions.expressions = [
+                {
+                    id: "op-and",
+                    type: "operator",
+                    operator: "and",
+                    parentId: null,
+                    position: 0,
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: pm.getId(),
+                    checksum: "",
+                },
+                {
+                    id: "op-or",
+                    type: "operator",
+                    operator: "or",
+                    parentId: "op-and",
+                    position: 0,
+                    argumentId: "arg-1",
+                    argumentVersion: 1,
+                    premiseId: pm.getId(),
+                    checksum: "",
+                },
+            ] as TCorePropositionalExpression[]
+            premSnap.rootExpressionId = "op-and"
+            expect(() => engine.rollback(snapshot)).not.toThrow()
+        })
+    })
 })

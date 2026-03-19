@@ -33,6 +33,7 @@ import {
 } from "./evaluation/validation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
+import type { TGrammarConfig } from "../types/grammar.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { ChangeCollector } from "./change-collector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
@@ -1372,8 +1373,8 @@ export class PremiseEngine<
             rootExpressionId: this.rootExpressionId,
             expressions: exprSnapshot,
             config: {
+                ...exprSnapshot.config,
                 checksumConfig: this.checksumConfig,
-                positionConfig: exprSnapshot.config?.positionConfig,
             },
         }
     }
@@ -1389,7 +1390,8 @@ export class PremiseEngine<
         snapshot: TPremiseEngineSnapshot<TPremise, TExpr>,
         argument: TOptionalChecksum<TArg>,
         variables: VariableManager<TVar>,
-        expressionIndex?: Map<string, string>
+        expressionIndex?: Map<string, string>,
+        grammarConfig?: TGrammarConfig
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
         const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             snapshot.premise,
@@ -1398,7 +1400,8 @@ export class PremiseEngine<
         )
         // Restore expressions from the snapshot
         pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
-            snapshot.expressions
+            snapshot.expressions,
+            grammarConfig
         )
         // Restore rootExpressionId from snapshot
         pe.rootExpressionId = snapshot.rootExpressionId
