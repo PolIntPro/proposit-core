@@ -6,27 +6,33 @@ Expression trees currently allow operator nodes to be direct children of other o
 
 ## Rule
 
-A binary operator expression (`and`, `or`, `implies`, `iff`) cannot be a direct child of any operator expression (`and`, `or`, `not`, `implies`, `iff`). A `formula` node must sit between them to make grouping explicit.
+A non-`not` operator expression (`and`, `or`, `implies`, `iff`) cannot be a direct child of any operator expression (`and`, `or`, `not`, `implies`, `iff`). A `formula` node must sit between them to make grouping explicit.
 
 The `not` operator is exempt as a child — it can be a direct child of any operator. This is because `not` is unary and its scope is unambiguous.
 
-However, binary operators cannot be direct children of `not` either — a `formula` buffer is required.
+However, non-`not` operators cannot be direct children of `not` either — a `formula` buffer is required.
 
 ### Nesting Rules Table
 
 | Parent | Child | Allowed? |
 |--------|-------|----------|
-| binary op (`and`/`or`) | binary op (`and`/`or`) | No — needs `formula` buffer |
-| binary op (`and`/`or`) | `not` | Yes |
-| binary op (`and`/`or`) | `formula` | Yes |
-| binary op (`and`/`or`) | `variable` | Yes |
-| `not` | binary op (`and`/`or`) | No — needs `formula` buffer |
+| `and`/`or` | `and`/`or`/`implies`/`iff` | No — needs `formula` buffer |
+| `and`/`or` | `not` | Yes |
+| `and`/`or` | `formula` | Yes |
+| `and`/`or` | `variable` | Yes |
+| `implies`/`iff` | `and`/`or`/`implies`/`iff` | No — needs `formula` buffer |
+| `implies`/`iff` | `not` | Yes |
+| `implies`/`iff` | `formula` | Yes |
+| `implies`/`iff` | `variable` | Yes |
+| `not` | `and`/`or`/`implies`/`iff` | No — needs `formula` buffer |
 | `not` | `not` | Yes |
 | `not` | `formula` | Yes |
 | `not` | `variable` | Yes |
 | `formula` | any | Yes (formula is the buffer) |
 
-Note: `implies`/`iff` are already root-only and cannot appear as children. That existing restriction is orthogonal and both checks apply independently.
+Note: `implies`/`iff` are already root-only and cannot appear as children. The existing root-only check fires first, making the non-`not` child rows for `implies`/`iff` unreachable in practice. They are listed here for completeness — both restrictions are orthogonal and apply independently.
+
+Note: `and`/`or` are variadic (≥2 children), not strictly binary. The term "non-`not` operator" is used throughout this spec to mean any operator other than `not` — i.e., `and`, `or`, `implies`, `iff`.
 
 ### Formal Check
 
@@ -43,38 +49,51 @@ All in `ExpressionManager` (`src/lib/core/expression-manager.ts`):
 
 ### `addExpression()`
 
-When `parentId` is not null and the parent is an operator, check whether the new expression is a binary operator. Throw if so. The check goes near the existing parent-type validation, after confirming the parent exists and is an operator/formula.
+When `parentId` is not null and the parent is an operator, check whether the new expression is a non-`not` operator. Throw if so. The check goes near the existing parent-type validation, after confirming the parent exists and is an operator/formula.
+
+`appendExpression()` and `addExpressionRelative()` delegate to `addExpression()` and are transitively covered.
 
 ### `insertExpression()`
 
 When splicing a new expression between existing nodes, two checks are needed:
 
-1. The new expression as child of its new parent — if the parent is an operator and the new expression is a binary operator, throw.
-2. The left/right nodes as children of the new expression — if the new expression is an operator and a left/right node is a binary operator, throw.
+1. The new expression as child of its new parent — if the parent is an operator (not formula) and the new expression is a non-`not` operator, throw.
+2. The left/right nodes as children of the new expression — if the new expression is an operator (not formula) and a left/right node is a non-`not` operator, throw.
 
 ### `wrapExpression()`
 
 When wrapping an existing node with a new operator and sibling, two checks are needed:
 
-1. The new operator as child of its new parent — if the parent is an operator and the new operator is a binary operator, throw.
-2. The existing node and sibling as children of the new operator — if they are binary operators, throw.
+1. The new operator as child of its new parent — if the parent is an operator and the new operator expression is a non-`not` operator, throw.
+2. The existing node and the new sibling as children of the new operator — if either is a non-`not` operator, throw. Note: the sibling is a new expression being created (a `TExpressionWithoutPosition`), not an existing node in the tree.
 
-### `removeExpression()` — Collapse Promotion
+### `removeExpression()` — Pre-flight Promotion Validation
 
-When removing an expression causes operator collapse and a child is promoted into a parent slot, the promotion must be validated. If promoting a binary operator into an operator parent, the removal is rejected.
+There are two promotion paths that can violate the nesting rule:
 
-This keeps the invariant consistent for newly-created trees. Old trees created before this restriction wouldn't hit this path unless edited.
+1. **Direct promotion (`removeAndPromote`, 1-child branch):** When removing an expression that has exactly 1 child with `deleteSubtree: false`, the child is promoted into the removed node's slot. If the child is a non-`not` operator and the grandparent is an operator, the nesting rule would be violated. Example: removing a `formula` from `and → formula → or → [P, Q]` would place `or` directly under `and`.
+
+2. **Collapse promotion (`collapseIfNeeded`, 1-child branch):** When removing a child leaves an operator/formula with 1 remaining child, the remaining child is promoted into the operator's slot. If the remaining child is a non-`not` operator and the grandparent is an operator, the nesting rule would be violated.
+
+**Implementation approach:** Both paths must validate *before* mutating the tree. The current code in `collapseIfNeeded` mutates (deletes the expression) before running collapse, so a pre-flight check is needed.
+
+- For **direct promotion**: add the check before the existing root-only check at line 487, in the same guard block.
+- For **collapse promotion**: add a pre-flight validation step in `removeExpression` (the public method) that simulates the collapse chain before committing the deletion. This check must handle cascading collapse — removing a subtree under an operator could cause 0-child deletion of the operator, which triggers collapse at the grandparent, which may attempt to promote a non-`not` operator. The pre-flight simulation walks the chain: at each level, compute resulting child count; if 0, continue up; if 1, check the surviving child against its new parent.
+
+If the pre-flight check detects a violation, the removal is rejected with an error and no mutation occurs.
+
+**Pre-existing gap:** `collapseIfNeeded` also lacks the existing root-only check for `implies`/`iff` promotion (that check only exists in `removeAndPromote`). This should be fixed as part of this work — the pre-flight check should validate both the nesting rule and the root-only rule.
 
 ### Methods NOT Affected
 
-- **`updateExpression()`** — The only allowed operator swaps are `and↔or` and `implies↔iff`. These don't change whether an expression is a binary operator, so no new violation can be created.
-- **`fromSnapshot()` / `fromData()`** — Forward-only enforcement. Existing data created under old rules is trusted.
+- **`updateExpression()`** — The only allowed operator swaps are `and↔or` and `implies↔iff`. These don't change whether an expression is a non-`not` operator, so no new violation can be created.
+- **`fromSnapshot()` / `fromData()`** — Forward-only enforcement. Existing data created under old rules is trusted. `loadInitialExpressions` (the private method called by these paths) routes through `addExpression`, so it must bypass the nesting check. This is done by adding a private `skipNestingCheck` flag on `ExpressionManager` that `loadInitialExpressions` sets to `true` before loading and resets to `false` after. The flag is checked in `addExpression` only.
 
 ## Error Messages
 
 - **Mutation methods** (`addExpression`, `insertExpression`, `wrapExpression`): `"Binary operator expressions cannot be direct children of operator expressions — wrap in a formula node"`
 
-- **`removeExpression` collapse rejection**: `"Cannot remove expression — would promote a binary operator as a direct child of another operator"`
+- **`removeExpression` pre-flight rejection**: `"Cannot remove expression — would promote a binary operator as a direct child of another operator"`
 
 ## Testing
 
@@ -91,18 +110,26 @@ New `describe` block in `test/core.test.ts`:
 
 ### `insertExpression` tests
 
-- Insert binary operator between an operator parent and its child → throws (new expression is binary op under operator)
-- Insert binary operator that would receive binary operator children → throws
+- Insert non-`not` operator between an operator parent and its child → throws (new expression is non-`not` op under operator)
+- Insert non-`not` operator that would receive non-`not` operator children → throws
 - Insert `not` between operator and its child → succeeds
-- Insert `formula` between operator and its binary operator child → succeeds (this is the fix path)
+- Insert `formula` between operator and its non-`not` operator child → succeeds (this is the fix path)
 
 ### `wrapExpression` tests
 
-- Wrap with binary operator under an operator parent → throws
-- Wrap a binary operator child into a new binary operator → throws
-- Wrap with binary operator at root → succeeds
+- Wrap with non-`not` operator under an operator parent → throws
+- Wrap a non-`not` operator child into a new non-`not` operator → throws
+- Wrap where the new sibling is a non-`not` operator → throws
+- Wrap with non-`not` operator at root → succeeds
 
-### `removeExpression` collapse tests
+### `removeExpression` promotion tests
 
-- Remove a child causing promotion of binary operator into operator parent → throws (rejects removal)
-- Remove a child causing promotion of `not` into operator parent → succeeds
+- Direct promotion (`deleteSubtree: false`): remove `formula` between two operators, causing non-`not` operator to promote under operator → throws
+- Direct promotion: remove node causing `not` to promote under operator → succeeds
+- Collapse promotion: remove child leaving 1 sibling that is a non-`not` operator under operator grandparent → throws
+- Collapse promotion: remove child leaving 1 sibling that is `not` under operator grandparent → succeeds
+- Cascading collapse: remove node causing 0-child deletion chain, where final promotion is safe → succeeds (no false rejection)
+
+### `loadInitialExpressions` tests
+
+- Verify `fromSnapshot` can restore a tree containing operator-under-operator (forward-only enforcement)
