@@ -78,7 +78,7 @@ There are two promotion paths that can violate the nesting rule:
 **Implementation approach:** Both paths must validate *before* mutating the tree. The current code in `collapseIfNeeded` mutates (deletes the expression) before running collapse, so a pre-flight check is needed.
 
 - For **direct promotion**: add the check before the existing root-only check at line 487, in the same guard block.
-- For **collapse promotion**: add a pre-flight validation step in `removeExpression` (the public method) that simulates the collapse chain before committing the deletion. This check must handle cascading collapse — removing a subtree under an operator could cause 0-child deletion of the operator, which triggers collapse at the grandparent, which may attempt to promote a non-`not` operator. The pre-flight simulation walks the chain: at each level, compute resulting child count; if 0, continue up; if 1, check the surviving child against its new parent.
+- For **collapse promotion**: add a pre-flight validation step in `removeExpression` (the public method) that simulates the collapse chain before committing the deletion. This check must handle cascading collapse — removing a subtree under an operator could cause 0-child deletion of the operator, which triggers collapse at the grandparent, which may attempt to promote a non-`not` operator. The pre-flight simulation walks the chain: at each level, compute resulting child count; if 0, continue up (formula nodes losing their only child are treated as 0-child deletion, same as operators); if 1, check the surviving child against its new parent.
 
 If the pre-flight check detects a violation, the removal is rejected with an error and no mutation occurs.
 
@@ -87,13 +87,13 @@ If the pre-flight check detects a violation, the removal is rejected with an err
 ### Methods NOT Affected
 
 - **`updateExpression()`** — The only allowed operator swaps are `and↔or` and `implies↔iff`. These don't change whether an expression is a non-`not` operator, so no new violation can be created.
-- **`fromSnapshot()` / `fromData()`** — Forward-only enforcement. Existing data created under old rules is trusted. `loadInitialExpressions` (the private method called by these paths) routes through `addExpression`, so it must bypass the nesting check. This is done by adding a private `skipNestingCheck` flag on `ExpressionManager` that `loadInitialExpressions` sets to `true` before loading and resets to `false` after. The flag is checked in `addExpression` only.
+- **`fromSnapshot()` / `fromData()`** — Forward-only enforcement. Existing data created under old rules is trusted. `loadInitialExpressions` (the private method called by these paths) routes through `addExpression`, so it must bypass the nesting check. This is done by adding a private `skipNestingCheck` flag on `ExpressionManager` that `loadInitialExpressions` sets to `true` before loading and resets to `false` after (in a `finally` block to ensure cleanup on error). The flag is checked in `addExpression` only.
 
 ## Error Messages
 
-- **Mutation methods** (`addExpression`, `insertExpression`, `wrapExpression`): `"Binary operator expressions cannot be direct children of operator expressions — wrap in a formula node"`
+- **Mutation methods** (`addExpression`, `insertExpression`, `wrapExpression`): `"Non-not operator expressions cannot be direct children of operator expressions — wrap in a formula node"`
 
-- **`removeExpression` pre-flight rejection**: `"Cannot remove expression — would promote a binary operator as a direct child of another operator"`
+- **`removeExpression` pre-flight rejection**: `"Cannot remove expression — would promote a non-not operator as a direct child of another operator"`
 
 ## Testing
 
@@ -129,6 +129,7 @@ New `describe` block in `test/core.test.ts`:
 - Collapse promotion: remove child leaving 1 sibling that is a non-`not` operator under operator grandparent → throws
 - Collapse promotion: remove child leaving 1 sibling that is `not` under operator grandparent → succeeds
 - Cascading collapse: remove node causing 0-child deletion chain, where final promotion is safe → succeeds (no false rejection)
+- Cascading collapse: remove node causing 0-child deletion chain, where final promotion violates the nesting rule → throws
 
 ### `loadInitialExpressions` tests
 
