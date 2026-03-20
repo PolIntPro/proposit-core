@@ -38,6 +38,34 @@ export const DEFAULT_CHECKSUM_CONFIG: Readonly<TCoreChecksumConfig> = {
 }
 
 /**
+ * Ensures all fields of a `TCoreChecksumConfig` are `Set<string>` instances.
+ * After a JSON round-trip, Sets become arrays; this converts them back.
+ * Returns `undefined` if the input is `undefined`. Leaves undefined fields as-is.
+ */
+export function normalizeChecksumConfig(
+    config: TCoreChecksumConfig | undefined
+): TCoreChecksumConfig | undefined {
+    if (config === undefined) return undefined
+    const keys = [
+        "expressionFields",
+        "variableFields",
+        "premiseFields",
+        "argumentFields",
+        "roleFields",
+        "claimFields",
+        "sourceFields",
+        "claimSourceAssociationFields",
+    ] as const
+    const result: TCoreChecksumConfig = {}
+    for (const key of keys) {
+        const value = config[key]
+        if (value === undefined) continue
+        result[key] = value instanceof Set ? value : new Set(value)
+    }
+    return result
+}
+
+/**
  * Creates a checksum config by merging additional fields into the defaults.
  * Omitted fields in `additional` inherit defaults. Fields are unioned, not replaced.
  */

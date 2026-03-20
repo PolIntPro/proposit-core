@@ -32,7 +32,7 @@ import {
     type TGrammarConfig,
 } from "../types/grammar.js"
 import type { TCorePositionConfig } from "../utils/position.js"
-import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
+import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
 import type { TCoreMutationResult, TCoreChangeset } from "../types/mutation.js"
 import type {
     TReactiveSnapshot,
@@ -990,6 +990,13 @@ export class ArgumentEngine<
             sourceLibrary,
             claimSourceLibrary,
             snapshot.config
+                ? {
+                      ...snapshot.config,
+                      checksumConfig: normalizeChecksumConfig(
+                          snapshot.config.checksumConfig
+                      ),
+                  }
+                : undefined
         )
         // Restore premises first (premise-bound variables reference them)
         for (const premiseSnap of snapshot.premises) {
@@ -1058,8 +1065,16 @@ export class ArgumentEngine<
         grammarConfig?: TGrammarConfig
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const loadingGrammarConfig = grammarConfig ?? PERMISSIVE_GRAMMAR_CONFIG
+        const normalizedConfig = config
+            ? {
+                  ...config,
+                  checksumConfig: normalizeChecksumConfig(
+                      config.checksumConfig
+                  ),
+              }
+            : undefined
         const loadingConfig: TLogicEngineOptions = {
-            ...config,
+            ...normalizedConfig,
             grammarConfig: loadingGrammarConfig,
         }
         const engine = new ArgumentEngine<
@@ -1150,7 +1165,9 @@ export class ArgumentEngine<
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
     ): void {
         this.argument = { ...snapshot.argument }
-        this.checksumConfig = snapshot.config?.checksumConfig
+        this.checksumConfig = normalizeChecksumConfig(
+            snapshot.config?.checksumConfig
+        )
         this.positionConfig = snapshot.config?.positionConfig
         this.grammarConfig = snapshot.config?.grammarConfig
         this.variables = VariableManager.fromSnapshot<TVar>(snapshot.variables)

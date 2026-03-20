@@ -711,6 +711,21 @@ const config = createChecksumConfig({
 
 ---
 
+### `normalizeChecksumConfig(config)` → `TCoreChecksumConfig | undefined`
+
+Ensures all fields on a `TCoreChecksumConfig` are `Set<string>` instances, converting from arrays or other iterables as needed. Returns `undefined` when passed `undefined`. Useful after JSON round-trips where `Set` values are serialized as arrays. Called automatically by `fromSnapshot`, `fromData`, and `rollback`, but exported for consumers who deserialize checksum configs independently.
+
+```typescript
+import { normalizeChecksumConfig } from "@polintpro/proposit-core"
+
+// After JSON round-trip, Set fields become arrays
+const deserialized = JSON.parse(storedConfig)
+const config = normalizeChecksumConfig(deserialized.checksumConfig)
+// config.premiseFields is now a Set<string>
+```
+
+---
+
 ## Grammar Configuration
 
 Types and constants for controlling structural rule enforcement in expression trees, exported from `types/grammar.ts`:

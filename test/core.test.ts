@@ -14835,3 +14835,126 @@ describe("grammar enforcement config", () => {
         })
     })
 })
+
+describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-trip", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    /** Simulate JSON round-trip: Sets become arrays */
+    function jsonRoundTrip<T>(value: T): T {
+        return JSON.parse(
+            JSON.stringify(value, (_key, val: unknown) =>
+                val instanceof Set ? [...val] : val
+            )
+        ) as T
+    }
+
+    it("fromSnapshot reconstructs checksumConfig field Sets from arrays", () => {
+        const customConfig = {
+            checksumConfig: {
+                premiseFields: new Set(["premiseId", "createdOn"]),
+                argumentFields: new Set(["id", "version"]),
+            },
+        }
+        const engine = new ArgumentEngine(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            customConfig
+        )
+        const snap = engine.snapshot()
+        const serialized = jsonRoundTrip(snap)
+
+        // Verify serialization turned Sets into arrays
+        expect(serialized.config!.checksumConfig!.premiseFields).toBeInstanceOf(
+            Array
+        )
+
+        const restored = ArgumentEngine.fromSnapshot(
+            serialized,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+
+        // The restored engine's snapshot should have Sets, not arrays
+        const restoredSnap = restored.snapshot()
+        expect(
+            restoredSnap.config!.checksumConfig!.premiseFields
+        ).toBeInstanceOf(Set)
+        expect(
+            restoredSnap.config!.checksumConfig!.argumentFields
+        ).toBeInstanceOf(Set)
+        expect(restoredSnap.config!.checksumConfig!.premiseFields).toEqual(
+            new Set(["premiseId", "createdOn"])
+        )
+        expect(restoredSnap.config!.checksumConfig!.argumentFields).toEqual(
+            new Set(["id", "version"])
+        )
+    })
+
+    it("fromData reconstructs checksumConfig field Sets from arrays", () => {
+        const customConfig = {
+            checksumConfig: {
+                expressionFields: new Set(["id", "type", "customField"]),
+                variableFields: new Set(["id", "symbol"]),
+            },
+        }
+        const serializedConfig = jsonRoundTrip(customConfig)
+
+        // Verify serialization turned Sets into arrays
+        expect(serializedConfig.checksumConfig.expressionFields).toBeInstanceOf(
+            Array
+        )
+
+        const engine = ArgumentEngine.fromData(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            [],
+            [],
+            [],
+            {},
+            serializedConfig
+        )
+
+        const snap = engine.snapshot()
+        expect(snap.config!.checksumConfig!.expressionFields).toBeInstanceOf(
+            Set
+        )
+        expect(snap.config!.checksumConfig!.variableFields).toBeInstanceOf(Set)
+        expect(snap.config!.checksumConfig!.expressionFields).toEqual(
+            new Set(["id", "type", "customField"])
+        )
+    })
+
+    it("rollback reconstructs checksumConfig field Sets from arrays", () => {
+        const customConfig = {
+            checksumConfig: {
+                roleFields: new Set(["conclusionPremiseId", "customRole"]),
+            },
+        }
+        const engine = new ArgumentEngine(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            customConfig
+        )
+        const snap = engine.snapshot()
+        const serialized = jsonRoundTrip(snap)
+
+        // Create a fresh engine to rollback into
+        const engine2 = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine2.rollback(serialized)
+
+        const restoredSnap = engine2.snapshot()
+        expect(restoredSnap.config!.checksumConfig!.roleFields).toBeInstanceOf(
+            Set
+        )
+        expect(restoredSnap.config!.checksumConfig!.roleFields).toEqual(
+            new Set(["conclusionPremiseId", "customRole"])
+        )
+    })
+})

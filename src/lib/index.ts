@@ -37,7 +37,11 @@ export {
     analyzePremiseRelationships,
     buildPremiseProfile,
 } from "./core/relationships.js"
-export { DEFAULT_CHECKSUM_CONFIG, createChecksumConfig } from "./consts.js"
+export {
+    DEFAULT_CHECKSUM_CONFIG,
+    createChecksumConfig,
+    normalizeChecksumConfig,
+} from "./consts.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { TFormulaAST } from "./core/parser/formula.js"
 export type {
