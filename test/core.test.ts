@@ -5373,7 +5373,7 @@ describe("checksum utilities", () => {
             expect(cs1).toBe(cs2)
         })
 
-        it("checksum changes when an expression is added", () => {
+        it("combinedChecksum changes when an expression is added", () => {
             const eng = new ArgumentEngine(
                 { id: "arg1", version: 0 },
                 aLib(),
@@ -5390,7 +5390,7 @@ describe("checksum utilities", () => {
             }
             eng.addVariable(v)
             const { result: pm } = eng.createPremise()
-            const before = pm.checksum()
+            const before = pm.combinedChecksum()
             pm.addExpression({
                 id: "e1",
                 type: "variable",
@@ -5401,7 +5401,7 @@ describe("checksum utilities", () => {
                 parentId: null,
                 position: 1,
             })
-            const after = pm.checksum()
+            const after = pm.combinedChecksum()
             expect(before).not.toBe(after)
         })
 
@@ -6708,15 +6708,15 @@ describe("PremiseEngine — updateExpression", () => {
         expect(changes.expressions?.removed ?? []).toHaveLength(0)
     })
 
-    it("marks premise checksum dirty after update", () => {
+    it("marks premise combinedChecksum dirty after update", () => {
         const { pm } = setup()
         pm.addExpression(
             makeVarExpr("e-p", VAR_P.id, { parentId: null, position: 1 })
         )
 
-        const before = pm.checksum()
+        const before = pm.combinedChecksum()
         pm.updateExpression("e-p", { variableId: VAR_Q.id })
-        const after = pm.checksum()
+        const after = pm.combinedChecksum()
 
         expect(before).not.toBe(after)
     })
@@ -10130,11 +10130,11 @@ describe("toggleNegation", () => {
     it("marks checksum dirty after toggle", () => {
         const premise = premiseWithVars()
         premise.addExpression(makeVarExpr("expr-p", VAR_P.id))
-        const checksumBefore = premise.checksum()
+        const checksumBefore = premise.combinedChecksum()
 
         premise.toggleNegation("expr-p")
 
-        expect(premise.checksum()).not.toBe(checksumBefore)
+        expect(premise.combinedChecksum()).not.toBe(checksumBefore)
     })
 })
 
@@ -15236,8 +15236,8 @@ describe("hierarchical checksum schema", () => {
         expect(premiseData).toHaveProperty("checksum")
         expect(premiseData).toHaveProperty("descendantChecksum")
         expect(premiseData).toHaveProperty("combinedChecksum")
-        // Placeholder: descendantChecksum is null until hierarchical computation is implemented
-        expect(premiseData.descendantChecksum).toBeNull()
+        // descendantChecksum equals root expression's combinedChecksum
+        expect(typeof premiseData.descendantChecksum).toBe("string")
         expect(typeof premiseData.combinedChecksum).toBe("string")
         expect(premiseData.combinedChecksum.length).toBeGreaterThan(0)
     })
@@ -15358,5 +15358,102 @@ describe("expression hierarchical checksums", () => {
 
         expect(afterDescendant).not.toBe(beforeDescendant)
         expect(afterCombined).not.toBe(beforeCombined)
+    })
+})
+
+describe("premise hierarchical checksums", () => {
+    it("premise checksum is entity-only (meta)", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVar("v1", "P"))
+        const { result: pm } = engine.createPremise()
+        const premiseId = pm.getId()
+
+        // Capture checksum before adding any expression
+        const checksumBefore = pm.checksum()
+
+        // Add an expression — this should NOT change the meta checksum
+        pm.addExpression(makeVarExpr("e1", "v1", { premiseId, parentId: null }))
+        const checksumAfter = pm.checksum()
+
+        expect(checksumAfter).toBe(checksumBefore)
+    })
+
+    it("premise descendantChecksum is null when no expressions", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = engine.createPremise()
+
+        expect(pm.descendantChecksum()).toBeNull()
+    })
+
+    it("premise descendantChecksum equals root expression combinedChecksum", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVar("v1", "P"))
+        const { result: pm } = engine.createPremise()
+        const premiseId = pm.getId()
+
+        pm.addExpression(makeVarExpr("e1", "v1", { premiseId, parentId: null }))
+
+        pm.flushChecksums()
+
+        const rootExpr = pm.getExpression("e1")!
+        expect(pm.descendantChecksum()).toBe(rootExpr.combinedChecksum)
+    })
+
+    it("premise getCollectionChecksum('expressions') equals descendantChecksum", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVar("v1", "P"))
+        const { result: pm } = engine.createPremise()
+        const premiseId = pm.getId()
+
+        pm.addExpression(makeVarExpr("e1", "v1", { premiseId, parentId: null }))
+
+        pm.flushChecksums()
+
+        expect(pm.getCollectionChecksum("expressions")).toBe(
+            pm.descendantChecksum()
+        )
+    })
+
+    it("premise combinedChecksum changes when expression tree changes", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVar("v1", "P"))
+        engine.addVariable(makeVar("v2", "Q"))
+        const { result: pm } = engine.createPremise()
+        const premiseId = pm.getId()
+
+        // Build initial tree: and(P)
+        pm.addExpression(makeOpExpr("op-and", "and", { premiseId }))
+        pm.addExpression(
+            makeVarExpr("e-p", "v1", {
+                parentId: "op-and",
+                position: 0,
+                premiseId,
+            })
+        )
+
+        pm.flushChecksums()
+
+        const metaBefore = pm.checksum()
+        const combinedBefore = pm.combinedChecksum()
+
+        // Add another child — this changes the expression tree
+        pm.addExpression(
+            makeVarExpr("e-q", "v2", {
+                parentId: "op-and",
+                position: 1,
+                premiseId,
+            })
+        )
+
+        pm.flushChecksums()
+
+        const metaAfter = pm.checksum()
+        const combinedAfter = pm.combinedChecksum()
+
+        // Meta (entity-only) checksum should be unchanged
+        expect(metaAfter).toBe(metaBefore)
+
+        // Combined checksum should have changed (descendants changed)
+        expect(combinedAfter).not.toBe(combinedBefore)
     })
 })

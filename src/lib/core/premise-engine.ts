@@ -40,7 +40,7 @@ import {
     serializeChecksumConfig,
 } from "../consts.js"
 import { ChangeCollector } from "./change-collector.js"
-import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
+import { computeHash, entityChecksum } from "./checksum.js"
 import type {
     TExpressionInput,
     TExpressionManagerSnapshot,
@@ -96,7 +96,9 @@ export class PremiseEngine<
     private argument: TOptionalChecksum<TArg>
     private checksumConfig?: TCoreChecksumConfig
     private checksumDirty = true
-    private cachedChecksum: string | undefined
+    private cachedMetaChecksum: string | undefined
+    private cachedDescendantChecksum: string | null | undefined
+    private cachedCombinedChecksum: string | undefined
     private expressionIndex?: Map<string, string>
     private onMutate?: () => void
     private circularityCheck?: (
@@ -1218,62 +1220,74 @@ export class PremiseEngine<
     }
 
     public toPremiseData(): TPremise {
-        const checksum = this.checksum()
+        this.flushChecksums()
         return {
             ...this.premise,
-            checksum,
-            descendantChecksum: null,
-            combinedChecksum: checksum,
+            checksum: this.cachedMetaChecksum!,
+            descendantChecksum: this.cachedDescendantChecksum!,
+            combinedChecksum: this.cachedCombinedChecksum!,
         } as TPremise
     }
 
     public checksum(): string {
-        if (this.checksumDirty || this.cachedChecksum === undefined) {
-            this.cachedChecksum = this.computeChecksum()
-            this.checksumDirty = false
+        if (this.checksumDirty || this.cachedMetaChecksum === undefined) {
+            this.flushChecksums()
         }
-        return this.cachedChecksum
+        return this.cachedMetaChecksum!
     }
 
     public descendantChecksum(): string | null {
-        return null
+        if (this.checksumDirty || this.cachedDescendantChecksum === undefined) {
+            this.flushChecksums()
+        }
+        return this.cachedDescendantChecksum!
     }
 
     public combinedChecksum(): string {
-        return this.checksum()
+        if (this.checksumDirty || this.cachedCombinedChecksum === undefined) {
+            this.flushChecksums()
+        }
+        return this.cachedCombinedChecksum!
     }
 
     public getCollectionChecksum(_name: "expressions"): string | null {
-        return null
+        return this.descendantChecksum()
     }
 
     public flushChecksums(): void {
         this.expressions.flushExpressionChecksums()
+
+        const premiseFields =
+            this.checksumConfig?.premiseFields ??
+            DEFAULT_CHECKSUM_CONFIG.premiseFields!
+        this.cachedMetaChecksum = entityChecksum(
+            this.premise as unknown as Record<string, unknown>,
+            premiseFields
+        )
+
+        const rootId = this.rootExpressionId
+        if (rootId) {
+            const rootExpr = this.expressions.getExpression(rootId)
+            this.cachedDescendantChecksum = rootExpr
+                ? rootExpr.combinedChecksum
+                : null
+        } else {
+            this.cachedDescendantChecksum = null
+        }
+
+        this.cachedCombinedChecksum =
+            this.cachedDescendantChecksum === null
+                ? this.cachedMetaChecksum
+                : computeHash(
+                      this.cachedMetaChecksum + this.cachedDescendantChecksum
+                  )
+
+        this.checksumDirty = false
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
-
-    private computeChecksum(): string {
-        const checksumMap: Record<string, string> = {}
-
-        // Premise's own entity checksum
-        const premiseFields =
-            this.checksumConfig?.premiseFields ??
-            DEFAULT_CHECKSUM_CONFIG.premiseFields!
-        checksumMap[this.premise.id] = entityChecksum(
-            { id: this.premise.id } as Record<string, unknown>,
-            premiseFields
-        )
-
-        // All owned expression checksums
-        for (const expr of this.expressions.toArray()) {
-            checksumMap[expr.id] = expr.checksum
-        }
-
-        return computeHash(canonicalSerialize(checksumMap))
-    }
 
     /**
      * Loads expressions in BFS order with the nesting check bypassed.
@@ -1400,9 +1414,15 @@ export class PremiseEngine<
     }
 
     public snapshot(): TPremiseEngineSnapshot<TPremise, TExpr> {
+        this.flushChecksums()
         const exprSnapshot = this.expressions.snapshot()
         return {
-            premise: { ...this.premise },
+            premise: {
+                ...this.premise,
+                checksum: this.cachedMetaChecksum!,
+                descendantChecksum: this.cachedDescendantChecksum!,
+                combinedChecksum: this.cachedCombinedChecksum!,
+            },
             rootExpressionId: this.rootExpressionId,
             expressions: exprSnapshot,
             config: {
