@@ -14998,4 +14998,98 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
             restoredSnap.config!.checksumConfig!.argumentFields
         ).toBeInstanceOf(Set)
     })
+
+    it("fromSnapshot normalizes nested premise/expression-level configs after native JSON round-trip", () => {
+        const customConfig = {
+            checksumConfig: {
+                expressionFields: new Set(["id", "type", "parentId"]),
+                premiseFields: new Set(["id", "argumentId"]),
+            },
+        }
+        const engine = new ArgumentEngine(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            customConfig
+        )
+        engine.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        const snap = engine.snapshot()
+        // Native JSON round-trip: Sets → {}
+        const serialized = JSON.parse(JSON.stringify(snap)) as typeof snap
+
+        // This should not throw — nested configs must be normalized
+        const restored = ArgumentEngine.fromSnapshot(
+            serialized,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        expect(restored.listPremiseIds()).toEqual(["p1"])
+        expect(restored.getPremise("p1")!.getExpressions()).toHaveLength(1)
+    })
+
+    it("rollback normalizes nested premise/expression-level configs after native JSON round-trip", () => {
+        const customConfig = {
+            checksumConfig: {
+                expressionFields: new Set(["id", "type", "parentId"]),
+                premiseFields: new Set(["id", "argumentId"]),
+            },
+        }
+        const engine = new ArgumentEngine(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            customConfig
+        )
+        engine.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        const snap = engine.snapshot()
+        // Native JSON round-trip: Sets → {}
+        const serialized = JSON.parse(JSON.stringify(snap)) as typeof snap
+
+        const engine2 = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        // This should not throw — nested configs must be normalized
+        engine2.rollback(serialized)
+        expect(engine2.listPremiseIds()).toEqual(["p1"])
+        expect(engine2.getPremise("p1")!.getExpressions()).toHaveLength(1)
+    })
 })

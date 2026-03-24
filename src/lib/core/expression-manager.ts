@@ -11,7 +11,7 @@ import {
     midpoint,
 } from "../utils/position.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
-import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
+import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
 import { entityChecksum } from "./checksum.js"
 import {
     DEFAULT_GRAMMAR_CONFIG,
@@ -1404,17 +1404,29 @@ export class ExpressionManager<
         snapshot: TExpressionManagerSnapshot<TExpr>,
         grammarConfig?: TGrammarConfig
     ): ExpressionManager<TExpr> {
+        // Normalize checksumConfig in case the snapshot went through a JSON
+        // round-trip that converted Sets to arrays or empty objects.
+        const normalizedChecksumConfig = normalizeChecksumConfig(
+            snapshot.config?.checksumConfig
+        )
+        const normalizedConfig: TLogicEngineOptions | undefined =
+            snapshot.config
+                ? {
+                      ...snapshot.config,
+                      checksumConfig: normalizedChecksumConfig,
+                  }
+                : undefined
         // During loading: use explicit grammarConfig, falling back to snapshot's config
         const loadingConfig: TLogicEngineOptions = {
-            ...snapshot.config,
-            grammarConfig: grammarConfig ?? snapshot.config?.grammarConfig,
+            ...normalizedConfig,
+            grammarConfig: grammarConfig ?? normalizedConfig?.grammarConfig,
         }
         const em = new ExpressionManager<TExpr>(loadingConfig)
         em.loadInitialExpressions(
             snapshot.expressions as unknown as TExpressionInput<TExpr>[]
         )
-        // After loading: restore the snapshot's config for ongoing mutations
-        em.config = snapshot.config
+        // After loading: restore the normalized config for ongoing mutations
+        em.config = normalizedConfig
         return em
     }
 }

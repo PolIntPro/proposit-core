@@ -34,7 +34,7 @@ import {
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
 import type { TGrammarConfig } from "../types/grammar.js"
-import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
+import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
 import { ChangeCollector } from "./change-collector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import type {
@@ -1393,10 +1393,21 @@ export class PremiseEngine<
         expressionIndex?: Map<string, string>,
         grammarConfig?: TGrammarConfig
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
+        // Normalize checksumConfig in case the snapshot went through a JSON
+        // round-trip that converted Sets to arrays or empty objects.
+        const normalizedConfig: TLogicEngineOptions | undefined =
+            snapshot.config
+                ? {
+                      ...snapshot.config,
+                      checksumConfig: normalizeChecksumConfig(
+                          snapshot.config.checksumConfig
+                      ),
+                  }
+                : snapshot.config
         const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             snapshot.premise,
             { argument, variables, expressionIndex },
-            snapshot.config
+            normalizedConfig
         )
         // Restore expressions from the snapshot
         pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
