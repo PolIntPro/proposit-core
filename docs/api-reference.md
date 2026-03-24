@@ -726,6 +726,19 @@ const config = normalizeChecksumConfig(deserialized.checksumConfig)
 
 ---
 
+### `serializeChecksumConfig(config)` → `TCoreChecksumConfig | undefined`
+
+Converts all `Set<string>` fields on a `TCoreChecksumConfig` to `string[]` arrays for JSON-safe serialization. Returns `undefined` when passed `undefined`. Called automatically by all `snapshot()` methods (`ArgumentEngine`, `PremiseEngine`, `ExpressionManager`, `VariableManager`), but exported for consumers who serialize checksum configs independently.
+
+```typescript
+import { serializeChecksumConfig } from "@polintpro/proposit-core"
+
+const serialized = serializeChecksumConfig(engine.getChecksumConfig())
+// serialized.premiseFields is now a string[] — safe for JSON.stringify
+```
+
+---
+
 ## Grammar Configuration
 
 Types and constants for controlling structural rule enforcement in expression trees, exported from `types/grammar.ts`:

@@ -11,7 +11,11 @@ import {
     midpoint,
 } from "../utils/position.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
-import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
+import {
+    DEFAULT_CHECKSUM_CONFIG,
+    normalizeChecksumConfig,
+    serializeChecksumConfig,
+} from "../consts.js"
 import { entityChecksum } from "./checksum.js"
 import {
     DEFAULT_GRAMMAR_CONFIG,
@@ -1392,7 +1396,14 @@ export class ExpressionManager<
     public snapshot(): TExpressionManagerSnapshot<TExpr> {
         return {
             expressions: this.toArray(),
-            config: this.config,
+            config: this.config
+                ? ({
+                      ...this.config,
+                      checksumConfig: serializeChecksumConfig(
+                          this.config.checksumConfig
+                      ),
+                  } as TLogicEngineOptions)
+                : this.config,
         }
     }
 

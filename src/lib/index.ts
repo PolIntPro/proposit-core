@@ -41,6 +41,7 @@ export {
     DEFAULT_CHECKSUM_CONFIG,
     createChecksumConfig,
     normalizeChecksumConfig,
+    serializeChecksumConfig,
 } from "./consts.js"
 export { parseFormula } from "./core/parser/formula.js"
 export type { TFormulaAST } from "./core/parser/formula.js"

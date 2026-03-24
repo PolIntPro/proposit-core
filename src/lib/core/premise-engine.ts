@@ -34,7 +34,11 @@ import {
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
 import type { TGrammarConfig } from "../types/grammar.js"
-import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
+import {
+    DEFAULT_CHECKSUM_CONFIG,
+    normalizeChecksumConfig,
+    serializeChecksumConfig,
+} from "../consts.js"
 import { ChangeCollector } from "./change-collector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
 import type {
@@ -1374,8 +1378,8 @@ export class PremiseEngine<
             expressions: exprSnapshot,
             config: {
                 ...exprSnapshot.config,
-                checksumConfig: this.checksumConfig,
-            },
+                checksumConfig: serializeChecksumConfig(this.checksumConfig),
+            } as TLogicEngineOptions,
         }
     }
 

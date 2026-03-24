@@ -14877,19 +14877,19 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
             csLib()
         )
 
-        // The restored engine's snapshot should have Sets, not arrays
+        // The restored engine's snapshot should serialize Sets as arrays
         const restoredSnap = restored.snapshot()
         expect(
-            restoredSnap.config!.checksumConfig!.premiseFields
-        ).toBeInstanceOf(Set)
+            Array.isArray(restoredSnap.config!.checksumConfig!.premiseFields)
+        ).toBe(true)
         expect(
-            restoredSnap.config!.checksumConfig!.argumentFields
-        ).toBeInstanceOf(Set)
+            Array.isArray(restoredSnap.config!.checksumConfig!.argumentFields)
+        ).toBe(true)
         expect(restoredSnap.config!.checksumConfig!.premiseFields).toEqual(
-            new Set(["premiseId", "createdOn"])
+            expect.arrayContaining(["premiseId", "createdOn"])
         )
         expect(restoredSnap.config!.checksumConfig!.argumentFields).toEqual(
-            new Set(["id", "version"])
+            expect.arrayContaining(["id", "version"])
         )
     })
 
@@ -14920,12 +14920,14 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
         )
 
         const snap = engine.snapshot()
-        expect(snap.config!.checksumConfig!.expressionFields).toBeInstanceOf(
-            Set
+        expect(
+            Array.isArray(snap.config!.checksumConfig!.expressionFields)
+        ).toBe(true)
+        expect(Array.isArray(snap.config!.checksumConfig!.variableFields)).toBe(
+            true
         )
-        expect(snap.config!.checksumConfig!.variableFields).toBeInstanceOf(Set)
         expect(snap.config!.checksumConfig!.expressionFields).toEqual(
-            new Set(["id", "type", "customField"])
+            expect.arrayContaining(["id", "type", "customField"])
         )
     })
 
@@ -14950,15 +14952,15 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
         engine2.rollback(serialized)
 
         const restoredSnap = engine2.snapshot()
-        expect(restoredSnap.config!.checksumConfig!.roleFields).toBeInstanceOf(
-            Set
-        )
+        expect(
+            Array.isArray(restoredSnap.config!.checksumConfig!.roleFields)
+        ).toBe(true)
         expect(restoredSnap.config!.checksumConfig!.roleFields).toEqual(
-            new Set(["conclusionPremiseId", "customRole"])
+            expect.arrayContaining(["conclusionPremiseId", "customRole"])
         )
     })
 
-    it("handles native JSON round-trip where Sets become empty objects", () => {
+    it("handles native JSON round-trip where snapshot serializes Sets as arrays", () => {
         const customConfig = {
             checksumConfig: {
                 premiseFields: new Set(["premiseId", "createdOn"]),
@@ -14974,16 +14976,24 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
         )
         const snap = engine.snapshot()
 
-        // Native JSON round-trip: JSON.stringify(Set) → "{}", JSON.parse("{}") → {}
+        // Native JSON round-trip: snapshot already has arrays, so they survive
         const serialized = JSON.parse(JSON.stringify(snap)) as typeof snap
 
-        // Verify Sets became empty objects, not arrays
-        expect(serialized.config!.checksumConfig!.premiseFields).toEqual({})
+        // Verify fields survived as arrays, not empty objects
         expect(
-            serialized.config!.checksumConfig!.premiseFields
-        ).not.toBeInstanceOf(Set)
+            Array.isArray(serialized.config!.checksumConfig!.premiseFields)
+        ).toBe(true)
+        expect(serialized.config!.checksumConfig!.premiseFields).toEqual(
+            expect.arrayContaining(["premiseId", "createdOn"])
+        )
+        expect(
+            Array.isArray(serialized.config!.checksumConfig!.argumentFields)
+        ).toBe(true)
+        expect(serialized.config!.checksumConfig!.argumentFields).toEqual(
+            expect.arrayContaining(["id", "version"])
+        )
 
-        // fromSnapshot should handle {} gracefully (treat as empty Set)
+        // fromSnapshot should reconstruct Sets from the arrays
         const restored = ArgumentEngine.fromSnapshot(
             serialized,
             aLib(),
@@ -14991,12 +15001,13 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
             csLib()
         )
         const restoredSnap = restored.snapshot()
+        // After restoration, internal state has Sets, but snapshot serializes them back to arrays
         expect(
-            restoredSnap.config!.checksumConfig!.premiseFields
-        ).toBeInstanceOf(Set)
+            Array.isArray(restoredSnap.config!.checksumConfig!.premiseFields)
+        ).toBe(true)
         expect(
-            restoredSnap.config!.checksumConfig!.argumentFields
-        ).toBeInstanceOf(Set)
+            Array.isArray(restoredSnap.config!.checksumConfig!.argumentFields)
+        ).toBe(true)
     })
 
     it("fromSnapshot normalizes nested premise/expression-level configs after native JSON round-trip", () => {
@@ -15046,6 +15057,84 @@ describe("ArgumentEngine — checksumConfig Set reconstruction after JSON round-
         )
         expect(restored.listPremiseIds()).toEqual(["p1"])
         expect(restored.getPremise("p1")!.getExpressions()).toHaveLength(1)
+    })
+
+    it("snapshot() serializes checksumConfig Sets as arrays at all levels", () => {
+        const customConfig = {
+            checksumConfig: {
+                expressionFields: new Set(["id", "type", "parentId"]),
+                premiseFields: new Set(["id", "argumentId"]),
+                variableFields: new Set(["id", "symbol"]),
+            },
+        }
+        const engine = new ArgumentEngine(
+            ARG,
+            aLib(),
+            sLib(),
+            csLib(),
+            customConfig
+        )
+        engine.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        const snap = engine.snapshot()
+
+        // Top-level config: Sets should be arrays
+        const topConfig = snap.config!.checksumConfig!
+        expect(Array.isArray(topConfig.premiseFields)).toBe(true)
+        expect(topConfig.premiseFields).toEqual(
+            expect.arrayContaining(["id", "argumentId"])
+        )
+        expect(Array.isArray(topConfig.variableFields)).toBe(true)
+        expect(topConfig.variableFields).toEqual(
+            expect.arrayContaining(["id", "symbol"])
+        )
+
+        // Variable manager config
+        const varConfig = snap.variables.config!.checksumConfig!
+        expect(Array.isArray(varConfig.variableFields)).toBe(true)
+
+        // Premise-level config
+        const premiseSnap = snap.premises[0]
+        const premConfig = premiseSnap.config!.checksumConfig!
+        expect(Array.isArray(premConfig.premiseFields)).toBe(true)
+
+        // Expression-level config
+        const exprConfig = premiseSnap.expressions.config!.checksumConfig!
+        expect(Array.isArray(exprConfig.expressionFields)).toBe(true)
+        expect(exprConfig.expressionFields).toEqual(
+            expect.arrayContaining(["id", "type", "parentId"])
+        )
+
+        // Native JSON round-trip should preserve field names (no {} collapse)
+        const serialized = JSON.parse(JSON.stringify(snap)) as typeof snap
+        expect(serialized.config!.checksumConfig!.premiseFields).toEqual(
+            expect.arrayContaining(["id", "argumentId"])
+        )
+        expect(
+            serialized.premises[0].config!.checksumConfig!.premiseFields
+        ).toEqual(expect.arrayContaining(["id", "argumentId"]))
+        expect(
+            serialized.premises[0].expressions.config!.checksumConfig!
+                .expressionFields
+        ).toEqual(expect.arrayContaining(["id", "type", "parentId"]))
     })
 
     it("rollback normalizes nested premise/expression-level configs after native JSON round-trip", () => {

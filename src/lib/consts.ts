@@ -72,6 +72,34 @@ export function normalizeChecksumConfig(
 }
 
 /**
+ * Converts all `Set<string>` fields in a `TCoreChecksumConfig` to `string[]`
+ * so the config survives a plain `JSON.stringify` round-trip (which turns Sets
+ * into `{}`). Returns `undefined` when the input is `undefined`.
+ */
+export function serializeChecksumConfig(
+    config: TCoreChecksumConfig | undefined
+): Record<string, string[]> | undefined {
+    if (config === undefined) return undefined
+    const keys = [
+        "expressionFields",
+        "variableFields",
+        "premiseFields",
+        "argumentFields",
+        "roleFields",
+        "claimFields",
+        "sourceFields",
+        "claimSourceAssociationFields",
+    ] as const
+    const result: Record<string, string[]> = {}
+    for (const key of keys) {
+        const value = config[key]
+        if (value === undefined) continue
+        result[key] = Array.from(value)
+    }
+    return result
+}
+
+/**
  * Creates a checksum config by merging additional fields into the defaults.
  * Omitted fields in `additional` inherit defaults. Fields are unioned, not replaced.
  */

@@ -32,7 +32,11 @@ import {
     type TGrammarConfig,
 } from "../types/grammar.js"
 import type { TCorePositionConfig } from "../utils/position.js"
-import { DEFAULT_CHECKSUM_CONFIG, normalizeChecksumConfig } from "../consts.js"
+import {
+    DEFAULT_CHECKSUM_CONFIG,
+    normalizeChecksumConfig,
+    serializeChecksumConfig,
+} from "../consts.js"
 import type { TCoreMutationResult, TCoreChangeset } from "../types/mutation.js"
 import type {
     TReactiveSnapshot,
@@ -951,10 +955,10 @@ export class ArgumentEngine<
                 ? { conclusionPremiseId: this.conclusionPremiseId }
                 : {}),
             config: {
-                checksumConfig: this.checksumConfig,
+                checksumConfig: serializeChecksumConfig(this.checksumConfig),
                 positionConfig: this.positionConfig,
                 grammarConfig: this.grammarConfig,
-            },
+            } as TLogicEngineOptions,
         }
     }
 

@@ -1,4 +1,5 @@
 import type { TCorePropositionalVariable } from "../schemata/index.js"
+import { serializeChecksumConfig } from "../consts.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
 
 export type TVariableManagerSnapshot<
@@ -149,7 +150,14 @@ export class VariableManager<
     public snapshot(): TVariableManagerSnapshot<TVar> {
         return {
             variables: this.toArray(),
-            config: this.config,
+            config: this.config
+                ? ({
+                      ...this.config,
+                      checksumConfig: serializeChecksumConfig(
+                          this.config.checksumConfig
+                      ),
+                  } as TLogicEngineOptions)
+                : this.config,
         }
     }
 
