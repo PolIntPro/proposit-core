@@ -182,7 +182,7 @@ export const CorePremiseSchema = Type.Object(
         }),
         descendantChecksum: Nullable(Type.String(), {
             description:
-                "Checksum derived from direct children's combinedChecksums. Null for empty premises.",
+                "Checksum derived from descendant expression tree. Null if premise has no expressions.",
         }),
         combinedChecksum: Type.String({
             description:

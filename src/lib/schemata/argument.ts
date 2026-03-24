@@ -10,7 +10,7 @@ export const CoreArgumentSchema = Type.Object(
         }),
         descendantChecksum: Nullable(Type.String(), {
             description:
-                "Checksum derived from direct children's combinedChecksums. Null for empty arguments.",
+                "Checksum derived from premises and variables collections. Null if argument has no descendants.",
         }),
         combinedChecksum: Type.String({
             description:
