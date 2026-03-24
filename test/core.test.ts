@@ -15645,3 +15645,279 @@ describe("argument hierarchical checksums", () => {
         expect(engine.descendantChecksum()).toBe(expectedDescendant)
     })
 })
+
+describe("checksum verification on load", () => {
+    const ARG = { id: "arg-1", version: 1 }
+
+    function makeVariable(
+        id: string,
+        symbol: string
+    ): TOptionalChecksum<TClaimBoundVariable> {
+        return {
+            id,
+            symbol,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            claimId: "claim-default",
+            claimVersion: 0,
+        }
+    }
+
+    it("fromSnapshot with 'strict' passes when checksums match", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "strict"
+            )
+        ).not.toThrow()
+    })
+
+    it("fromSnapshot with 'strict' throws when expression checksum is tampered", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Tamper with expression checksum
+        snap.premises[0].expressions.expressions[0].checksum = "tampered!"
+
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "strict"
+            )
+        ).toThrow(/checksum mismatch/i)
+    })
+
+    it("fromSnapshot with 'ignore' (default) does not throw on tampered checksums", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Tamper with expression checksum
+        snap.premises[0].expressions.expressions[0].checksum = "tampered!"
+
+        // Default is "ignore" — should not throw
+        expect(() =>
+            ArgumentEngine.fromSnapshot(snap, aLib(), sLib(), csLib())
+        ).not.toThrow()
+    })
+
+    it("fromSnapshot with 'strict' throws when premise checksum is tampered", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Tamper with premise checksum
+        ;(
+            snap.premises[0].premise as Record<string, unknown>
+        ).combinedChecksum = "tampered!"
+
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "strict"
+            )
+        ).toThrow(/checksum mismatch/i)
+    })
+
+    it("fromSnapshot with 'strict' throws when argument checksum is tampered", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        engine.createPremiseWithId("p1")
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Tamper with argument checksum
+        ;(snap.argument as Record<string, unknown>).combinedChecksum =
+            "tampered!"
+
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "strict"
+            )
+        ).toThrow(/checksum mismatch/i)
+    })
+
+    it("fromSnapshot with 'strict' throws when variable checksum is tampered", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        engine.createPremiseWithId("p1")
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Tamper with variable checksum
+        ;(snap.variables.variables[0] as Record<string, unknown>).checksum =
+            "tampered!"
+
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "strict"
+            )
+        ).toThrow(/checksum mismatch/i)
+    })
+
+    it("fromData with 'strict' passes when checksums match", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Extract flat data from snapshot
+        const argData = snap.argument
+        const variables = snap.variables.variables
+        const premises = [snap.premises[0].premise]
+        const expressions = snap.premises[0].expressions.expressions
+
+        expect(() =>
+            ArgumentEngine.fromData(
+                argData,
+                aLib(),
+                sLib(),
+                csLib(),
+                variables,
+                premises,
+                expressions,
+                {},
+                snap.config,
+                undefined,
+                "strict"
+            )
+        ).not.toThrow()
+    })
+
+    it("fromData with 'strict' throws when variable checksum is tampered", () => {
+        const engine = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        engine.addVariable(makeVariable("v1", "P"))
+        const { result: pm } = engine.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            parentId: null,
+            position: 0,
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            premiseId: "p1",
+        })
+
+        engine.flushChecksums()
+        const snap = engine.snapshot()
+
+        // Extract flat data from snapshot
+        const argData = snap.argument
+        const variables = snap.variables.variables.map((v) => ({
+            ...v,
+            checksum: "tampered!",
+        }))
+        const premises = [snap.premises[0].premise]
+        const expressions = snap.premises[0].expressions.expressions
+
+        expect(() =>
+            ArgumentEngine.fromData(
+                argData,
+                aLib(),
+                sLib(),
+                csLib(),
+                variables,
+                premises,
+                expressions,
+                {},
+                snap.config,
+                undefined,
+                "strict"
+            )
+        ).toThrow(/checksum mismatch/i)
+    })
+})

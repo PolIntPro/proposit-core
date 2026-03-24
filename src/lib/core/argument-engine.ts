@@ -995,7 +995,8 @@ export class ArgumentEngine<
         claimLibrary: TClaimLookup<TClaim>,
         sourceLibrary: TSourceLookup<TSource>,
         claimSourceLibrary: TClaimSourceLookup<TAssoc>,
-        grammarConfig?: TGrammarConfig
+        grammarConfig?: TGrammarConfig,
+        checksumVerification?: "ignore" | "strict"
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const engine = new ArgumentEngine<
             TArg,
@@ -1055,6 +1056,12 @@ export class ArgumentEngine<
         }
         // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
         engine.conclusionPremiseId = snapshot.conclusionPremiseId
+
+        if (checksumVerification === "strict") {
+            engine.flushChecksums()
+            ArgumentEngine.verifySnapshotChecksums(engine, snapshot)
+        }
+
         return engine
     }
 
@@ -1084,7 +1091,8 @@ export class ArgumentEngine<
         expressions: TExpressionInput<TExpr>[],
         roles: TCoreArgumentRoleState,
         config?: TLogicEngineOptions,
-        grammarConfig?: TGrammarConfig
+        grammarConfig?: TGrammarConfig,
+        checksumVerification?: "ignore" | "strict"
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
         const loadingGrammarConfig = grammarConfig ?? PERMISSIVE_GRAMMAR_CONFIG
         const normalizedConfig = config
@@ -1180,7 +1188,202 @@ export class ArgumentEngine<
         // After loading: restore the caller's intended grammar config
         engine.grammarConfig = config?.grammarConfig
 
+        if (checksumVerification === "strict") {
+            engine.flushChecksums()
+            ArgumentEngine.verifyDataChecksums(
+                engine,
+                argument,
+                variables,
+                premises
+            )
+        }
+
         return engine
+    }
+
+    /**
+     * Verifies that all checksum fields in the snapshot match the recomputed
+     * checksums on the restored engine. Throws on the first mismatch.
+     */
+    private static verifySnapshotChecksums<
+        TArg extends TCoreArgument,
+        TPremise extends TCorePremise,
+        TExpr extends TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable,
+        TSource extends TCoreSource,
+        TClaim extends TCoreClaim,
+        TAssoc extends TCoreClaimSourceAssociation,
+    >(
+        engine: ArgumentEngine<
+            TArg,
+            TPremise,
+            TExpr,
+            TVar,
+            TSource,
+            TClaim,
+            TAssoc
+        >,
+        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
+    ): void {
+        const checksumFields = [
+            "checksum",
+            "descendantChecksum",
+            "combinedChecksum",
+        ] as const
+
+        // Verify expression checksums
+        for (const pe of engine.listPremises()) {
+            for (const expr of pe.getExpressions()) {
+                const premiseSnap = snapshot.premises.find(
+                    (ps) => ps.premise.id === pe.getId()
+                )
+                const exprSnap = premiseSnap?.expressions.expressions.find(
+                    (e) => e.id === expr.id
+                )
+                if (exprSnap) {
+                    for (const field of checksumFields) {
+                        const stored = String(
+                            (exprSnap as Record<string, unknown>)[field]
+                        )
+                        const computed = String(
+                            (expr as Record<string, unknown>)[field]
+                        )
+                        if (stored !== "undefined" && stored !== computed) {
+                            throw new Error(
+                                `Checksum mismatch on expression "${expr.id}" field "${field}": stored="${stored}", computed="${computed}"`
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Verify variable checksums
+        for (const v of engine.getVariables()) {
+            const varSnap = snapshot.variables.variables.find(
+                (sv) => (sv as Record<string, unknown>).id === v.id
+            )
+            const storedVarChecksum = varSnap
+                ? String((varSnap as Record<string, unknown>).checksum)
+                : undefined
+            if (storedVarChecksum && storedVarChecksum !== "undefined") {
+                if (storedVarChecksum !== v.checksum) {
+                    throw new Error(
+                        `Checksum mismatch on variable "${v.id}": stored="${storedVarChecksum}", computed="${v.checksum}"`
+                    )
+                }
+            }
+        }
+
+        // Verify premise checksums
+        for (const pe of engine.listPremises()) {
+            const premiseSnap = snapshot.premises.find(
+                (ps) => ps.premise.id === pe.getId()
+            )
+            if (premiseSnap?.premise) {
+                const sp = premiseSnap.premise as Record<string, unknown>
+                for (const field of checksumFields) {
+                    const stored = String(sp[field])
+                    const computed = pe[field]()
+                    if (stored !== "undefined" && stored !== computed) {
+                        throw new Error(
+                            `Checksum mismatch on premise "${pe.getId()}" field "${field}": stored="${stored}", computed="${computed}"`
+                        )
+                    }
+                }
+            }
+        }
+
+        // Verify argument checksums
+        const sa = snapshot.argument as Record<string, unknown>
+        for (const field of checksumFields) {
+            const stored = String(sa[field])
+            const computed = engine[field]()
+            if (stored !== "undefined" && stored !== computed) {
+                throw new Error(
+                    `Checksum mismatch on argument "${engine.getArgument().id}" field "${field}": stored="${stored}", computed="${computed}"`
+                )
+            }
+        }
+    }
+
+    /**
+     * Verifies that all checksum fields in the input data match the recomputed
+     * checksums on the restored engine. Throws on the first mismatch.
+     */
+    private static verifyDataChecksums<
+        TArg extends TCoreArgument,
+        TPremise extends TCorePremise,
+        TExpr extends TCorePropositionalExpression,
+        TVar extends TCorePropositionalVariable,
+        TSource extends TCoreSource,
+        TClaim extends TCoreClaim,
+        TAssoc extends TCoreClaimSourceAssociation,
+    >(
+        engine: ArgumentEngine<
+            TArg,
+            TPremise,
+            TExpr,
+            TVar,
+            TSource,
+            TClaim,
+            TAssoc
+        >,
+        argument: TOptionalChecksum<TArg>,
+        variables: TOptionalChecksum<TVar>[],
+        premises: TOptionalChecksum<TPremise>[]
+    ): void {
+        const checksumFields = [
+            "checksum",
+            "descendantChecksum",
+            "combinedChecksum",
+        ] as const
+
+        // Verify variable checksums
+        for (const v of engine.getVariables()) {
+            const inputVar = variables.find(
+                (iv) => (iv as Record<string, unknown>).id === v.id
+            )
+            const storedVarChecksum = inputVar
+                ? String((inputVar as Record<string, unknown>).checksum)
+                : undefined
+            if (storedVarChecksum && storedVarChecksum !== "undefined") {
+                if (storedVarChecksum !== v.checksum) {
+                    throw new Error(
+                        `Checksum mismatch on variable "${v.id}": stored="${storedVarChecksum}", computed="${v.checksum}"`
+                    )
+                }
+            }
+        }
+
+        // Verify premise checksums
+        for (const pe of engine.listPremises()) {
+            const inputPremise = premises.find((p) => p.id === pe.getId())
+            if (inputPremise) {
+                const sp = inputPremise as Record<string, unknown>
+                for (const field of checksumFields) {
+                    const stored = String(sp[field])
+                    const computed = pe[field]()
+                    if (stored !== "undefined" && stored !== computed) {
+                        throw new Error(
+                            `Checksum mismatch on premise "${pe.getId()}" field "${field}": stored="${stored}", computed="${computed}"`
+                        )
+                    }
+                }
+            }
+        }
+
+        // Verify argument checksums
+        const sa = argument as Record<string, unknown>
+        for (const field of checksumFields) {
+            const stored = String(sa[field])
+            const computed = engine[field]()
+            if (stored !== "undefined" && stored !== computed) {
+                throw new Error(
+                    `Checksum mismatch on argument "${engine.getArgument().id}" field "${field}": stored="${stored}", computed="${computed}"`
+                )
+            }
+        }
     }
 
     public rollback(
