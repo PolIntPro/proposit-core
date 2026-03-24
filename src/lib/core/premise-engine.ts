@@ -58,7 +58,7 @@ import type {
     TPremiseLifecycle,
     TPremiseIdentity,
     TDisplayable,
-    TChecksummable,
+    THierarchicalChecksummable,
 } from "./interfaces/index.js"
 
 export type TPremiseEngineSnapshot<
@@ -86,7 +86,7 @@ export class PremiseEngine<
         TPremiseLifecycle<TPremise, TExpr>,
         TPremiseIdentity<TArg, TPremise, TExpr, TVar>,
         TDisplayable,
-        TChecksummable
+        THierarchicalChecksummable<"expressions">
 {
     private premise: TOptionalChecksum<TPremise>
     private rootExpressionId: string | undefined
@@ -1233,6 +1233,22 @@ export class PremiseEngine<
             this.checksumDirty = false
         }
         return this.cachedChecksum
+    }
+
+    public descendantChecksum(): string | null {
+        return null
+    }
+
+    public combinedChecksum(): string {
+        return this.checksum()
+    }
+
+    public getCollectionChecksum(_name: "expressions"): string | null {
+        return null
+    }
+
+    public flushChecksums(): void {
+        /* stub — will be implemented in Task 4 */
     }
 
     // -------------------------------------------------------------------------

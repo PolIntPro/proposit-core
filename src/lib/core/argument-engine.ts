@@ -64,7 +64,7 @@ import type {
     TArgumentLifecycle,
     TArgumentIdentity,
     TDisplayable,
-    TChecksummable,
+    THierarchicalChecksummable,
     TClaimLookup,
     TSourceLookup,
     TClaimSourceLookup,
@@ -114,7 +114,7 @@ export class ArgumentEngine<
         TArgumentLifecycle<TArg, TPremise, TExpr, TVar>,
         TArgumentIdentity<TArg>,
         TDisplayable,
-        TChecksummable
+        THierarchicalChecksummable<"premises" | "variables">
 {
     private argument: TOptionalChecksum<TArg>
     private premises: Map<string, PremiseEngine<TArg, TPremise, TExpr, TVar>>
@@ -1220,6 +1220,24 @@ export class ArgumentEngine<
             this.checksumDirty = false
         }
         return this.cachedChecksum
+    }
+
+    public descendantChecksum(): string | null {
+        return null
+    }
+
+    public combinedChecksum(): string {
+        return this.checksum()
+    }
+
+    public getCollectionChecksum(
+        _name: "premises" | "variables"
+    ): string | null {
+        return null
+    }
+
+    public flushChecksums(): void {
+        /* stub — will be implemented in Task 5 */
     }
 
     private computeChecksum(): string {
