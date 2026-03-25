@@ -4,7 +4,7 @@
 
 - Git commit messages should not include any co-authoring content
 - When I report a bug, don't start by trying to fix it. Instead, start by writing a test that reproduces the bug. Then, have subagents try to fix the bug and prove it with a passing test.
-- After completing a major set of changes, offer to cut a new version via `pnpm version patch|minor|major`. Use `patch` for most changes, `minor` for major feature work, and `major` only when explicitly instructed. When versioning, add release notes to `docs/release-notes/{version}.md` summarizing what changed.
+- After completing a major set of changes, offer to cut a new version via `pnpm version patch|minor|major`. Use `patch` for most changes, `minor` for major feature work, and `major` only when explicitly instructed. When versioning, rename `docs/release-notes/upcoming.md` to `docs/release-notes/v{version}.md` and `docs/changelogs/upcoming.md` to `docs/changelogs/v{version}.md`, then start fresh `upcoming.md` files for subsequent work.
 
 ## Commands
 
@@ -73,3 +73,5 @@ Defined in the `brain-style` skill. Enforced by ESLint (`@typescript-eslint/nami
 - `src/lib/core/interfaces/shared.interfaces.ts` [Public-Engine-API] — JSDoc for shared engine interfaces (TDisplayable, THierarchicalChecksummable); update when shared method signatures change
 - `src/lib/core/interfaces/library.interfaces.ts` [Public-Engine-API] — JSDoc for TClaimLookup, TSourceLookup, TClaimSourceLookup, and library snapshot interfaces; update when library interface signatures change
 - `examples/arguments/*.yaml` [Argument-Schema] — Example argument YAML files used by `test/examples.test.ts`; update when core argument schemas (`src/lib/schemata/`) or CLI-extended schemas (`src/cli/schemata.ts`, YAML import shape) change
+- `docs/release-notes/upcoming.md` [Public-API] — User-facing release notes; plain language, no jargon
+- `docs/changelogs/upcoming.md` [Any-Code-Change] — Developer changelog with commit hash ranges
