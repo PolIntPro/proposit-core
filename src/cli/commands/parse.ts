@@ -10,7 +10,7 @@ import { ClaimLibrary } from "../../lib/core/claim-library.js"
 import { SourceLibrary } from "../../lib/core/source-library.js"
 import { ClaimSourceLibrary } from "../../lib/core/claim-source-library.js"
 import { cliLog } from "../logging.js"
-import { errorExit, printJson, printLine } from "../output.js"
+import { errorExit, printJson, printLine, printWarning } from "../output.js"
 import { resolveApiKey, createLlmProvider } from "../llm/index.js"
 
 class CliArgumentParser extends BasicsArgumentParser {
@@ -164,12 +164,18 @@ export function registerParseCommand(args: Command): void {
                 // 9. Build engine
                 let built
                 try {
-                    built = parser.build(response)
+                    built = parser.build(response, { strict: false })
                 } catch (error) {
                     const msg =
                         error instanceof Error ? error.message : String(error)
                     await cliLog("parse:build-error", { error: msg })
                     errorExit(`Build failed: ${msg}`)
+                }
+
+                if (built.warnings.length > 0) {
+                    for (const w of built.warnings) {
+                        printWarning(`[${w.code}] ${w.message}`)
+                    }
                 }
 
                 // 10. Merge libraries with existing global state

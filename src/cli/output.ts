@@ -9,6 +9,10 @@ export function printLine(text: string): void {
     process.stdout.write(text + "\n")
 }
 
+export function printWarning(message: string): void {
+    process.stderr.write(message + "\n")
+}
+
 export function errorExit(message: string, code = 1): never {
     process.stderr.write(message + "\n")
     process.exit(code)
