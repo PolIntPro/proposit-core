@@ -12859,6 +12859,36 @@ describe("Parsing — response schemas", () => {
                 expect(() => parser.build(resp)).toThrow(/implication/i)
             })
 
+            it("auto-normalizes nested operators by inserting formula buffers", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                // "(P and Q) or P" creates or(and(P,Q), P) — and is child of or
+                // autoNormalize should insert a formula buffer between or and and
+                resp.argument!.premises = [
+                    { miniId: "P1", formula: "(P and Q) or P" },
+                ]
+                resp.argument!.conclusionPremiseMiniId = "P1"
+                const result = parser.build(resp)
+                const snap = result.engine.snapshot()
+                expect(snap.premises).toHaveLength(1)
+                const exprs = snap.premises[0].expressions.expressions
+                // Should have: or, formula(buffer), and, var(P), var(Q), var(P)
+                // = 6 expressions total
+                const formulaExprs = exprs.filter((e) => e.type === "formula")
+                expect(formulaExprs.length).toBeGreaterThanOrEqual(1)
+                const orExpr = exprs.find(
+                    (e) => e.type === "operator" && e.operator === "or"
+                )
+                expect(orExpr).toBeDefined()
+                const andExpr = exprs.find(
+                    (e) => e.type === "operator" && e.operator === "and"
+                )
+                expect(andExpr).toBeDefined()
+                // The and operator should NOT be a direct child of or
+                // (a formula buffer should sit between them)
+                expect(andExpr!.parentId).not.toBe(orExpr!.id)
+            })
+
             it("throws on variable referencing undeclared claim miniId", () => {
                 const parser = new ArgumentParser()
                 const resp = validResponse()

@@ -437,7 +437,12 @@ export class ArgumentParser<
             TSource,
             TClaim,
             TAssoc
-        >(argument, claimLibrary, sourceLibrary, claimSourceLibrary)
+        >(argument, claimLibrary, sourceLibrary, claimSourceLibrary, {
+            grammarConfig: {
+                enforceFormulaBetweenOperators: true,
+                autoNormalize: true,
+            },
+        })
 
         // 7. Create variables — resolve claimMiniId to real claim UUID
         const variablesBySymbol = new Map<
