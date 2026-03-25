@@ -84,7 +84,18 @@ Abbreviations are encouraged to keep symbols short. Aim for under 20 characters 
 
 ## Writing Style
 
-When formulating claims, write in third person, present tense, active voice. Each claim should be a clear, standalone declarative sentence.`
+When formulating claims, write in third person, present tense, active voice. Each claim should be a clear, standalone declarative sentence.
+
+## MiniId Conventions
+
+Each entity type uses a distinct prefix for its miniId to avoid cross-reference confusion:
+
+- Claims: \`c1\`, \`c2\`, \`c3\`, ...
+- Sources: \`s1\`, \`s2\`, \`s3\`, ...
+- Variables: \`v1\`, \`v2\`, \`v3\`, ...
+- Premises: \`p1\`, \`p2\`, \`p3\`, ...
+
+Always use the correct prefix when referencing entities. For example, a claim's sourceMiniIds array should contain source miniIds (e.g., ["s1", "s2"]), not claim miniIds.`
 
 type TSchemaLike = {
     properties?: Record<string, TSchemaLike>

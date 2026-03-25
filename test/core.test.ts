@@ -12666,6 +12666,16 @@ describe("Parsing — response schemas", () => {
             const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
             expect(prompt).not.toContain("maxLength")
         })
+
+        it("includes miniId prefix conventions", () => {
+            const prompt = buildParsingPrompt(ParsedArgumentResponseSchema)
+            expect(prompt).toContain("MiniId Conventions")
+            expect(prompt).toContain("c1")
+            expect(prompt).toContain("s1")
+            expect(prompt).toContain("v1")
+            expect(prompt).toContain("p1")
+            expect(prompt).toContain("sourceMiniIds")
+        })
     })
 
     // -----------------------------------------------------------------------
