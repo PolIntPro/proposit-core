@@ -11,7 +11,7 @@
 
 ### 1. Lenient build mode
 
-Add an optional `TBuildOptions` parameter to `build()` with a `strict` flag (default `true`). In lenient mode (`strict: false`), invalid cross-entity references are skipped and collected as warnings instead of throwing.
+Add an optional `TParserBuildOptions` parameter to `build()` with a `strict` flag (default `true`). In lenient mode (`strict: false`), invalid references are skipped and collected as warnings instead of throwing.
 
 #### New types (in `src/lib/parsing/types.ts`)
 
@@ -21,17 +21,21 @@ type TParserWarningCode =
     | "UNRESOLVED_CLAIM_MINIID"
     | "UNRESOLVED_CONCLUSION_MINIID"
     | "UNDECLARED_VARIABLE_SYMBOL"
+    | "FORMULA_PARSE_ERROR"
+    | "FORMULA_STRUCTURE_ERROR"
 
 type TParserWarning = {
     code: TParserWarningCode
     message: string
-    miniId: string
+    context: Record<string, string>
 }
 
-type TBuildOptions = {
+type TParserBuildOptions = {
     strict?: boolean // default: true
 }
 ```
+
+The `context` field carries identifiers relevant to each warning code (e.g., `{ claimMiniId: "c1", sourceMiniId: "b1" }` for `UNRESOLVED_SOURCE_MINIID`, `{ premiseMiniId: "p1", symbol: "X" }` for `UNDECLARED_VARIABLE_SYMBOL`).
 
 #### Changes to `TArgumentParserResult`
 
@@ -40,7 +44,7 @@ Add `warnings: TParserWarning[]`. Always present — empty array when strict or 
 #### Changes to `build()` signature
 
 ```typescript
-build(response: TParsedArgumentResponse, options?: TBuildOptions): TArgumentParserResult
+build(response: TParsedArgumentResponse, options?: TParserBuildOptions): TArgumentParserResult
 ```
 
 #### Recovery behavior per reference type
@@ -50,11 +54,15 @@ build(response: TParsedArgumentResponse, options?: TBuildOptions): TArgumentPars
 | `claim.sourceMiniIds` → unknown source miniId | `UNRESOLVED_SOURCE_MINIID` | Skip the association; claim still created |
 | `variable.claimMiniId` → unknown claim miniId | `UNRESOLVED_CLAIM_MINIID` | Skip the variable entirely |
 | Formula symbol → undeclared variable symbol | `UNDECLARED_VARIABLE_SYMBOL` | Skip the entire premise |
-| `conclusionPremiseMiniId` → unknown premise miniId | `UNRESOLVED_CONCLUSION_MINIID` | Don't set conclusion role |
+| Formula syntax error (malformed expression) | `FORMULA_PARSE_ERROR` | Skip the entire premise |
+| Formula structure error (nested `implies`/`iff`) | `FORMULA_STRUCTURE_ERROR` | Skip the entire premise |
+| `conclusionPremiseMiniId` → unknown premise miniId | `UNRESOLVED_CONCLUSION_MINIID` | Don't set conclusion role explicitly (auto-conclusion from first added premise still applies) |
 
 **Cascade:** Skipping a variable due to `UNRESOLVED_CLAIM_MINIID` removes its symbol from the declared set. Premises referencing that symbol will also be skipped with an `UNDECLARED_VARIABLE_SYMBOL` warning. Both warnings are emitted so the caller sees the full chain.
 
-**Strict mode:** Unchanged. All 4 cases throw as they do today.
+**Zero-premise edge case:** If all premises are skipped, the engine has zero premises and no conclusion. This is a valid engine state (equivalent to an empty argument). Callers should check the warnings array and premise count to detect this situation.
+
+**Strict mode:** Unchanged. All cases throw as they do today.
 
 ### 2. MiniId prompt guidance
 
@@ -79,11 +87,14 @@ This is guidance only — `build()` does not validate miniId prefix format.
 
 ## Files changed
 
-- `src/lib/parsing/types.ts` — add `TParserWarningCode`, `TParserWarning`, `TBuildOptions`
+- `src/lib/parsing/types.ts` — add `TParserWarningCode`, `TParserWarning`, `TParserBuildOptions`
 - `src/lib/parsing/argument-parser.ts` — add `warnings` to `TArgumentParserResult`, update `build()` signature and implement lenient recovery paths
 - `src/lib/parsing/prompt-builder.ts` — add miniId conventions section to `CORE_PROMPT`
-- `src/lib/parsing/index.ts` — export new types
+- `src/lib/parsing/index.ts` — export `TParserWarningCode`, `TParserWarning`, `TParserBuildOptions`
+- `src/cli/commands/parse.ts` — pass `{ strict: false }` to `build()` and display warnings
 - `test/core.test.ts` — new tests for lenient mode
+
+**Subclass note:** `BasicsArgumentParser` and other subclasses only override `map*` hooks. They inherit lenient behavior from the base class without changes.
 
 ## Test plan
 
@@ -91,8 +102,11 @@ This is guidance only — `build()` does not validate miniId prefix format.
 2. **Lenient: unresolved claim miniId** — variable references nonexistent claim miniId. Build succeeds, variable skipped, warnings contains `UNRESOLVED_CLAIM_MINIID`.
 3. **Lenient: undeclared variable symbol** — formula uses undeclared symbol. Premise skipped, warnings contains `UNDECLARED_VARIABLE_SYMBOL`.
 4. **Lenient: cascade from skipped variable** — variable skipped due to bad claim ref, then premise using that symbol also skipped. Both warnings emitted.
-5. **Lenient: unresolved conclusion miniId** — conclusion references nonexistent premise. No conclusion set, warnings contains `UNRESOLVED_CONCLUSION_MINIID`.
-6. **Lenient: no issues** — valid response with `{ strict: false }`. Identical result, warnings is empty array.
-7. **Strict mode still throws** — each of the 4 cases still throws with default options.
-8. **Warnings on strict success** — valid response with default options. Warnings is empty array.
-9. **Prompt includes miniId conventions** — `buildParsingPrompt()` output contains prefix guidance.
+5. **Lenient: unresolved conclusion miniId** — conclusion references nonexistent premise. No conclusion set explicitly (auto-conclusion applies to first surviving premise), warnings contains `UNRESOLVED_CONCLUSION_MINIID`.
+6. **Lenient: formula parse error** — premise has malformed formula (e.g., unbalanced parens). Premise skipped, warnings contains `FORMULA_PARSE_ERROR`.
+7. **Lenient: formula structure error** — premise has nested `implies`/`iff`. Premise skipped, warnings contains `FORMULA_STRUCTURE_ERROR`.
+8. **Lenient: no issues** — valid response with `{ strict: false }`. Identical result, warnings is empty array.
+9. **Strict mode still throws** — each of the 6 cases still throws with default options.
+10. **Strict: unresolved source miniId throws** — cover the previously untested strict path for bad source miniIds.
+11. **Warnings on strict success** — valid response with default options. Warnings is empty array.
+12. **Prompt includes miniId conventions** — `buildParsingPrompt()` output contains prefix guidance.
