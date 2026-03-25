@@ -297,9 +297,17 @@ export class ArgumentParser<
             } catch (error) {
                 const msg =
                     error instanceof Error ? error.message : String(error)
-                throw new Error(
-                    `Failed to parse formula for premise "${premise.miniId}": ${msg}`
-                )
+                if (strict) {
+                    throw new Error(
+                        `Failed to parse formula for premise "${premise.miniId}": ${msg}`
+                    )
+                }
+                warnings.push({
+                    code: "FORMULA_PARSE_ERROR",
+                    message: `Failed to parse formula for premise "${premise.miniId}": ${msg}`,
+                    context: { premiseMiniId: premise.miniId, formula: premise.formula },
+                })
+                continue
             }
 
             // Validate root-only constraint

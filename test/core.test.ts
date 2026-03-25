@@ -12882,6 +12882,45 @@ describe("Parsing — response schemas", () => {
             })
         })
 
+        describe("build lenient mode", () => {
+            function validResponse(): TParsedArgumentResponse {
+                return {
+                    argument: {
+                        claims: [
+                            { miniId: "C1", role: "premise", sourceMiniIds: [] },
+                            { miniId: "C2", role: "conclusion", sourceMiniIds: [] },
+                        ],
+                        variables: [
+                            { miniId: "V1", symbol: "P", claimMiniId: "C1" },
+                            { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
+                        ],
+                        sources: [],
+                        premises: [
+                            { miniId: "P1", formula: "P implies Q" },
+                            { miniId: "P2", formula: "P" },
+                        ],
+                        conclusionPremiseMiniId: "P1",
+                    },
+                    uncategorizedText: null,
+                    selectionRationale: null,
+                    failureText: null,
+                }
+            }
+
+            it("skips premise with malformed formula and emits FORMULA_PARSE_ERROR", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.premises.push({ miniId: "P3", formula: "P &&& Q" })
+                const result = parser.build(resp, { strict: false })
+                // P1 and P2 survive, P3 skipped
+                const snap = result.engine.snapshot()
+                expect(snap.premises).toHaveLength(2)
+                expect(result.warnings).toHaveLength(1)
+                expect(result.warnings[0].code).toBe("FORMULA_PARSE_ERROR")
+                expect(result.warnings[0].context.premiseMiniId).toBe("P3")
+            })
+        })
+
         describe("subclass hooks", () => {
             it("mapClaim reflects custom fields on built claims", () => {
                 class Custom extends ArgumentParser {
