@@ -12,3 +12,21 @@ export type TParsingSchemaOptions = {
     parsedArgumentSchema?: TSchema
     responseSchema?: TSchema
 }
+
+export type TParserWarningCode =
+    | "UNRESOLVED_SOURCE_MINIID"
+    | "UNRESOLVED_CLAIM_MINIID"
+    | "UNRESOLVED_CONCLUSION_MINIID"
+    | "UNDECLARED_VARIABLE_SYMBOL"
+    | "FORMULA_PARSE_ERROR"
+    | "FORMULA_STRUCTURE_ERROR"
+
+export type TParserWarning = {
+    code: TParserWarningCode
+    message: string
+    context: Record<string, string>
+}
+
+export type TParserBuildOptions = {
+    strict?: boolean
+}

@@ -20,4 +20,10 @@ export type {
 export { ArgumentParser } from "./argument-parser.js"
 export type { TArgumentParserResult } from "./argument-parser.js"
 export { buildParsingPrompt } from "./prompt-builder.js"
-export type { TPromptOptions, TParsingSchemaOptions } from "./types.js"
+export type {
+    TPromptOptions,
+    TParsingSchemaOptions,
+    TParserWarningCode,
+    TParserWarning,
+    TParserBuildOptions,
+} from "./types.js"
