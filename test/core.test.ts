@@ -12989,6 +12989,20 @@ describe("Parsing — response schemas", () => {
                 expect(result.warnings[0].context.premiseMiniId).toBe("P3")
                 expect(result.warnings[0].context.symbol).toBe("X")
             })
+
+            it("skips conclusion assignment and emits UNRESOLVED_CONCLUSION_MINIID", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.conclusionPremiseMiniId = "P99"
+                const result = parser.build(resp, { strict: false })
+                const snap = result.engine.snapshot()
+                // Premises still created, but conclusion was auto-assigned to first premise
+                expect(snap.premises).toHaveLength(2)
+                expect(snap.conclusionPremiseId).toBeDefined() // auto-conclusion on first added premise
+                expect(result.warnings).toHaveLength(1)
+                expect(result.warnings[0].code).toBe("UNRESOLVED_CONCLUSION_MINIID")
+                expect(result.warnings[0].context.conclusionPremiseMiniId).toBe("P99")
+            })
         })
 
         describe("subclass hooks", () => {

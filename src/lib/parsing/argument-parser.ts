@@ -515,11 +515,19 @@ export class ArgumentParser<
         // 9. Set conclusion
         const conclusionId = premiseMiniIdToId.get(arg.conclusionPremiseMiniId)
         if (!conclusionId) {
-            throw new Error(
-                `Conclusion premise miniId "${arg.conclusionPremiseMiniId}" could not be resolved to a premise.`
-            )
+            if (strict) {
+                throw new Error(
+                    `Conclusion premise miniId "${arg.conclusionPremiseMiniId}" could not be resolved to a premise.`
+                )
+            }
+            warnings.push({
+                code: "UNRESOLVED_CONCLUSION_MINIID",
+                message: `Conclusion premise miniId "${arg.conclusionPremiseMiniId}" could not be resolved to a premise.`,
+                context: { conclusionPremiseMiniId: arg.conclusionPremiseMiniId },
+            })
+        } else {
+            engine.setConclusionPremise(conclusionId)
         }
-        engine.setConclusionPremise(conclusionId)
 
         return { engine, claimLibrary, sourceLibrary, claimSourceLibrary, warnings }
     }
