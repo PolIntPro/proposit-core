@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Value } from "typebox/value"
 import type { TSchema } from "typebox"
+import type { TParserWarning, TParserBuildOptions } from "./types.js"
 import type {
     TCoreArgument,
     TCorePremise,
@@ -45,6 +46,7 @@ export type TArgumentParserResult<
     claimLibrary: ClaimLibrary<TClaim>
     sourceLibrary: SourceLibrary<TSource>
     claimSourceLibrary: ClaimSourceLibrary<TAssoc>
+    warnings: TParserWarning[]
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +267,8 @@ export class ArgumentParser<
      * @throws If the conclusion premise miniId is unresolvable
      */
     public build(
-        response: TParsedArgumentResponse
+        response: TParsedArgumentResponse,
+        options?: TParserBuildOptions
     ): TArgumentParserResult<
         TArg,
         TPremise,
@@ -275,6 +278,8 @@ export class ArgumentParser<
         TClaim,
         TAssoc
     > {
+        const warnings: TParserWarning[] = []
+        const strict = options?.strict ?? true
         const arg = response.argument
         if (!arg) {
             throw new Error("Cannot build: argument is null.")
@@ -463,7 +468,7 @@ export class ArgumentParser<
         }
         engine.setConclusionPremise(conclusionId)
 
-        return { engine, claimLibrary, sourceLibrary, claimSourceLibrary }
+        return { engine, claimLibrary, sourceLibrary, claimSourceLibrary, warnings }
     }
 
     // -----------------------------------------------------------------------

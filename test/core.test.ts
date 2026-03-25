@@ -12874,6 +12874,12 @@ describe("Parsing — response schemas", () => {
                 // Error message should mention the premise miniId
                 expect(() => parser.build(resp)).toThrow(/P1/)
             })
+
+            it("includes empty warnings array on successful strict build", () => {
+                const parser = new ArgumentParser()
+                const result = parser.build(validResponse())
+                expect(result.warnings).toEqual([])
+            })
         })
 
         describe("subclass hooks", () => {
