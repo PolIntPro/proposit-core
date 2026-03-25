@@ -13003,6 +13003,74 @@ describe("Parsing — response schemas", () => {
                 expect(result.warnings[0].code).toBe("UNRESOLVED_CONCLUSION_MINIID")
                 expect(result.warnings[0].context.conclusionPremiseMiniId).toBe("P99")
             })
+
+            it("cascade: skipped variable causes premise skip with both warnings", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                // Make V2 (symbol Q) reference a bad claim
+                resp.argument!.variables[1] = { miniId: "V2", symbol: "Q", claimMiniId: "C99" }
+                // P1 is "P implies Q" — Q is now undeclared, so P1 gets skipped
+                // P2 is "P" — still valid; set it as conclusion so we don't also trigger UNRESOLVED_CONCLUSION_MINIID
+                resp.argument!.conclusionPremiseMiniId = "P2"
+                const result = parser.build(resp, { strict: false })
+                const snap = result.engine.snapshot()
+                expect(snap.premises).toHaveLength(1)
+                expect(snap.variables.variables).toHaveLength(1)
+                expect(snap.variables.variables[0].symbol).toBe("P")
+                expect(result.warnings).toHaveLength(2)
+                const codes = result.warnings.map((w) => w.code)
+                expect(codes).toContain("UNRESOLVED_CLAIM_MINIID")
+                expect(codes).toContain("UNDECLARED_VARIABLE_SYMBOL")
+            })
+
+            it("returns identical result with empty warnings when lenient and no issues", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                const strictResult = parser.build(resp)
+                const lenientResult = parser.build(resp, { strict: false })
+                // Both should produce same structure (different UUIDs, so compare shape)
+                const strictSnap = strictResult.engine.snapshot()
+                const lenientSnap = lenientResult.engine.snapshot()
+                expect(lenientSnap.premises).toHaveLength(strictSnap.premises.length)
+                expect(lenientSnap.variables.variables).toHaveLength(strictSnap.variables.variables.length)
+                expect(lenientResult.warnings).toEqual([])
+            })
+
+            it("strict mode still throws on all error types", () => {
+                const parser = new ArgumentParser()
+
+                // FORMULA_PARSE_ERROR
+                const r1 = validResponse()
+                r1.argument!.premises = [{ miniId: "P1", formula: "P &&& Q" }]
+                expect(() => parser.build(r1)).toThrow(/P1/)
+
+                // FORMULA_STRUCTURE_ERROR
+                const r2 = validResponse()
+                r2.argument!.premises = [{ miniId: "P1", formula: "(P implies Q) and P" }]
+                expect(() => parser.build(r2)).toThrow(/implication/i)
+
+                // UNDECLARED_VARIABLE_SYMBOL
+                const r3 = validResponse()
+                r3.argument!.premises.push({ miniId: "P3", formula: "X" })
+                expect(() => parser.build(r3)).toThrow(/X/)
+
+                // UNRESOLVED_CLAIM_MINIID
+                const r4 = validResponse()
+                r4.argument!.variables = [{ miniId: "V1", symbol: "P", claimMiniId: "C99" }]
+                r4.argument!.premises = [{ miniId: "P1", formula: "P" }]
+                r4.argument!.conclusionPremiseMiniId = "P1"
+                expect(() => parser.build(r4)).toThrow(/C99/)
+
+                // UNRESOLVED_SOURCE_MINIID
+                const r5 = validResponse()
+                r5.argument!.claims[0].sourceMiniIds = ["BOGUS"]
+                expect(() => parser.build(r5)).toThrow(/BOGUS/)
+
+                // UNRESOLVED_CONCLUSION_MINIID
+                const r6 = validResponse()
+                r6.argument!.conclusionPremiseMiniId = "P99"
+                expect(() => parser.build(r6)).toThrow(/P99/)
+            })
         })
 
         describe("subclass hooks", () => {
