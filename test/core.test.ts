@@ -9964,6 +9964,45 @@ describe("wrapExpression", () => {
         expect(pm.toDisplayString()).toBe("P")
         expect(pm.getRootExpressionId()).toBe("expr-p")
     })
+
+    it("children get midpoint-spaced positions, not consecutive integers", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-and", "and"),
+            wrapVar("expr-q", VAR_Q.id),
+            "expr-p" // existing as left child
+        )
+        const children = pm.getChildExpressions("op-and")
+        const left = children.find((c) => c.id === "expr-p")!
+        const right = children.find((c) => c.id === "expr-q")!
+
+        // Left should be POSITION_INITIAL (0), right should be midpoint(0, POSITION_MAX)
+        expect(left.position).toBe(POSITION_INITIAL)
+        expect(right.position).toBe(midpoint(POSITION_INITIAL, POSITION_MAX))
+
+        // The gap must support midpoint bisection (not consecutive integers)
+        const gap = right.position - left.position
+        expect(gap).toBeGreaterThan(1)
+    })
+
+    it("midpoint-spaced positions work for existing as right child", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.wrapExpression(
+            wrapOp("op-or", "or"),
+            wrapVar("expr-q", VAR_Q.id),
+            undefined,
+            "expr-p" // existing as right child
+        )
+        const children = pm.getChildExpressions("op-or")
+        const left = children.find((c) => c.id === "expr-q")!
+        const right = children.find((c) => c.id === "expr-p")!
+
+        // When existing is right: sibling gets POSITION_INITIAL, existing gets midpoint
+        expect(left.position).toBe(POSITION_INITIAL)
+        expect(right.position).toBe(midpoint(POSITION_INITIAL, POSITION_MAX))
+    })
 })
 
 // ---------------------------------------------------------------------------

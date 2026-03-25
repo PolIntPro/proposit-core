@@ -61,8 +61,8 @@ export function buildPremiseProfile(
 
     const root = premise.getRootExpression()!
     const children = premise.getChildExpressions(root.id)
-    const leftChild = children.find((c) => c.position === 0)
-    const rightChild = children.find((c) => c.position === 1)
+    const leftChild = children[0]
+    const rightChild = children[1]
 
     const appearances: TCoreVariableAppearance[] = []
     if (leftChild) {

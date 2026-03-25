@@ -977,11 +977,14 @@ export class PremiseEngine<
                 const childPositions = new Set(
                     children.map((child) => child.position)
                 )
-                if (!childPositions.has(0) || !childPositions.has(1)) {
+                if (
+                    children.length !== 2 ||
+                    childPositions.size !== 2
+                ) {
                     issues.push(
                         makeErrorIssue({
                             code: "EXPR_BINARY_POSITIONS_INVALID",
-                            message: `Operator "${expr.id}" (${expr.operator}) must have children at positions 0 and 1.`,
+                            message: `Operator "${expr.id}" (${expr.operator}) must have exactly 2 children with distinct positions.`,
                             premiseId: this.premise.id,
                             expressionId: expr.id,
                         })
@@ -1098,8 +1101,8 @@ export class PremiseEngine<
                     )
                     break
                 case "implies": {
-                    const left = children.find((child) => child.position === 0)
-                    const right = children.find((child) => child.position === 1)
+                    const left = children[0]
+                    const right = children[1]
                     value = kleeneImplies(
                         evaluateExpression(left!.id),
                         evaluateExpression(right!.id)
@@ -1107,8 +1110,8 @@ export class PremiseEngine<
                     break
                 }
                 case "iff": {
-                    const left = children.find((child) => child.position === 0)
-                    const right = children.find((child) => child.position === 1)
+                    const left = children[0]
+                    const right = children[1]
                     value = kleeneIff(
                         evaluateExpression(left!.id),
                         evaluateExpression(right!.id)
@@ -1143,8 +1146,8 @@ export class PremiseEngine<
             const root = this.expressions.getExpression(rootExpressionId)
             if (root?.type === "operator") {
                 const children = this.expressions.getChildExpressions(root.id)
-                const left = children.find((child) => child.position === 0)
-                const right = children.find((child) => child.position === 1)
+                const left = children[0]
+                const right = children[1]
                 if (left && right) {
                     const leftValue = expressionValues[left.id]
                     const rightValue = expressionValues[right.id]

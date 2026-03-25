@@ -1484,9 +1484,15 @@ export class ExpressionManager<
         const anchorParentId = existingNode.parentId
         const anchorPosition = existingNode.position
 
-        // Determine child positions.
-        const existingPosition = leftNodeId !== undefined ? 0 : 1
-        const siblingPosition = leftNodeId !== undefined ? 1 : 0
+        // Determine child positions (midpoint-spaced for future bisection).
+        const existingPosition =
+            leftNodeId !== undefined
+                ? this.positionConfig.initial
+                : midpoint(this.positionConfig.initial, this.positionConfig.max)
+        const siblingPosition =
+            leftNodeId !== undefined
+                ? midpoint(this.positionConfig.initial, this.positionConfig.max)
+                : this.positionConfig.initial
 
         // Reparent existing node under operator.
         this.reparent(existingNodeId, operator.id, existingPosition)
