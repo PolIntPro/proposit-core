@@ -12880,6 +12880,13 @@ describe("Parsing — response schemas", () => {
                 const result = parser.build(validResponse())
                 expect(result.warnings).toEqual([])
             })
+
+            it("throws on claim referencing undeclared source miniId", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.claims[0].sourceMiniIds = ["BOGUS"]
+                expect(() => parser.build(resp)).toThrow(/BOGUS/)
+            })
         })
 
         describe("build lenient mode", () => {
@@ -12933,6 +12940,22 @@ describe("Parsing — response schemas", () => {
                 expect(result.warnings).toHaveLength(1)
                 expect(result.warnings[0].code).toBe("FORMULA_STRUCTURE_ERROR")
                 expect(result.warnings[0].context.premiseMiniId).toBe("P3")
+            })
+
+            it("skips bad source association and emits UNRESOLVED_SOURCE_MINIID", () => {
+                const parser = new ArgumentParser()
+                const resp = validResponse()
+                resp.argument!.sources = [{ miniId: "S1", text: "Real source" }]
+                resp.argument!.claims[0].sourceMiniIds = ["S1", "BOGUS"]
+                const result = parser.build(resp, { strict: false })
+                // Claim still created, one association wired, one skipped
+                expect(result.claimLibrary.getAll()).toHaveLength(2)
+                const assocs = result.claimSourceLibrary.getAll()
+                expect(assocs).toHaveLength(1)
+                expect(result.warnings).toHaveLength(1)
+                expect(result.warnings[0].code).toBe("UNRESOLVED_SOURCE_MINIID")
+                expect(result.warnings[0].context.claimMiniId).toBe("C1")
+                expect(result.warnings[0].context.sourceMiniId).toBe("BOGUS")
             })
         })
 

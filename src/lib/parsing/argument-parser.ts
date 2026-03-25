@@ -402,9 +402,17 @@ export class ArgumentParser<
             for (const sourceMiniId of parsedClaim.sourceMiniIds) {
                 const sourceRef = sourceMiniIdToId.get(sourceMiniId)
                 if (!sourceRef) {
-                    throw new Error(
-                        `Claim "${parsedClaim.miniId}" references undeclared source "${sourceMiniId}".`
-                    )
+                    if (strict) {
+                        throw new Error(
+                            `Claim "${parsedClaim.miniId}" references undeclared source "${sourceMiniId}".`
+                        )
+                    }
+                    warnings.push({
+                        code: "UNRESOLVED_SOURCE_MINIID",
+                        message: `Claim "${parsedClaim.miniId}" references undeclared source "${sourceMiniId}".`,
+                        context: { claimMiniId: parsedClaim.miniId, sourceMiniId },
+                    })
+                    continue
                 }
                 const extras = this.mapClaimSourceAssociation(
                     parsedClaim,
