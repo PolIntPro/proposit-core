@@ -8,7 +8,7 @@
 
 ## Change requests
 
-Detailed change requests live in `docs/change-requests/` as markdown files. When the user mentions a change request, list the files in that folder and check if any filename pertains to the request. If a match looks likely, ask the user to confirm before reading the file. Once confirmed, read the file and use it as the specification for the work.
+Detailed change requests live in `docs/change-requests/` as markdown files. When the user mentions a change request, list the files in that folder and check if any filename pertains to the request. If a match looks likely, ask the user to confirm before reading the file. Once confirmed, read the file and use it as the specification for the work. After a change request is fully implemented, delete its markdown file from `docs/change-requests/`.
 
 ## Commands
 
