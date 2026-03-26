@@ -16745,6 +16745,435 @@ describe("changeset hierarchical checksums", () => {
 })
 
 // ---------------------------------------------------------------------------
+// changeOperator
+// ---------------------------------------------------------------------------
+
+describe("changeOperator", () => {
+    // --- No-op ---
+
+    it("no-op when operator already matches", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result, changes } = pm.changeOperator("op-and", "and")
+
+        expect(result).not.toBeNull()
+        expect(result!.id).toBe("op-and")
+        expect(changes.expressions).toBeUndefined()
+    })
+
+    // --- Simple change ---
+
+    it("simple change: AND(P, Q) → OR(P, Q)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result, changes } = pm.changeOperator("op-and", "or")
+
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe("operator")
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("or")
+        }
+        expect(changes.expressions!.modified.length).toBeGreaterThanOrEqual(1)
+        expect(pm.toDisplayString()).toBe("(P ∨ Q)")
+    })
+
+    it("simple change: implies(P, Q) → iff(P, Q)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-imp", "implies"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-imp",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-imp",
+                position: 1,
+            })
+        )
+
+        const { result } = pm.changeOperator("op-imp", "iff")
+
+        expect(result).not.toBeNull()
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("iff")
+        }
+        expect(pm.toDisplayString()).toBe("(P ↔ Q)")
+    })
+
+    it("simple change preserves children and positions", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: -100,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 100,
+            })
+        )
+
+        pm.changeOperator("op-and", "or")
+
+        const children = pm.getChildExpressions("op-and")
+        expect(children).toHaveLength(2)
+        expect(children[0].id).toBe("expr-p")
+        expect(children[0].position).toBe(-100)
+        expect(children[1].id).toBe("expr-q")
+        expect(children[1].position).toBe(100)
+    })
+
+    it("simple change has correct hierarchical checksums", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { changes } = pm.changeOperator("op-and", "or")
+
+        const modifiedOr = changes.expressions!.modified.find(
+            (e) => e.id === "op-and"
+        )!
+        expect(modifiedOr).toBeDefined()
+        const flushedOr = pm.getExpression("op-and")!
+        expect(modifiedOr.combinedChecksum).toBe(flushedOr.combinedChecksum)
+        expect(modifiedOr.descendantChecksum).toBe(flushedOr.descendantChecksum)
+    })
+
+    // --- Merge ---
+
+    it("merge: OR(AND(P, Q), R) → OR(P, Q, R)", () => {
+        const pm = premiseWithVars()
+        // Build: OR( AND(P, Q), R )
+        pm.addExpression(makeOpExpr("op-or", "or"))
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-or",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-and", "and", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-or",
+                position: 1,
+            })
+        )
+
+        const { result, changes } = pm.changeOperator("op-and", "or")
+
+        // AND dissolved
+        expect(result).toBeNull()
+        expect(
+            changes.expressions!.removed.some((e) => e.id === "op-and")
+        ).toBe(true)
+
+        // P and Q are now direct children of OR (or under formula children of OR)
+        const orChildren = pm.getChildExpressions("op-or")
+        expect(orChildren.length).toBeGreaterThanOrEqual(3)
+    })
+
+    it("merge: dissolves formula buffer when no longer needed", () => {
+        const pm = premiseWithVars()
+        // Build: OR( formula(AND(P, Q)), R )
+        pm.addExpression(makeOpExpr("op-or", "or"))
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-or",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-and", "and", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-or",
+                position: 1,
+            })
+        )
+
+        pm.changeOperator("op-and", "or")
+
+        // Formula should be dissolved (it was a buffer for the now-dissolved AND)
+        expect(pm.getExpression("formula-1")).toBeUndefined()
+    })
+
+    // --- Split ---
+
+    it("split: AND(P, Q, R) → AND(formula(OR(P, Q)), R)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        const { result, changes } = pm.changeOperator(
+            "op-and",
+            "or",
+            "expr-p",
+            "expr-q"
+        )
+
+        // New sub-operator created
+        expect(result).not.toBeNull()
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("or")
+        }
+
+        // Formula buffer inserted between AND and new OR
+        const addedFormula = changes.expressions!.added.find(
+            (e) => e.type === "formula"
+        )
+        expect(addedFormula).toBeDefined()
+        expect(addedFormula!.parentId).toBe("op-and")
+
+        const addedOr = changes.expressions!.added.find(
+            (e) => e.type === "operator"
+        )
+        expect(addedOr).toBeDefined()
+        expect(addedOr!.parentId).toBe(addedFormula!.id)
+
+        // P and Q are children of new OR
+        const orChildren = pm.getChildExpressions(result!.id)
+        expect(orChildren).toHaveLength(2)
+
+        // AND still has 2 children (formula(OR) + R)
+        const andChildren = pm.getChildExpressions("op-and")
+        expect(andChildren).toHaveLength(2)
+    })
+
+    it("split requires sourceChildId and targetChildId for >2 children", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        expect(() => pm.changeOperator("op-and", "or")).toThrow()
+    })
+
+    it("split rejects sourceChildId/targetChildId that are not children", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        expect(() =>
+            pm.changeOperator("op-and", "or", "expr-p", "nonexistent")
+        ).toThrow()
+    })
+
+    it("split changeset has correct hierarchical checksums", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        const { changes } = pm.changeOperator(
+            "op-and",
+            "or",
+            "expr-p",
+            "expr-q"
+        )
+
+        const newOp = changes.expressions!.added.find(
+            (e) => e.type === "operator"
+        )!
+        expect(newOp.descendantChecksum).not.toBeNull()
+        expect(newOp.combinedChecksum).not.toBe(newOp.checksum)
+
+        // Cross-check with flushed engine state
+        const flushedOp = pm.getExpression(newOp.id)!
+        expect(newOp.combinedChecksum).toBe(flushedOp.combinedChecksum)
+        expect(newOp.descendantChecksum).toBe(flushedOp.descendantChecksum)
+    })
+
+    it("split applies extraFields to created expressions", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        const { changes } = pm.changeOperator(
+            "op-and",
+            "or",
+            "expr-p",
+            "expr-q",
+            { creatorId: "user-42" } as Partial<TCorePropositionalExpression>
+        )
+
+        for (const expr of changes.expressions!.added) {
+            expect((expr as Record<string, unknown>).creatorId).toBe("user-42")
+        }
+    })
+
+    // --- Error cases ---
+
+    it("throws if expressionId not found", () => {
+        const pm = premiseWithVars()
+        expect(() => pm.changeOperator("nonexistent", "or")).toThrow()
+    })
+
+    it("throws if expression is not an operator", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        expect(() => pm.changeOperator("expr-p", "or")).toThrow()
+    })
+})
+
+// ---------------------------------------------------------------------------
 // toggleNegation extraFields
 // ---------------------------------------------------------------------------
 

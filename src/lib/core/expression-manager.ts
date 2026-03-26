@@ -1546,6 +1546,112 @@ export class ExpressionManager<
     }
 
     /**
+     * Reparents an expression to a new parent at a given position.
+     */
+    public reparentExpression(
+        expressionId: string,
+        newParentId: string | null,
+        newPosition: number
+    ): void {
+        const expression = this.expressions.get(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" does not exist.`)
+        }
+        this.reparent(expressionId, newParentId, newPosition)
+    }
+
+    /**
+     * Deletes a single expression that has no children.
+     * Does NOT trigger operator collapse. Caller must ensure children
+     * have been reparented away first.
+     */
+    public deleteExpression(expressionId: string): TExpr | undefined {
+        const expression = this.expressions.get(expressionId)
+        if (!expression) return undefined
+
+        const children = this.getChildExpressions(expressionId)
+        if (children.length > 0) {
+            throw new Error(
+                `Cannot delete expression "${expressionId}" — it still has ${children.length} children. Reparent them first.`
+            )
+        }
+
+        // Detach from parent
+        this.childExpressionIdsByParentId
+            .get(expression.parentId)
+            ?.delete(expressionId)
+        this.childPositionsByParentId
+            .get(expression.parentId)
+            ?.delete(expression.position)
+
+        // Remove own tracking
+        this.childExpressionIdsByParentId.delete(expressionId)
+        this.childPositionsByParentId.delete(expressionId)
+
+        // Remove from store
+        this.expressions.delete(expressionId)
+
+        // Notify collector
+        this.collector?.removedExpression({
+            ...expression,
+        } as unknown as TCorePropositionalExpression)
+
+        // Clean up dirty set and mark parent dirty
+        this.dirtyExpressionIds.delete(expressionId)
+        if (expression.parentId !== null) {
+            this.markExpressionDirty(expression.parentId)
+        }
+
+        return expression
+    }
+
+    /**
+     * Changes the operator type of an operator expression without the swap
+     * restriction enforced by {@link updateExpression}. Only validates that
+     * the target expression is an operator, the new operator is not `"not"`,
+     * and root-only constraints are satisfied.
+     */
+    public changeOperatorType(
+        expressionId: string,
+        newOperator: TCoreLogicalOperatorType
+    ): TExpr {
+        const expression = this.expressions.get(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" does not exist.`)
+        }
+        if (expression.type !== "operator") {
+            throw new Error(
+                `Expression "${expressionId}" is not an operator (type: "${expression.type}").`
+            )
+        }
+        if (newOperator === "not") {
+            throw new Error(
+                `Cannot change operator to "not". Use toggleNegation instead.`
+            )
+        }
+        // Root-only: implies/iff must be at root
+        if (
+            (newOperator === "implies" || newOperator === "iff") &&
+            expression.parentId !== null
+        ) {
+            throw new Error(
+                `Operator "${newOperator}" must be a root expression (parentId must be null).`
+            )
+        }
+
+        const updated = this.attachChecksum({
+            ...expression,
+            operator: newOperator,
+        } as TExpressionInput<TExpr>)
+        this.expressions.set(expressionId, updated)
+        this.collector?.modifiedExpression({
+            ...updated,
+        } as unknown as TCorePropositionalExpression)
+        this.markExpressionDirty(expressionId)
+        return updated
+    }
+
+    /**
      * Loads expressions in BFS order, respecting the current grammar config.
      * Used by restoration paths (fromData, rollback) that load existing data.
      */

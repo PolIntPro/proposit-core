@@ -1,5 +1,6 @@
 import type {
     TCoreArgument,
+    TCoreLogicalOperatorType,
     TCorePremise,
     TCorePropositionalExpression,
     TCorePropositionalVariable,
@@ -184,6 +185,42 @@ export interface TExpressionMutations<
      */
     toggleNegation(
         expressionId: string,
+        extraFields?: Partial<TExpr>
+    ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
+    /**
+     * Changes the operator type of an existing operator expression.
+     *
+     * Handles three structural cases automatically:
+     * - **Simple change:** The operator has exactly 2 children and no merge
+     *   condition. Updates the operator type in-place.
+     * - **Merge:** The operator has exactly 2 children and its parent is the
+     *   same type as `newOperator`. Dissolves the current operator and
+     *   reparents its children under the parent.
+     * - **Split:** The operator has >2 children. Extracts `sourceChildId` and
+     *   `targetChildId` into a new sub-operator of type `newOperator`,
+     *   inserting a formula buffer if required by grammar enforcement.
+     *
+     * @param expressionId  The operator expression to change.
+     * @param newOperator   The target operator type.
+     * @param sourceChildId First child to include in a split (required when >2 children).
+     * @param targetChildId Second child to include in a split (required when >2 children).
+     * @param extraFields   Optional partial expression fields merged into any
+     *                      newly created expressions (formula buffer, new sub-operator).
+     *                      Structural fields (id, type, operator, parentId, position,
+     *                      premiseId, argumentId, argumentVersion) cannot be overridden.
+     * @returns result — For simple change: the updated operator expression.
+     *                   For merge: null (operator was dissolved).
+     *                   For split: the newly created sub-operator expression.
+     *          changes — Full changeset with correct hierarchical checksums.
+     * @throws If the expression does not exist, is not an operator, or is "not".
+     * @throws If >2 children and sourceChildId/targetChildId not provided.
+     * @throws If sourceChildId/targetChildId are not children of expressionId.
+     */
+    changeOperator(
+        expressionId: string,
+        newOperator: TCoreLogicalOperatorType,
+        sourceChildId?: string,
+        targetChildId?: string,
         extraFields?: Partial<TExpr>
     ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
 }
