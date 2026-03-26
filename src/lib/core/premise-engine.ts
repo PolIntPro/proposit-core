@@ -628,7 +628,8 @@ export class PremiseEngine<
     }
 
     public toggleNegation(
-        expressionId: string
+        expressionId: string,
+        extraFields?: Partial<TExpr>
     ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg> {
         const target = this.expressions.getExpression(expressionId)
         if (!target) {
@@ -690,6 +691,7 @@ export class PremiseEngine<
                 if (needsFormula) {
                     // Build not → formula → target
                     const formulaExpr = {
+                        ...extraFields,
                         id: randomUUID(),
                         argumentId: target.argumentId,
                         argumentVersion: target.argumentVersion,
@@ -701,6 +703,7 @@ export class PremiseEngine<
                     this.expressions.insertExpression(formulaExpr, expressionId)
 
                     const notExpr = {
+                        ...extraFields,
                         id: randomUUID(),
                         argumentId: target.argumentId,
                         argumentVersion: target.argumentVersion,
@@ -715,6 +718,7 @@ export class PremiseEngine<
                 } else {
                     // Wrap target with a new NOT operator
                     const notExpr = {
+                        ...extraFields,
                         id: randomUUID(),
                         argumentId: target.argumentId,
                         argumentVersion: target.argumentVersion,

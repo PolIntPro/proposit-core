@@ -16743,3 +16743,124 @@ describe("changeset hierarchical checksums", () => {
         }
     })
 })
+
+// ---------------------------------------------------------------------------
+// toggleNegation extraFields
+// ---------------------------------------------------------------------------
+
+describe("toggleNegation extraFields", () => {
+    it("merges extraFields into the NOT expression (variable target)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        const { result: notExpr } = pm.toggleNegation("expr-p", {
+            creatorId: "user-42",
+        } as Partial<TCorePropositionalExpression>)
+
+        expect(notExpr).not.toBeNull()
+        expect((notExpr as Record<string, unknown>).creatorId).toBe("user-42")
+
+        // Persisted in the store too
+        const stored = pm.getExpression(notExpr!.id)!
+        expect((stored as Record<string, unknown>).creatorId).toBe("user-42")
+    })
+
+    it("merges extraFields into the NOT expression (operator target with formula buffer)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result: notExpr, changes } = pm.toggleNegation("op-and", {
+            creatorId: "user-42",
+        } as Partial<TCorePropositionalExpression>)
+
+        expect(notExpr).not.toBeNull()
+        expect((notExpr as Record<string, unknown>).creatorId).toBe("user-42")
+
+        // The formula buffer should also get extraFields
+        const formulaExpr = changes.expressions!.added.find(
+            (e) => e.type === "formula"
+        )
+        expect(formulaExpr).toBeDefined()
+        expect((formulaExpr as Record<string, unknown>).creatorId).toBe(
+            "user-42"
+        )
+    })
+
+    it("extraFields in changeset expressions have correct checksums", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        const { result: notExpr, changes } = pm.toggleNegation("expr-p", {
+            creatorId: "user-42",
+        } as Partial<TCorePropositionalExpression>)
+
+        const addedNot = changes.expressions!.added.find(
+            (e) => e.id === notExpr!.id
+        )!
+        // Extra fields should be in the changeset expression
+        expect((addedNot as Record<string, unknown>).creatorId).toBe("user-42")
+
+        // Checksums should still be correct (hierarchical flush works with extra fields)
+        expect(addedNot.descendantChecksum).not.toBeNull()
+        const flushedNot = pm.getExpression(notExpr!.id)!
+        expect(addedNot.combinedChecksum).toBe(flushedNot.combinedChecksum)
+    })
+
+    it("does not merge extraFields when removing negation", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+        pm.toggleNegation("expr-p")
+
+        // Removing negation — extraFields should be accepted but not cause issues
+        const { result } = pm.toggleNegation("expr-p", {
+            creatorId: "user-42",
+        } as Partial<TCorePropositionalExpression>)
+
+        // Result is null (negation removed), no error thrown
+        expect(result).toBeNull()
+        expect(pm.toDisplayString()).toBe("P")
+    })
+
+    it("extraFields do not override structural fields (type, operator, parentId)", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        // Attempt to override type and operator — should be ignored
+        const { result: notExpr } = pm.toggleNegation("expr-p", {
+            type: "variable",
+            operator: "and",
+        } as Partial<TCorePropositionalExpression>)
+
+        expect(notExpr).not.toBeNull()
+        // Structural fields should not be overridden
+        expect(notExpr!.type).toBe("operator")
+        if (notExpr!.type === "operator") {
+            expect(notExpr!.operator).toBe("not")
+        }
+    })
+
+    it("omitting extraFields preserves existing behavior", () => {
+        const pm = premiseWithVars()
+        pm.addExpression(makeVarExpr("expr-p", VAR_P.id))
+
+        const { result: notExpr } = pm.toggleNegation("expr-p")
+
+        expect(notExpr).not.toBeNull()
+        expect(notExpr!.type).toBe("operator")
+        if (notExpr!.type === "operator") {
+            expect(notExpr!.operator).toBe("not")
+        }
+    })
+})

@@ -174,12 +174,17 @@ export interface TExpressionMutations<
      * wraps the expression with a new NOT operator.
      *
      * @param expressionId - The ID of the expression to toggle negation on.
+     * @param extraFields - Optional additional fields to merge into newly
+     *   created expressions (NOT and formula nodes). Structural fields
+     *   (id, type, operator, parentId, position, premiseId, argumentId,
+     *   argumentVersion) cannot be overridden.
      * @returns The new NOT expression when adding negation, or `null` when
      *   removing it, along with the changeset.
      * @throws If the expression does not exist in this premise.
      */
     toggleNegation(
-        expressionId: string
+        expressionId: string,
+        extraFields?: Partial<TExpr>
     ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
 }
 
