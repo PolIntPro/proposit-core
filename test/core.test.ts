@@ -20698,3 +20698,49 @@ describe("ArgumentEngine — bulk path validation", () => {
         expect(eng.validate().ok).toBe(true)
     })
 })
+
+describe("loadExpressions — grammar config enforcement", () => {
+    it("auto-normalizes during load when autoNormalize is true", () => {
+        const em = new ExpressionManager({
+            grammarConfig: {
+                enforceFormulaBetweenOperators: true,
+                autoNormalize: true,
+            },
+        })
+        em.loadExpressions([
+            makeOpExpr("root", "and"),
+            makeOpExpr("child", "or", { parentId: "root", position: 0 }),
+        ])
+        // The OR should be wrapped in a formula
+        const orExpr = em.getExpression("child")!
+        const parent = em.getExpression(orExpr.parentId!)!
+        expect(parent.type).toBe("formula")
+    })
+
+    it("rejects violations during load when autoNormalize is false", () => {
+        const em = new ExpressionManager({
+            grammarConfig: {
+                enforceFormulaBetweenOperators: true,
+                autoNormalize: false,
+            },
+        })
+        expect(() =>
+            em.loadExpressions([
+                makeOpExpr("root", "and"),
+                makeOpExpr("child", "or", { parentId: "root", position: 0 }),
+            ])
+        ).toThrow()
+    })
+
+    it("allows violations when enforcement is off", () => {
+        const em = new ExpressionManager({
+            grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
+        })
+        em.loadExpressions([
+            makeOpExpr("root", "and"),
+            makeOpExpr("child", "or", { parentId: "root", position: 0 }),
+        ])
+        const orExpr = em.getExpression("child")!
+        expect(orExpr.parentId).toBe("root") // Direct child, no formula buffer
+    })
+})
