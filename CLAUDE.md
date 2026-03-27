@@ -69,6 +69,7 @@ Defined in the `brain-style` skill. Enforced by ESLint (`@typescript-eslint/nami
 ## Documentation Sync
 
 - `README.md` [Public-CLI-API] — Concepts, usage examples, and CLI sections
+- `README.md` "Invalid Constructions" section [Validation-Rules] — Update when adding, removing, or changing validation rules, thrown errors, error codes, operator constraints, cascade behaviors, or grammar config options
 - `docs/api-reference.md` [Public-API] — Full API reference for engines, standalone functions, and types; update when public API changes
 - `CLAUDE.md` [Public-API] — Design rules and conventions sections
 - `CLI_EXAMPLES.md` [Public-CLI-API] — Walkthrough examples and the complete script
