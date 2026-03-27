@@ -1,4 +1,6 @@
+import { Value } from "typebox/value"
 import type { TCoreSource } from "../schemata/source.js"
+import { CoreSourceSchema } from "../schemata/source.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { entityChecksum } from "./checksum.js"
@@ -6,6 +8,14 @@ import type {
     TSourceLibraryManagement,
     TSourceLibrarySnapshot,
 } from "./interfaces/library.interfaces.js"
+import type {
+    TInvariantValidationResult,
+    TInvariantViolation,
+} from "../types/validation.js"
+import {
+    SOURCE_SCHEMA_INVALID,
+    SOURCE_FROZEN_NO_SUCCESSOR,
+} from "../types/validation.js"
 
 export class SourceLibrary<
     TSource extends TCoreSource = TCoreSource,
@@ -146,6 +156,37 @@ export class SourceLibrary<
             versions.set(entity.version, entity)
         }
         return lib
+    }
+
+    public validate(): TInvariantValidationResult {
+        const violations: TInvariantViolation[] = []
+        for (const [id, versions] of this.entities) {
+            const sortedVersions = [...versions.entries()].sort(
+                ([a], [b]) => a - b
+            )
+            for (const [version, source] of sortedVersions) {
+                if (!Value.Check(CoreSourceSchema, source)) {
+                    violations.push({
+                        code: SOURCE_SCHEMA_INVALID,
+                        message: `Source "${id}" version ${version} does not conform to schema`,
+                        entityType: "source",
+                        entityId: id,
+                    })
+                }
+                if (source.frozen) {
+                    const maxVer = this.maxVersion(versions)
+                    if (version < maxVer && !versions.has(version + 1)) {
+                        violations.push({
+                            code: SOURCE_FROZEN_NO_SUCCESSOR,
+                            message: `Source "${id}" version ${version} is frozen but has no successor version`,
+                            entityType: "source",
+                            entityId: id,
+                        })
+                    }
+                }
+            }
+        }
+        return { ok: violations.length === 0, violations }
     }
 
     private maxVersion(versions: Map<number, TSource>): number {

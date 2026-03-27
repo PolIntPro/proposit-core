@@ -1,4 +1,6 @@
+import { Value } from "typebox/value"
 import type { TCoreClaim } from "../schemata/claim.js"
+import { CoreClaimSchema } from "../schemata/claim.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { entityChecksum } from "./checksum.js"
@@ -6,6 +8,14 @@ import type {
     TClaimLibraryManagement,
     TClaimLibrarySnapshot,
 } from "./interfaces/library.interfaces.js"
+import type {
+    TInvariantValidationResult,
+    TInvariantViolation,
+} from "../types/validation.js"
+import {
+    CLAIM_SCHEMA_INVALID,
+    CLAIM_FROZEN_NO_SUCCESSOR,
+} from "../types/validation.js"
 
 export class ClaimLibrary<
     TClaim extends TCoreClaim = TCoreClaim,
@@ -145,6 +155,37 @@ export class ClaimLibrary<
             versions.set(entity.version, entity)
         }
         return lib
+    }
+
+    public validate(): TInvariantValidationResult {
+        const violations: TInvariantViolation[] = []
+        for (const [id, versions] of this.entities) {
+            const sortedVersions = [...versions.entries()].sort(
+                ([a], [b]) => a - b
+            )
+            for (const [version, claim] of sortedVersions) {
+                if (!Value.Check(CoreClaimSchema, claim)) {
+                    violations.push({
+                        code: CLAIM_SCHEMA_INVALID,
+                        message: `Claim "${id}" version ${version} does not conform to schema`,
+                        entityType: "claim",
+                        entityId: id,
+                    })
+                }
+                if (claim.frozen) {
+                    const maxVer = this.maxVersion(versions)
+                    if (version < maxVer && !versions.has(version + 1)) {
+                        violations.push({
+                            code: CLAIM_FROZEN_NO_SUCCESSOR,
+                            message: `Claim "${id}" version ${version} is frozen but has no successor version`,
+                            entityType: "claim",
+                            entityId: id,
+                        })
+                    }
+                }
+            }
+        }
+        return { ok: violations.length === 0, violations }
     }
 
     private maxVersion(versions: Map<number, TClaim>): number {

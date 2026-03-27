@@ -1,4 +1,6 @@
+import { Value } from "typebox/value"
 import type { TCoreClaimSourceAssociation } from "../schemata/source.js"
+import { CoreClaimSourceAssociationSchema } from "../schemata/source.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import { DEFAULT_CHECKSUM_CONFIG } from "../consts.js"
 import { entityChecksum } from "./checksum.js"
@@ -8,6 +10,15 @@ import type {
     TClaimSourceLibraryManagement,
     TClaimSourceLibrarySnapshot,
 } from "./interfaces/library.interfaces.js"
+import type {
+    TInvariantValidationResult,
+    TInvariantViolation,
+} from "../types/validation.js"
+import {
+    ASSOC_SCHEMA_INVALID,
+    ASSOC_CLAIM_REF_NOT_FOUND,
+    ASSOC_SOURCE_REF_NOT_FOUND,
+} from "../types/validation.js"
 
 export class ClaimSourceLibrary<
     TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
@@ -163,6 +174,37 @@ export class ClaimSourceLibrary<
             sourceSet.add(assoc.id)
         }
         return lib
+    }
+
+    public validate(): TInvariantValidationResult {
+        const violations: TInvariantViolation[] = []
+        for (const [id, assoc] of this.associations) {
+            if (!Value.Check(CoreClaimSourceAssociationSchema, assoc)) {
+                violations.push({
+                    code: ASSOC_SCHEMA_INVALID,
+                    message: `Association "${id}" does not conform to schema`,
+                    entityType: "association",
+                    entityId: id,
+                })
+            }
+            if (!this.claimLookup.get(assoc.claimId, assoc.claimVersion)) {
+                violations.push({
+                    code: ASSOC_CLAIM_REF_NOT_FOUND,
+                    message: `Association "${id}" references non-existent claim "${assoc.claimId}" version ${assoc.claimVersion}`,
+                    entityType: "association",
+                    entityId: id,
+                })
+            }
+            if (!this.sourceLookup.get(assoc.sourceId, assoc.sourceVersion)) {
+                violations.push({
+                    code: ASSOC_SOURCE_REF_NOT_FOUND,
+                    message: `Association "${id}" references non-existent source "${assoc.sourceId}" version ${assoc.sourceVersion}`,
+                    entityType: "association",
+                    entityId: id,
+                })
+            }
+        }
+        return { ok: violations.length === 0, violations }
     }
 
     private computeChecksum(assoc: TAssoc): string {
