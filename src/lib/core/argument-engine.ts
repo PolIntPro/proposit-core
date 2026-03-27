@@ -704,6 +704,66 @@ export class ArgumentEngine<
         }
     }
 
+    public bindVariableToExternalPremise(
+        variable: TOptionalChecksum<TPremiseBoundVariable> &
+            Record<string, unknown>
+    ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
+        if (variable.argumentId !== this.argument.id) {
+            throw new Error(
+                `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
+            )
+        }
+        if (variable.argumentVersion !== this.argument.version) {
+            throw new Error(
+                `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
+            )
+        }
+        if (variable.boundArgumentId === this.argument.id) {
+            throw new Error(
+                `boundArgumentId matches this engine's argument — use bindVariableToPremise for internal bindings.`
+            )
+        }
+        if (
+            !this.canBind(
+                variable.boundArgumentId,
+                variable.boundArgumentVersion
+            )
+        ) {
+            throw new Error(
+                `Binding to argument "${variable.boundArgumentId}" version ${variable.boundArgumentVersion} is not allowed.`
+            )
+        }
+        const withChecksum = this.attachVariableChecksum({
+            ...variable,
+        } as unknown as TOptionalChecksum<TVar>)
+        this.variables.addVariable(withChecksum)
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+        collector.addedVariable(withChecksum)
+        this.markDirty()
+        this.markAllPremisesDirty()
+        const changes = collector.toChangeset()
+        this.markReactiveDirty(changes)
+        this.notifySubscribers()
+        return {
+            result: withChecksum,
+            changes,
+        }
+    }
+
+    public bindVariableToArgument(
+        variable: Omit<
+            TOptionalChecksum<TPremiseBoundVariable>,
+            "boundPremiseId"
+        > &
+            Record<string, unknown>,
+        conclusionPremiseId: string
+    ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
+        return this.bindVariableToExternalPremise({
+            ...variable,
+            boundPremiseId: conclusionPremiseId,
+        } as TOptionalChecksum<TPremiseBoundVariable> & Record<string, unknown>)
+    }
+
     public updateVariable(
         variableId: string,
         updates: Record<string, unknown>
@@ -2094,6 +2154,17 @@ export class ArgumentEngine<
      * `false`, `forkArgument` will throw.
      */
     protected canFork(): boolean {
+        return true
+    }
+
+    /**
+     * Override point for subclasses to restrict cross-argument bindings.
+     * When this returns `false`, `bindVariableToExternalPremise` will throw.
+     */
+    protected canBind(
+        _boundArgumentId: string,
+        _boundArgumentVersion: number
+    ): boolean {
         return true
     }
 

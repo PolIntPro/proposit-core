@@ -18499,4 +18499,87 @@ describe("cross-argument variable binding", () => {
         expect(sym1).toBe("P0")
         expect(sym2).toBe("P1")
     })
+
+    it("canBind rejects when overridden to return false", () => {
+        class RestrictedEngine extends ArgumentEngine {
+            protected override canBind(
+                _boundArgumentId: string,
+                _boundArgumentVersion: number
+            ): boolean {
+                return false
+            }
+        }
+        const eng = new RestrictedEngine(ARG, aLib(), sLib(), csLib())
+        expect(() =>
+            eng.bindVariableToExternalPremise({
+                id: "v-ext",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                symbol: "Ext",
+                boundPremiseId: "p-other",
+                boundArgumentId: "arg-other",
+                boundArgumentVersion: 0,
+            })
+        ).toThrow()
+    })
+
+    it("bindVariableToExternalPremise registers an externally bound variable", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: varResult } = eng.bindVariableToExternalPremise({
+            id: "v-ext",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "ExtVar",
+            boundPremiseId: "p-in-other-arg",
+            boundArgumentId: "arg-other",
+            boundArgumentVersion: 2,
+        })
+
+        expect(varResult.id).toBe("v-ext")
+        expect(varResult.symbol).toBe("ExtVar")
+
+        const retrieved = eng.getVariable("v-ext")
+        expect(retrieved).toBeDefined()
+        expect(isPremiseBound(retrieved!)).toBe(true)
+        const pv = retrieved! as unknown as TPremiseBoundVariable
+        expect(pv.boundArgumentId).toBe("arg-other")
+        expect(pv.boundArgumentVersion).toBe(2)
+        expect(pv.boundPremiseId).toBe("p-in-other-arg")
+    })
+
+    it("bindVariableToExternalPremise rejects internal binding", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        expect(() =>
+            eng.bindVariableToExternalPremise({
+                id: "v-int",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                symbol: "IntVar",
+                boundPremiseId: "p1",
+                boundArgumentId: ARG.id,
+                boundArgumentVersion: ARG.version,
+            })
+        ).toThrow(/internal/)
+    })
+
+    it("bindVariableToArgument sets boundPremiseId to conclusionPremiseId", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.bindVariableToArgument(
+            {
+                id: "v-arg",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                symbol: "ArgRef",
+                boundArgumentId: "arg-other",
+                boundArgumentVersion: 3,
+            },
+            "conclusion-premise-in-other-arg"
+        )
+
+        const retrieved = eng.getVariable("v-arg")!
+        const pv = retrieved as unknown as TPremiseBoundVariable
+        expect(pv.boundPremiseId).toBe("conclusion-premise-in-other-arg")
+        expect(pv.boundArgumentId).toBe("arg-other")
+        expect(pv.boundArgumentVersion).toBe(3)
+    })
 })
