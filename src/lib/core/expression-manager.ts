@@ -182,6 +182,10 @@ export class ExpressionManager<
             const expr = this.expressions.get(id)
             if (!expr) continue
 
+            const oldChecksum = expr.checksum
+            const oldDescendantChecksum = expr.descendantChecksum
+            const oldCombinedChecksum = expr.combinedChecksum
+
             const metaChecksum = entityChecksum(
                 expr as unknown as Record<string, unknown>,
                 fields
@@ -211,6 +215,21 @@ export class ExpressionManager<
                 descendantChecksum,
                 combinedChecksum,
             } as TExpr)
+
+            if (
+                this.collector &&
+                !this.collector.isExpressionAdded(expr.id) &&
+                (metaChecksum !== oldChecksum ||
+                    descendantChecksum !== oldDescendantChecksum ||
+                    combinedChecksum !== oldCombinedChecksum)
+            ) {
+                this.collector.modifiedExpression({
+                    ...expr,
+                    checksum: metaChecksum,
+                    descendantChecksum,
+                    combinedChecksum,
+                } as TExpr)
+            }
         }
 
         this.dirtyExpressionIds.clear()

@@ -43,6 +43,10 @@ export class ChangeCollector<
         this.expressions.removed.push(expr)
     }
 
+    isExpressionAdded(id: string): boolean {
+        return this.expressions.added.some((e) => e.id === id)
+    }
+
     addedVariable(variable: TVar): void {
         this.variables.added.push(variable)
     }

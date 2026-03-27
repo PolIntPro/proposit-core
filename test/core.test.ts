@@ -6424,9 +6424,17 @@ describe("PremiseEngine — updateExpression", () => {
 
         expect(result.id).toBe("e-p")
         expect(result.position).toBe(2)
-        expect(changes.expressions?.modified).toHaveLength(1)
-        expect(changes.expressions?.modified[0].id).toBe("e-p")
-        expect(changes.expressions?.modified[0].position).toBe(2)
+        // e-p is modified directly; op-and is also modified because its
+        // descendantChecksum changed (child's combinedChecksum changed).
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("e-p")
+        expect(modifiedIds).toContain("op-and")
+        const modifiedChild = changes.expressions!.modified.find(
+            (e) => e.id === "e-p"
+        )!
+        expect(modifiedChild.position).toBe(2)
     })
 
     it("rejects position collision with sibling", () => {
@@ -20735,5 +20743,352 @@ describe("loadExpressions — grammar config enforcement", () => {
         ])
         const orExpr = em.getExpression("child")!
         expect(orExpr.parentId).toBe("root") // Direct child, no formula buffer
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Stale parent checksums in changeset (change-request 2026-03-27)
+// ---------------------------------------------------------------------------
+
+describe("Changeset includes ancestor checksum updates", () => {
+    function setup() {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const v1 = {
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        }
+        const v2 = {
+            id: "v2",
+            symbol: "Q",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        }
+        const v3 = {
+            id: "v3",
+            symbol: "R",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        }
+        eng.addVariable(v1)
+        eng.addVariable(v2)
+        eng.addVariable(v3)
+        const { result: pm } = eng.createPremise()
+        return { eng, pm, v1, v2, v3 }
+    }
+
+    it("addExpression with parentId includes parent in modified", () => {
+        const { pm } = setup()
+        // Create root operator
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+        // Now add a second child — and1's descendantChecksum must change
+        const { changes } = pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 2,
+        })
+
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("e2")
+
+        // and1 should appear in modified with updated checksums
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("and1")
+
+        const modifiedAnd = changes.expressions!.modified.find(
+            (e) => e.id === "and1"
+        )!
+        // Verify the changeset checksum matches the in-memory state
+        const inMemoryAnd = pm.getExpression("and1")!
+        expect(modifiedAnd.descendantChecksum).toBe(
+            inMemoryAnd.descendantChecksum
+        )
+        expect(modifiedAnd.combinedChecksum).toBe(
+            inMemoryAnd.combinedChecksum
+        )
+    })
+
+    it("addExpression includes all ancestors up to root in modified", () => {
+        const { pm } = setup()
+        // Build: implies(formula(and(v1)))
+        pm.addExpression({
+            id: "impl",
+            type: "operator",
+            operator: "implies",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "f1",
+            type: "formula",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "impl",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "f1",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+
+        // Adding a new child to and1 should mark and1, f1, and impl as modified
+        const { changes } = pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 2,
+        })
+
+        expect(changes.expressions?.added).toHaveLength(1)
+        expect(changes.expressions?.added[0].id).toBe("e2")
+
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("and1")
+        expect(modifiedIds).toContain("f1")
+        expect(modifiedIds).toContain("impl")
+    })
+
+    it("appendExpression includes parent in modified", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+
+        const { changes } = pm.appendExpression("and1", {
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+        })
+
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("and1")
+    })
+
+    it("addExpressionRelative includes ancestors in modified", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 3,
+        })
+
+        const { changes } = pm.addExpressionRelative("e1", "after", {
+            id: "e3",
+            type: "variable",
+            variableId: "v3",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+        })
+
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("and1")
+    })
+
+    it("modified expressions have correct checksums (not stale pre-flush values)", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+
+        const { changes } = pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 2,
+        })
+
+        const modifiedAnd = (changes.expressions?.modified ?? []).find(
+            (e) => e.id === "and1"
+        )
+        expect(modifiedAnd).toBeDefined()
+
+        // The changeset's checksums should match the engine's in-memory state exactly
+        const inMemory = pm.getExpression("and1")!
+        expect(modifiedAnd!.checksum).toBe(inMemory.checksum)
+        expect(modifiedAnd!.descendantChecksum).toBe(
+            inMemory.descendantChecksum
+        )
+        expect(modifiedAnd!.combinedChecksum).toBe(inMemory.combinedChecksum)
+    })
+
+    it("added expressions are NOT duplicated in modified", () => {
+        const { pm } = setup()
+        pm.addExpression({
+            id: "and1",
+            type: "operator",
+            operator: "and",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: null,
+            position: 1,
+        })
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 1,
+        })
+
+        const { changes } = pm.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: "v2",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: "premise-1",
+            parentId: "and1",
+            position: 2,
+        })
+
+        const addedIds = (changes.expressions?.added ?? []).map((e) => e.id)
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+
+        // e2 should only appear in added, not in modified
+        expect(addedIds).toContain("e2")
+        expect(modifiedIds).not.toContain("e2")
     })
 })
