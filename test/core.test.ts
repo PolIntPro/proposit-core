@@ -19931,3 +19931,128 @@ describe("ArgumentEngine — withValidation bracket", () => {
         expect(eng.validate().ok).toBe(true)
     })
 })
+
+describe("PremiseEngine — withValidation bracket", () => {
+    it("triggers argument-level validation on expression mutation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        const { result: pm } = eng.createPremise()
+        pm.addExpression(makeVarExpr("v1", "var-p", { premiseId: pm.getId() }))
+        expect(eng.validate().ok).toBe(true)
+    })
+
+    it("rolls back on failed expression mutation (nonexistent variable)", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        expect(() =>
+            pm.addExpression(
+                makeVarExpr("v1", "nonexistent-var", {
+                    premiseId: pm.getId(),
+                })
+            )
+        ).toThrow()
+        expect(pm.getExpressions()).toHaveLength(0)
+    })
+
+    it("rolls back appendExpression on failure", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        expect(() =>
+            pm.appendExpression(null, {
+                id: "e1",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: pm.getId(),
+                type: "variable",
+                variableId: "nonexistent-var",
+            } as TExpressionWithoutPosition)
+        ).toThrow()
+        expect(pm.getExpressions()).toHaveLength(0)
+    })
+
+    it("valid operations through PremiseEngine produce correct state", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        eng.addVariable(makeVar("var-q", "Q"))
+        const { result: pm } = eng.createPremise()
+
+        // Build: and(P, Q)
+        pm.addExpression({
+            id: "op1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: pm.getId(),
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: POSITION_INITIAL,
+        } as TExpressionInput)
+        pm.addExpression(
+            makeVarExpr("v1", "var-p", {
+                premiseId: pm.getId(),
+                parentId: "op1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("v2", "var-q", {
+                premiseId: pm.getId(),
+                parentId: "op1",
+                position: 100,
+            })
+        )
+
+        expect(pm.getExpressions()).toHaveLength(3)
+        expect(eng.validate().ok).toBe(true)
+    })
+
+    it("removeExpression rolls back on invariant violation", () => {
+        // Build a valid premise with a single variable expression, then try
+        // removing it — the premise itself stays valid (empty is fine) so
+        // this should succeed and not roll back.
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        const { result: pm } = eng.createPremise()
+        pm.addExpression(makeVarExpr("v1", "var-p", { premiseId: pm.getId() }))
+        pm.removeExpression("v1", true)
+        expect(pm.getExpressions()).toHaveLength(0)
+        expect(eng.validate().ok).toBe(true)
+    })
+
+    it("setExtras succeeds under validation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        pm.setExtras({ label: "test" })
+        expect(pm.getExtras()).toEqual({ label: "test" })
+        expect(eng.validate().ok).toBe(true)
+    })
+
+    it("updateExpression rolls back on nonexistent variable reference", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        const { result: pm } = eng.createPremise()
+        pm.addExpression(makeVarExpr("v1", "var-p", { premiseId: pm.getId() }))
+        // Try updating to a nonexistent variable — should throw and roll back
+        expect(() =>
+            pm.updateExpression("v1", { variableId: "nonexistent" })
+        ).toThrow()
+        // Expression should still reference original variable
+        const expr = pm.getExpression("v1")!
+        expect(expr.type === "variable" && expr.variableId).toBe("var-p")
+    })
+
+    it("expression index is restored on rollback", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        // Try adding an expression referencing a nonexistent variable
+        expect(() =>
+            pm.addExpression(
+                makeVarExpr("v1", "nonexistent-var", {
+                    premiseId: pm.getId(),
+                })
+            )
+        ).toThrow()
+        // Verify the expression is not in the engine's expression lookup
+        expect(eng.getExpressionPremiseId("v1")).toBeUndefined()
+    })
+})

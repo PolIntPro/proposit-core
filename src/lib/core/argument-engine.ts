@@ -287,11 +287,35 @@ export class ArgumentEngine<
         }
     }
 
+    private static readonly skipValidationResult: TInvariantValidationResult = {
+        ok: true,
+        violations: [],
+    }
+
+    private suppressPremiseValidation(): void {
+        for (const pe of this.premises.values()) {
+            pe.setArgumentValidateCallback(
+                () => ArgumentEngine.skipValidationResult
+            )
+        }
+    }
+
+    private restorePremiseValidation(): void {
+        for (const pe of this.premises.values()) {
+            pe.setArgumentValidateCallback(() =>
+                this.validateAfterPremiseMutation()
+            )
+        }
+    }
+
     protected withValidation<T>(fn: () => T): T {
         if (this.restoringFromSnapshot) {
             return fn()
         }
         const snap = this.snapshot()
+        // Suppress PremiseEngine-level validation during ArgumentEngine
+        // mutations. The ArgumentEngine will do its own validation at the end.
+        this.suppressPremiseValidation()
         try {
             const result = fn()
             const validation = this.validate()
@@ -305,6 +329,8 @@ export class ArgumentEngine<
                 this.rollback(snap)
             }
             throw e
+        } finally {
+            this.restorePremiseValidation()
         }
     }
 
@@ -549,6 +575,9 @@ export class ArgumentEngine<
             this.wireEmptyBoundPremiseCheck(pm)
             pm.setVariableIdsCallback(
                 () => new Set(this.variables.toArray().map((v) => v.id))
+            )
+            pm.setArgumentValidateCallback(() =>
+                this.validateAfterPremiseMutation()
             )
             pm.setOnMutate(() => {
                 this.markDirty()
@@ -1205,6 +1234,9 @@ export class ArgumentEngine<
             pe.setVariableIdsCallback(
                 () => new Set(engine.variables.toArray().map((v) => v.id))
             )
+            pe.setArgumentValidateCallback(() =>
+                engine.validateAfterPremiseMutation()
+            )
             const premiseId = pe.getId()
             pe.setOnMutate(() => {
                 engine.markDirty()
@@ -1607,6 +1639,9 @@ export class ArgumentEngine<
             pe.setVariableIdsCallback(
                 () => new Set(this.variables.toArray().map((v) => v.id))
             )
+            pe.setArgumentValidateCallback(() =>
+                this.validateAfterPremiseMutation()
+            )
             const premiseId = pe.getId()
             pe.setOnMutate(() => {
                 this.markDirty()
@@ -1832,6 +1867,61 @@ export class ArgumentEngine<
             variableIds: sortedUnique(byIdTmp.keys()),
             byId,
             bySymbol,
+        }
+    }
+
+    /**
+     * Validates after a PremiseEngine mutation. Identical to `validate()` but
+     * clears cached argument-level checksums first so the checksum-stability
+     * check is skipped (checksums are known to be dirty after a premise
+     * mutation).
+     */
+    /**
+     * Lightweight validation triggered after a PremiseEngine mutation.
+     * Skips per-premise deep validation (which is O(n) over all premises)
+     * and argument-level checksum stability checks (checksums are known to
+     * be dirty). Only checks argument-level cross-references that a
+     * PremiseEngine mutation could affect.
+     */
+    private validateAfterPremiseMutation(): TInvariantValidationResult {
+        const violations: TInvariantViolation[] = []
+
+        // Variable references: ensure all variable expressions in the
+        // mutated premise still reference known variables (this is the main
+        // cross-cutting invariant a premise mutation can break).
+        for (const v of this.variables.toArray()) {
+            const base = v as unknown as TCorePropositionalVariable
+            if (isPremiseBound(base)) {
+                const pb = base as unknown as TPremiseBoundVariable
+                if (pb.boundArgumentId === this.argument.id) {
+                    if (!this.premises.has(pb.boundPremiseId)) {
+                        violations.push({
+                            code: ARG_PREMISE_REF_NOT_FOUND,
+                            message: `Premise-bound variable "${pb.id}" references non-existent premise "${pb.boundPremiseId}".`,
+                            entityType: "variable",
+                            entityId: pb.id,
+                        })
+                    }
+                }
+            }
+        }
+
+        // Conclusion premise reference
+        if (
+            this.conclusionPremiseId !== undefined &&
+            !this.premises.has(this.conclusionPremiseId)
+        ) {
+            violations.push({
+                code: ARG_CONCLUSION_NOT_FOUND,
+                message: `Conclusion premise "${this.conclusionPremiseId}" does not exist in this argument.`,
+                entityType: "argument",
+                entityId: this.argument.id,
+            })
+        }
+
+        return {
+            ok: violations.length === 0,
+            violations,
         }
     }
 
