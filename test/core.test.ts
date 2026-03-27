@@ -83,6 +83,9 @@ import {
     EXPR_CHILD_LIMIT_EXCEEDED,
     EXPR_POSITION_DUPLICATE,
     EXPR_CHECKSUM_MISMATCH,
+    PREMISE_SCHEMA_INVALID,
+    PREMISE_ROOT_EXPRESSION_INVALID,
+    PREMISE_VARIABLE_REF_NOT_FOUND,
     VAR_SCHEMA_INVALID,
     VAR_DUPLICATE_ID,
     VAR_DUPLICATE_SYMBOL,
@@ -19393,5 +19396,182 @@ describe("VariableManager — validate", () => {
         expect(
             result.violations.some((v) => v.code === VAR_DUPLICATE_SYMBOL)
         ).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// PremiseEngine — validate
+// ---------------------------------------------------------------------------
+describe("PremiseEngine — validate", () => {
+    it("returns ok for a valid premise with expressions", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "var-p",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        } as TCorePropositionalVariable)
+        const pe = new PremiseEngine(
+            {
+                id: "premise-1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TOptionalChecksum<TCorePremise>,
+            { argument: ARG, variables: vm },
+            { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG }
+        )
+        pe.addExpression(
+            makeVarExpr("expr-1", "var-p", { premiseId: "premise-1" })
+        )
+        // Wire up the variable IDs callback
+        pe.setVariableIdsCallback(() => new Set(["var-p"]))
+        const result = pe.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("returns ok for an empty premise", () => {
+        const vm = new VariableManager()
+        const pe = new PremiseEngine(
+            {
+                id: "premise-1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TOptionalChecksum<TCorePremise>,
+            { argument: ARG, variables: vm },
+            { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG }
+        )
+        const result = pe.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("detects variable reference to non-existent variable", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "var-p",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        } as TCorePropositionalVariable)
+        const pe = new PremiseEngine(
+            {
+                id: "premise-1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TOptionalChecksum<TCorePremise>,
+            { argument: ARG, variables: vm },
+            { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG }
+        )
+        pe.addExpression(
+            makeVarExpr("expr-1", "var-p", { premiseId: "premise-1" })
+        )
+        // Set callback returning empty set — var-p won't be found
+        pe.setVariableIdsCallback(() => new Set())
+        const result = pe.validate()
+        expect(result.ok).toBe(false)
+        expect(
+            result.violations.some(
+                (v) => v.code === PREMISE_VARIABLE_REF_NOT_FOUND
+            )
+        ).toBe(true)
+        // The violation should carry the premiseId
+        const violation = result.violations.find(
+            (v) => v.code === PREMISE_VARIABLE_REF_NOT_FOUND
+        )!
+        expect(violation.premiseId).toBe("premise-1")
+        expect(violation.entityId).toBe("expr-1")
+    })
+
+    it("propagates expression-level violations with premiseId attached", () => {
+        const vm = new VariableManager()
+        vm.addVariable({
+            id: "var-p",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        } as TCorePropositionalVariable)
+        vm.addVariable({
+            id: "var-q",
+            argumentId: "arg-1",
+            argumentVersion: 1,
+            symbol: "Q",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        } as TCorePropositionalVariable)
+        // Use PERMISSIVE grammar to build the tree (allows operator-under-operator)
+        const pe = new PremiseEngine(
+            {
+                id: "premise-1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+            } as TOptionalChecksum<TCorePremise>,
+            { argument: ARG, variables: vm },
+            { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG }
+        )
+        // Build: and(or(P, Q), P) — or is direct child of and
+        pe.addExpression(
+            makeOpExpr("expr-and", "and", { premiseId: "premise-1" })
+        )
+        pe.addExpression(
+            makeOpExpr("expr-or", "or", {
+                parentId: "expr-and",
+                position: 0,
+                premiseId: "premise-1",
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("expr-p1", "var-p", {
+                parentId: "expr-or",
+                position: 0,
+                premiseId: "premise-1",
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("expr-q1", "var-q", {
+                parentId: "expr-or",
+                position: 1,
+                premiseId: "premise-1",
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("expr-p2", "var-p", {
+                parentId: "expr-and",
+                position: 1,
+                premiseId: "premise-1",
+            })
+        )
+
+        // Switch the internal ExpressionManager's grammar config to DEFAULT
+        // so that validate() detects the formula-between-operators violation.
+        const expressions = (
+            pe as unknown as { expressions: ExpressionManager }
+        ).expressions
+        ;(
+            expressions as unknown as {
+                config: { grammarConfig: typeof DEFAULT_GRAMMAR_CONFIG }
+            }
+        ).config = { grammarConfig: DEFAULT_GRAMMAR_CONFIG }
+
+        const result = pe.validate()
+        expect(result.ok).toBe(false)
+        const fboViolations = result.violations.filter(
+            (v) => v.code === EXPR_FORMULA_BETWEEN_OPERATORS_VIOLATED
+        )
+        expect(fboViolations.length).toBeGreaterThan(0)
+        // Every propagated violation should carry the premiseId
+        for (const v of fboViolations) {
+            expect(v.premiseId).toBe("premise-1")
+        }
     })
 })

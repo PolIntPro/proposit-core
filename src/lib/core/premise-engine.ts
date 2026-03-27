@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import {
+    CorePremiseSchema,
     isExternallyBound,
     isPremiseBound,
     type TCoreArgument,
@@ -7,6 +8,7 @@ import {
     type TCorePremise,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
+    type TCorePropositionalVariableExpression,
     type TOptionalChecksum,
 } from "../schemata/index.js"
 import { DefaultMap } from "../utils/default-map.js"
@@ -33,6 +35,16 @@ import {
     makeErrorIssue,
     makeValidationResult,
 } from "./evaluation/validation.js"
+import { Value } from "typebox/value"
+import type {
+    TInvariantViolation,
+    TInvariantValidationResult,
+} from "../types/validation.js"
+import {
+    PREMISE_SCHEMA_INVALID,
+    PREMISE_ROOT_EXPRESSION_INVALID,
+    PREMISE_VARIABLE_REF_NOT_FOUND,
+} from "../types/validation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
 import type { TLogicEngineOptions } from "./argument-engine.js"
 import type { TGrammarConfig } from "../types/grammar.js"
@@ -108,6 +120,7 @@ export class PremiseEngine<
         premiseId: string
     ) => boolean
     private emptyBoundPremiseCheck?: (variableId: string) => boolean
+    private variableIdsCallback?: () => Set<string>
 
     constructor(
         premise: TOptionalChecksum<TPremise>,
@@ -142,6 +155,12 @@ export class PremiseEngine<
         check: ((variableId: string) => boolean) | undefined
     ): void {
         this.emptyBoundPremiseCheck = check
+    }
+
+    public setVariableIdsCallback(
+        callback: (() => Set<string>) | undefined
+    ): void {
+        this.variableIdsCallback = callback
     }
 
     public deleteExpressionsUsingVariable(
@@ -1552,6 +1571,84 @@ export class PremiseEngine<
                   )
 
         this.checksumDirty = false
+    }
+
+    public validate(): TInvariantValidationResult {
+        const violations: TInvariantViolation[] = []
+        const premiseId = this.premise.id
+
+        // 1. Schema check (use toPremiseData() to include computed checksums)
+        const premiseData = this.toPremiseData()
+        if (
+            !Value.Check(
+                CorePremiseSchema,
+                premiseData as unknown as TCorePremise
+            )
+        ) {
+            violations.push({
+                code: PREMISE_SCHEMA_INVALID,
+                message: `Premise "${premiseId}" does not conform to CorePremiseSchema.`,
+                entityType: "premise",
+                entityId: premiseId,
+                premiseId,
+            })
+        }
+
+        // 2. Delegate to expression-level validation, attaching premiseId
+        const exprResult = this.expressions.validate()
+        for (const v of exprResult.violations) {
+            violations.push({ ...v, premiseId })
+        }
+
+        // 3. Root expression consistency
+        if (this.rootExpressionId !== undefined) {
+            const rootExpr = this.expressions.getExpression(
+                this.rootExpressionId
+            )
+            if (!rootExpr) {
+                violations.push({
+                    code: PREMISE_ROOT_EXPRESSION_INVALID,
+                    message: `Premise "${premiseId}" rootExpressionId "${this.rootExpressionId}" does not exist in expression store.`,
+                    entityType: "premise",
+                    entityId: premiseId,
+                    premiseId,
+                })
+            } else if (rootExpr.parentId !== null) {
+                violations.push({
+                    code: PREMISE_ROOT_EXPRESSION_INVALID,
+                    message: `Premise "${premiseId}" rootExpressionId "${this.rootExpressionId}" has non-null parentId "${rootExpr.parentId}".`,
+                    entityType: "premise",
+                    entityId: premiseId,
+                    premiseId,
+                })
+            }
+        }
+
+        // 4. Variable references: every variable-type expression must
+        //    reference a variableId that exists in the argument's variable set
+        if (this.variableIdsCallback) {
+            const variableIds = this.variableIdsCallback()
+            for (const expr of this.expressions.toArray()) {
+                if (expr.type === "variable") {
+                    const varExpr =
+                        expr as unknown as TCorePropositionalVariableExpression
+                    if (!variableIds.has(varExpr.variableId)) {
+                        violations.push({
+                            code: PREMISE_VARIABLE_REF_NOT_FOUND,
+                            message: `Expression "${expr.id}" in premise "${premiseId}" references non-existent variable "${varExpr.variableId}".`,
+                            entityType: "expression",
+                            entityId: expr.id,
+                            premiseId,
+                        })
+                    }
+                }
+            }
+        }
+
+        return {
+            ok: violations.length === 0,
+            violations,
+        }
     }
 
     // -------------------------------------------------------------------------
