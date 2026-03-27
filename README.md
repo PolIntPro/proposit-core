@@ -614,6 +614,106 @@ const result = richArg.evaluate({
 })
 ```
 
+## Invalid Constructions and How They're Handled
+
+The engine enforces structural invariants at two levels: **construction-time** (throws immediately) and **validation-time** (detected by `validateEvaluability()` before evaluation). The tables below list every invalid construction.
+
+### Expression tree — prevented at construction time
+
+| Invalid construction                                                             | What happens                                                                                               |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `implies` or `iff` with `parentId !== null`                                      | Throws — root-only operators must be the root of a premise's tree                                          |
+| Non-`not` operator as direct child of another operator                           | Throws — a `formula` node must sit between them (unless `autoNormalize` is `true`, which auto-inserts one) |
+| Expression with `parentId === id` (self-parentage)                               | Throws                                                                                                     |
+| Duplicate expression ID within a premise                                         | Throws                                                                                                     |
+| Expression references a non-existent `parentId`                                  | Throws                                                                                                     |
+| Expression's parent is a `variable` expression                                   | Throws — only operators and formulas can have children                                                     |
+| `formula` node already has a child (adding a second)                             | Throws — formulas allow exactly one child                                                                  |
+| `not` operator already has a child (adding a second)                             | Throws — `not` is unary                                                                                    |
+| `implies` or `iff` already has two children (adding a third)                     | Throws — binary operators require exactly two                                                              |
+| Two siblings share the same `position` under the same parent                     | Throws                                                                                                     |
+| `insertExpression` with `leftNodeId === rightNodeId`                             | Throws                                                                                                     |
+| `insertExpression` or `wrapExpression` targeting a root-only operator as a child | Throws — `implies`/`iff` cannot be subordinated                                                            |
+| `wrapExpression` with `not` as the wrapping operator                             | Throws — `not` is unary but wrapping always produces two children                                          |
+| Expression's `argumentId`/`argumentVersion` doesn't match the premise            | Throws                                                                                                     |
+
+### Expression tree — detected by validation
+
+| Invalid construction                                                  | Error code                      |
+| --------------------------------------------------------------------- | ------------------------------- |
+| `and` or `or` operator with fewer than 2 children                     | `EXPR_CHILD_COUNT_INVALID`      |
+| `not` or `formula` with 0 children                                    | `EXPR_CHILD_COUNT_INVALID`      |
+| `implies` or `iff` without exactly 2 children with distinct positions | `EXPR_BINARY_POSITIONS_INVALID` |
+| Expression references an undeclared variable                          | `EXPR_VARIABLE_UNDECLARED`      |
+
+### Variables — prevented at construction time
+
+| Invalid construction                                                                    | What happens                                                            |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Duplicate variable `id`                                                                 | Throws                                                                  |
+| Duplicate variable `symbol`                                                             | Throws                                                                  |
+| Variable `argumentId`/`argumentVersion` doesn't match the engine                        | Throws                                                                  |
+| Claim-bound variable references a non-existent claim/version                            | Throws                                                                  |
+| Premise-bound variable references a non-existent premise (internal)                     | Throws                                                                  |
+| Adding a premise-bound variable via `addVariable()`                                     | Throws — use `bindVariableToPremise` or `bindVariableToExternalPremise` |
+| Circular binding (variable → premise → expression → variable, transitively)             | Throws                                                                  |
+| `bindVariableToPremise` with `boundArgumentId !== engine.argumentId`                    | Throws — use `bindVariableToExternalPremise` for cross-argument         |
+| `bindVariableToExternalPremise` with `boundArgumentId === engine.argumentId`            | Throws — use `bindVariableToPremise` for internal                       |
+| External binding rejected by `canBind()` policy                                         | Throws                                                                  |
+| Renaming a variable to a symbol already in use                                          | Throws                                                                  |
+| Changing a variable's binding type (claim → premise or vice versa) via `updateVariable` | Throws — delete and re-create                                           |
+
+### Variables — detected by validation
+
+| Invalid construction                               | Error code                 | Severity |
+| -------------------------------------------------- | -------------------------- | -------- |
+| Premise-bound variable references an empty premise | `EXPR_BOUND_PREMISE_EMPTY` | Warning  |
+
+### Premises — prevented at construction time
+
+| Invalid construction                                            | What happens |
+| --------------------------------------------------------------- | ------------ |
+| Duplicate premise ID                                            | Throws       |
+| Adding a second root expression (`parentId: null`) to a premise | Throws       |
+
+### Premises — detected by validation
+
+| Invalid construction                             | Error code              |
+| ------------------------------------------------ | ----------------------- |
+| Premise has no expressions                       | `PREMISE_EMPTY`         |
+| Premise has expressions but no root              | `PREMISE_ROOT_MISSING`  |
+| `rootExpressionId` doesn't match the actual root | `PREMISE_ROOT_MISMATCH` |
+
+### Argument — detected by validation
+
+| Invalid construction                                        | Error code                             |
+| ----------------------------------------------------------- | -------------------------------------- |
+| No conclusion premise designated                            | `ARGUMENT_NO_CONCLUSION`               |
+| Conclusion premise ID points to a non-existent premise      | `ARGUMENT_CONCLUSION_NOT_FOUND`        |
+| Same variable ID used with multiple symbols across premises | `ARGUMENT_VARIABLE_ID_SYMBOL_MISMATCH` |
+| Same variable symbol used with multiple IDs across premises | `ARGUMENT_VARIABLE_SYMBOL_AMBIGUOUS`   |
+
+### Removal cascades
+
+These are not errors — they're intentional structural maintenance:
+
+| Trigger                | Cascade behavior                                                                                                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `removeVariable(id)`   | All expressions referencing the variable are deleted across all premises, triggering operator collapse                                                                                                                                              |
+| `removePremise(id)`    | All variables bound to the premise are removed (which cascades to their expressions). If the premise was the conclusion, the conclusion becomes unset.                                                                                              |
+| `removeExpression(id)` | The expression's subtree is deleted. Ancestor operators with 0 remaining children are deleted. Operators with 1 remaining child promote that child into their slot (operator collapse). Promotions are checked against nesting and root-only rules. |
+
+### Grammar configuration
+
+Two options on `grammarConfig` control expression tree strictness:
+
+| Option                           | Default | Effect                                                                                                                                                                                                                         |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enforceFormulaBetweenOperators` | `true`  | When `true`, non-`not` operators cannot be direct children of operators — a `formula` buffer is required.                                                                                                                      |
+| `autoNormalize`                  | `false` | When `true`, `addExpression` auto-inserts `formula` buffers instead of throwing. Only applies to `addExpression` and `loadExpressions` — `insertExpression`, `wrapExpression`, and `removeExpression` always enforce or throw. |
+
+`PERMISSIVE_GRAMMAR_CONFIG` (`{ enforceFormulaBetweenOperators: false, autoNormalize: false }`) is used by `fromSnapshot`/`fromData` to load previously saved trees without re-validation.
+
 ## API Reference
 
 See [docs/api-reference.md](docs/api-reference.md) for the full API reference covering `ArgumentEngine`, `PremiseEngine`, standalone functions, position utilities, and types.
