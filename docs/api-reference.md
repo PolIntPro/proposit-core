@@ -8,9 +8,11 @@ Creates an engine scoped to `argument` (`{ id, version, title, description }`, w
 
 ---
 
-### `createPremise(title?)` → `TCoreMutationResult<PremiseEngine>`
+### `createPremise(extras?, symbol?)` → `TCoreMutationResult<PremiseEngine>`
 
 Creates a new `PremiseEngine`, registers it with the engine, and returns it wrapped in a mutation result with the changeset. If no conclusion is currently set, the new premise is automatically designated as the conclusion (reflected in the changeset's `roles` field).
+
+Also auto-creates a premise-bound variable for the new premise, included in the changeset's `variables.added`. The optional `symbol` parameter sets the variable's symbol; if omitted, an auto-generated symbol (`"P0"`, `"P1"`, ...) is used with collision avoidance.
 
 ---
 
@@ -55,6 +57,26 @@ Registers a claim-bound variable (without `checksum` — it is computed lazily) 
 Registers a premise-bound variable whose truth value is derived from another premise's evaluation. The variable must include `boundPremiseId`, `boundArgumentId`, and `boundArgumentVersion` fields. Throws if the `id` or `symbol` already exists, if `boundPremiseId` does not reference an existing premise, if `boundArgumentId` does not match this argument, or if binding would create a circular dependency.
 
 Premise-bound variables are resolved lazily during evaluation: the bound premise is evaluated first, and its root value becomes the variable's truth value. If the bound premise is empty, the variable resolves to `null` (unknown). Circularity detection is transitive — if premise A's variable Q is bound to premise B, and premise B uses a variable R bound to premise A, the binding is rejected.
+
+---
+
+### `bindVariableToExternalPremise(variable)` → `TCoreMutationResult<TPropositionalVariable>`
+
+Registers a premise-bound variable that references a premise in a **different** argument. The variable must include `boundPremiseId`, `boundArgumentId`, and `boundArgumentVersion` fields, where `boundArgumentId` does NOT match this engine's argument (use `bindVariableToPremise` for internal bindings). Calls `canBind(boundArgumentId, boundArgumentVersion)` for validation.
+
+External bindings are evaluator-assigned during evaluation — they are NOT lazily resolved. They appear as free variables in truth-table generation (like claim-bound variables). The binding is navigational: it tells the reader where the proposition is defined, but the evaluator assigns the truth value.
+
+---
+
+### `bindVariableToArgument(variable, conclusionPremiseId)` → `TCoreMutationResult<TPropositionalVariable>`
+
+Convenience method for binding a variable to another argument's conclusion. Sets `boundPremiseId` to the provided `conclusionPremiseId` and delegates to `bindVariableToExternalPremise`. The caller resolves the conclusion premise ID from their knowledge of the target argument.
+
+---
+
+### `canBind(boundArgumentId, boundArgumentVersion)` → `boolean` _(protected)_
+
+Returns whether this engine allows binding to the specified external argument version. Default returns `true`. Override in subclasses to inject validation policy (e.g., only allow binding to published argument versions). Called by `bindVariableToExternalPremise` before registration; throws if `false`.
 
 ---
 
@@ -886,7 +908,7 @@ Variables are a discriminated union (`TCorePropositionalVariable = TClaimBoundVa
 | `isClaimBound(v)`                | Type guard — returns `true` if variable has `claimId`                                                             |
 | `isPremiseBound(v)`              | Type guard — returns `true` if variable has `boundPremiseId`                                                      |
 
-Premise-bound variables enable hierarchical argument structure: variable Q bound to premise P1 derives its truth value from P1's evaluation. During `evaluate()` and `checkValidity()`, premise-bound variables are excluded from truth-table generation (they are not free variables); their values are resolved lazily by evaluating the bound premise. Circular bindings (direct or transitive) are rejected at bind time.
+Premise-bound variables enable hierarchical argument structure: variable Q bound to premise P1 derives its truth value from P1's evaluation. **Internal bindings** (same argument) are resolved lazily during `evaluate()` and `checkValidity()` — they are NOT free variables. **External bindings** (different argument, created via `bindVariableToExternalPremise`) are evaluator-assigned and ARE included in truth-table generation as free variables. `isExternallyBound(v, argumentId)` distinguishes the two at runtime. Circular bindings (direct or transitive) are rejected at bind time for internal bindings; external bindings have no cycle concern since they're evaluator-assigned.
 
 ---
 
