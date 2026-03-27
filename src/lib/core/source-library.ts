@@ -16,6 +16,7 @@ import {
     SOURCE_SCHEMA_INVALID,
     SOURCE_FROZEN_NO_SUCCESSOR,
 } from "../types/validation.js"
+import { InvariantViolationError } from "./invariant-violation-error.js"
 
 export class SourceLibrary<
     TSource extends TCoreSource = TCoreSource,
@@ -28,23 +29,55 @@ export class SourceLibrary<
         this.checksumConfig = options?.checksumConfig
     }
 
+    private restoreFromSnapshot(snap: TSourceLibrarySnapshot<TSource>): void {
+        this.entities = new Map()
+        for (const entity of snap.sources) {
+            let versions = this.entities.get(entity.id)
+            if (!versions) {
+                versions = new Map()
+                this.entities.set(entity.id, versions)
+            }
+            versions.set(entity.version, entity)
+        }
+    }
+
+    private withValidation<T>(fn: () => T): T {
+        const snap = this.snapshot()
+        try {
+            const result = fn()
+            const validation = this.validate()
+            if (!validation.ok) {
+                this.restoreFromSnapshot(snap)
+                throw new InvariantViolationError(validation.violations)
+            }
+            return result
+        } catch (e) {
+            if (!(e instanceof InvariantViolationError)) {
+                this.restoreFromSnapshot(snap)
+            }
+            throw e
+        }
+    }
+
     public create(
         source: Omit<TSource, "version" | "frozen" | "checksum">
     ): TSource {
-        if (this.entities.has(source.id as string)) {
-            throw new Error(`Source with ID "${source.id}" already exists.`)
-        }
-        const full = {
-            ...source,
-            version: 0,
-            frozen: false,
-            checksum: "",
-        } as TSource
-        full.checksum = this.computeChecksum(full)
-        const versions = new Map<number, TSource>()
-        versions.set(0, full)
-        this.entities.set(full.id, versions)
-        return full
+        return this.withValidation(() => {
+            if (this.entities.has(source.id as string)) {
+                throw new Error(`Source with ID "${source.id}" already exists.`)
+            }
+            const full = {
+                ...source,
+                version: 0,
+                frozen: false,
+                checksum: "",
+            } as TSource
+            full.checksum = this.computeChecksum(full)
+            const versions = new Map<number, TSource>()
+            versions.set(0, full)
+            this.entities.set(full.id, versions)
+            return full
+        })
     }
 
     public update(
@@ -53,61 +86,65 @@ export class SourceLibrary<
             Omit<TSource, "id" | "version" | "frozen" | "checksum">
         >
     ): TSource {
-        const versions = this.entities.get(id)
-        if (!versions) {
-            throw new Error(`Source "${id}" does not exist.`)
-        }
-        const maxVersion = this.maxVersion(versions)
-        const current = versions.get(maxVersion)!
-        if (current.frozen) {
-            throw new Error(
-                `Source "${id}" version ${maxVersion} is frozen and cannot be updated.`
-            )
-        }
-        const updated = {
-            ...current,
-            ...updates,
-            id: current.id,
-            version: current.version,
-            frozen: current.frozen,
-            checksum: "",
-        } as TSource
-        updated.checksum = this.computeChecksum(updated)
-        versions.set(maxVersion, updated)
-        return updated
+        return this.withValidation(() => {
+            const versions = this.entities.get(id)
+            if (!versions) {
+                throw new Error(`Source "${id}" does not exist.`)
+            }
+            const maxVersion = this.maxVersion(versions)
+            const current = versions.get(maxVersion)!
+            if (current.frozen) {
+                throw new Error(
+                    `Source "${id}" version ${maxVersion} is frozen and cannot be updated.`
+                )
+            }
+            const updated = {
+                ...current,
+                ...updates,
+                id: current.id,
+                version: current.version,
+                frozen: current.frozen,
+                checksum: "",
+            } as TSource
+            updated.checksum = this.computeChecksum(updated)
+            versions.set(maxVersion, updated)
+            return updated
+        })
     }
 
     public freeze(id: string): { frozen: TSource; current: TSource } {
-        const versions = this.entities.get(id)
-        if (!versions) {
-            throw new Error(`Source "${id}" does not exist.`)
-        }
-        const maxVersion = this.maxVersion(versions)
-        const current = versions.get(maxVersion)!
-        if (current.frozen) {
-            throw new Error(
-                `Source "${id}" version ${maxVersion} is already frozen.`
-            )
-        }
-        const frozenEntity = {
-            ...current,
-            frozen: true,
-            checksum: "",
-        } as TSource
-        frozenEntity.checksum = this.computeChecksum(frozenEntity)
-        versions.set(maxVersion, frozenEntity)
+        return this.withValidation(() => {
+            const versions = this.entities.get(id)
+            if (!versions) {
+                throw new Error(`Source "${id}" does not exist.`)
+            }
+            const maxVersion = this.maxVersion(versions)
+            const current = versions.get(maxVersion)!
+            if (current.frozen) {
+                throw new Error(
+                    `Source "${id}" version ${maxVersion} is already frozen.`
+                )
+            }
+            const frozenEntity = {
+                ...current,
+                frozen: true,
+                checksum: "",
+            } as TSource
+            frozenEntity.checksum = this.computeChecksum(frozenEntity)
+            versions.set(maxVersion, frozenEntity)
 
-        const nextVersion = maxVersion + 1
-        const nextEntity = {
-            ...current,
-            version: nextVersion,
-            frozen: false,
-            checksum: "",
-        } as TSource
-        nextEntity.checksum = this.computeChecksum(nextEntity)
-        versions.set(nextVersion, nextEntity)
+            const nextVersion = maxVersion + 1
+            const nextEntity = {
+                ...current,
+                version: nextVersion,
+                frozen: false,
+                checksum: "",
+            } as TSource
+            nextEntity.checksum = this.computeChecksum(nextEntity)
+            versions.set(nextVersion, nextEntity)
 
-        return { frozen: frozenEntity, current: nextEntity }
+            return { frozen: frozenEntity, current: nextEntity }
+        })
     }
 
     public get(id: string, version: number): TSource | undefined {

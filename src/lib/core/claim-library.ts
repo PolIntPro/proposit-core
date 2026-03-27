@@ -16,6 +16,7 @@ import {
     CLAIM_SCHEMA_INVALID,
     CLAIM_FROZEN_NO_SUCCESSOR,
 } from "../types/validation.js"
+import { InvariantViolationError } from "./invariant-violation-error.js"
 
 export class ClaimLibrary<
     TClaim extends TCoreClaim = TCoreClaim,
@@ -28,85 +29,121 @@ export class ClaimLibrary<
         this.checksumConfig = options?.checksumConfig
     }
 
+    private restoreFromSnapshot(snap: TClaimLibrarySnapshot<TClaim>): void {
+        this.entities = new Map()
+        for (const entity of snap.claims) {
+            let versions = this.entities.get(entity.id)
+            if (!versions) {
+                versions = new Map()
+                this.entities.set(entity.id, versions)
+            }
+            versions.set(entity.version, entity)
+        }
+    }
+
+    private withValidation<T>(fn: () => T): T {
+        const snap = this.snapshot()
+        try {
+            const result = fn()
+            const validation = this.validate()
+            if (!validation.ok) {
+                this.restoreFromSnapshot(snap)
+                throw new InvariantViolationError(validation.violations)
+            }
+            return result
+        } catch (e) {
+            if (!(e instanceof InvariantViolationError)) {
+                this.restoreFromSnapshot(snap)
+            }
+            throw e
+        }
+    }
+
     public create(
         claim: Omit<TClaim, "version" | "frozen" | "checksum">
     ): TClaim {
-        if (this.entities.has(claim.id as string)) {
-            throw new Error(`Claim with ID "${claim.id}" already exists.`)
-        }
-        const full = {
-            ...claim,
-            version: 0,
-            frozen: false,
-            checksum: "",
-        } as TClaim
-        full.checksum = this.computeChecksum(full)
+        return this.withValidation(() => {
+            if (this.entities.has(claim.id as string)) {
+                throw new Error(`Claim with ID "${claim.id}" already exists.`)
+            }
+            const full = {
+                ...claim,
+                version: 0,
+                frozen: false,
+                checksum: "",
+            } as TClaim
+            full.checksum = this.computeChecksum(full)
 
-        const versions = new Map<number, TClaim>()
-        versions.set(0, full)
-        this.entities.set(full.id, versions)
-        return full
+            const versions = new Map<number, TClaim>()
+            versions.set(0, full)
+            this.entities.set(full.id, versions)
+            return full
+        })
     }
 
     public update(
         id: string,
         updates: Partial<Omit<TClaim, "id" | "version" | "frozen" | "checksum">>
     ): TClaim {
-        const versions = this.entities.get(id)
-        if (!versions) {
-            throw new Error(`Claim "${id}" does not exist.`)
-        }
-        const maxVersion = this.maxVersion(versions)
-        const current = versions.get(maxVersion)!
-        if (current.frozen) {
-            throw new Error(
-                `Claim "${id}" version ${maxVersion} is frozen and cannot be updated.`
-            )
-        }
-        const updated = {
-            ...current,
-            ...updates,
-            id: current.id,
-            version: current.version,
-            frozen: current.frozen,
-            checksum: "",
-        } as TClaim
-        updated.checksum = this.computeChecksum(updated)
-        versions.set(maxVersion, updated)
-        return updated
+        return this.withValidation(() => {
+            const versions = this.entities.get(id)
+            if (!versions) {
+                throw new Error(`Claim "${id}" does not exist.`)
+            }
+            const maxVersion = this.maxVersion(versions)
+            const current = versions.get(maxVersion)!
+            if (current.frozen) {
+                throw new Error(
+                    `Claim "${id}" version ${maxVersion} is frozen and cannot be updated.`
+                )
+            }
+            const updated = {
+                ...current,
+                ...updates,
+                id: current.id,
+                version: current.version,
+                frozen: current.frozen,
+                checksum: "",
+            } as TClaim
+            updated.checksum = this.computeChecksum(updated)
+            versions.set(maxVersion, updated)
+            return updated
+        })
     }
 
     public freeze(id: string): { frozen: TClaim; current: TClaim } {
-        const versions = this.entities.get(id)
-        if (!versions) {
-            throw new Error(`Claim "${id}" does not exist.`)
-        }
-        const maxVersion = this.maxVersion(versions)
-        const current = versions.get(maxVersion)!
-        if (current.frozen) {
-            throw new Error(
-                `Claim "${id}" version ${maxVersion} is already frozen.`
-            )
-        }
-        const frozenEntity = {
-            ...current,
-            frozen: true,
-            checksum: "",
-        } as TClaim
-        frozenEntity.checksum = this.computeChecksum(frozenEntity)
-        versions.set(maxVersion, frozenEntity)
+        return this.withValidation(() => {
+            const versions = this.entities.get(id)
+            if (!versions) {
+                throw new Error(`Claim "${id}" does not exist.`)
+            }
+            const maxVersion = this.maxVersion(versions)
+            const current = versions.get(maxVersion)!
+            if (current.frozen) {
+                throw new Error(
+                    `Claim "${id}" version ${maxVersion} is already frozen.`
+                )
+            }
+            const frozenEntity = {
+                ...current,
+                frozen: true,
+                checksum: "",
+            } as TClaim
+            frozenEntity.checksum = this.computeChecksum(frozenEntity)
+            versions.set(maxVersion, frozenEntity)
 
-        const nextVersion = maxVersion + 1
-        const nextEntity = {
-            ...current,
-            version: nextVersion,
-            frozen: false,
-            checksum: "",
-        } as TClaim
-        nextEntity.checksum = this.computeChecksum(nextEntity)
-        versions.set(nextVersion, nextEntity)
+            const nextVersion = maxVersion + 1
+            const nextEntity = {
+                ...current,
+                version: nextVersion,
+                frozen: false,
+                checksum: "",
+            } as TClaim
+            nextEntity.checksum = this.computeChecksum(nextEntity)
+            versions.set(nextVersion, nextEntity)
 
-        return { frozen: frozenEntity, current: nextEntity }
+            return { frozen: frozenEntity, current: nextEntity }
+        })
     }
 
     public get(id: string, version: number): TClaim | undefined {

@@ -19,6 +19,7 @@ import {
     ASSOC_CLAIM_REF_NOT_FOUND,
     ASSOC_SOURCE_REF_NOT_FOUND,
 } from "../types/validation.js"
+import { InvariantViolationError } from "./invariant-violation-error.js"
 
 export class ClaimSourceLibrary<
     TAssoc extends TCoreClaimSourceAssociation = TCoreClaimSourceAssociation,
@@ -43,71 +44,120 @@ export class ClaimSourceLibrary<
         this.checksumConfig = options?.checksumConfig
     }
 
+    private restoreFromSnapshot(
+        snap: TClaimSourceLibrarySnapshot<TAssoc>
+    ): void {
+        this.associations = new Map()
+        this.claimToAssociations = new Map()
+        this.sourceToAssociations = new Map()
+        for (const assoc of snap.claimSourceAssociations) {
+            this.associations.set(assoc.id, assoc)
+        }
+        for (const [id, assoc] of this.associations) {
+            const claimKey = assoc.claimId
+            if (!this.claimToAssociations.has(claimKey)) {
+                this.claimToAssociations.set(claimKey, new Set())
+            }
+            this.claimToAssociations.get(claimKey)!.add(id)
+
+            const sourceKey = assoc.sourceId
+            if (!this.sourceToAssociations.has(sourceKey)) {
+                this.sourceToAssociations.set(sourceKey, new Set())
+            }
+            this.sourceToAssociations.get(sourceKey)!.add(id)
+        }
+    }
+
+    private withValidation<T>(fn: () => T): T {
+        const snap = this.snapshot()
+        try {
+            const result = fn()
+            const validation = this.validate()
+            if (!validation.ok) {
+                this.restoreFromSnapshot(snap)
+                throw new InvariantViolationError(validation.violations)
+            }
+            return result
+        } catch (e) {
+            if (!(e instanceof InvariantViolationError)) {
+                this.restoreFromSnapshot(snap)
+            }
+            throw e
+        }
+    }
+
     public add(assoc: Omit<TAssoc, "checksum">): TAssoc {
-        if (this.associations.has(assoc.id)) {
-            throw new Error(
-                `ClaimSourceAssociation with ID "${assoc.id}" already exists.`
+        return this.withValidation(() => {
+            if (this.associations.has(assoc.id)) {
+                throw new Error(
+                    `ClaimSourceAssociation with ID "${assoc.id}" already exists.`
+                )
+            }
+
+            const claim = this.claimLookup.get(
+                assoc.claimId,
+                assoc.claimVersion
             )
-        }
+            if (!claim) {
+                throw new Error(
+                    `Claim "${assoc.claimId}" version ${assoc.claimVersion} not found in claim lookup.`
+                )
+            }
 
-        const claim = this.claimLookup.get(assoc.claimId, assoc.claimVersion)
-        if (!claim) {
-            throw new Error(
-                `Claim "${assoc.claimId}" version ${assoc.claimVersion} not found in claim lookup.`
+            const source = this.sourceLookup.get(
+                assoc.sourceId,
+                assoc.sourceVersion
             )
-        }
+            if (!source) {
+                throw new Error(
+                    `Source "${assoc.sourceId}" version ${assoc.sourceVersion} not found in source lookup.`
+                )
+            }
 
-        const source = this.sourceLookup.get(
-            assoc.sourceId,
-            assoc.sourceVersion
-        )
-        if (!source) {
-            throw new Error(
-                `Source "${assoc.sourceId}" version ${assoc.sourceVersion} not found in source lookup.`
-            )
-        }
+            const full = { ...assoc, checksum: "" } as TAssoc
+            full.checksum = this.computeChecksum(full)
 
-        const full = { ...assoc, checksum: "" } as TAssoc
-        full.checksum = this.computeChecksum(full)
+            this.associations.set(full.id, full)
 
-        this.associations.set(full.id, full)
+            let claimSet = this.claimToAssociations.get(full.claimId)
+            if (!claimSet) {
+                claimSet = new Set()
+                this.claimToAssociations.set(full.claimId, claimSet)
+            }
+            claimSet.add(full.id)
 
-        let claimSet = this.claimToAssociations.get(full.claimId)
-        if (!claimSet) {
-            claimSet = new Set()
-            this.claimToAssociations.set(full.claimId, claimSet)
-        }
-        claimSet.add(full.id)
+            let sourceSet = this.sourceToAssociations.get(full.sourceId)
+            if (!sourceSet) {
+                sourceSet = new Set()
+                this.sourceToAssociations.set(full.sourceId, sourceSet)
+            }
+            sourceSet.add(full.id)
 
-        let sourceSet = this.sourceToAssociations.get(full.sourceId)
-        if (!sourceSet) {
-            sourceSet = new Set()
-            this.sourceToAssociations.set(full.sourceId, sourceSet)
-        }
-        sourceSet.add(full.id)
-
-        return full
+            return full
+        })
     }
 
     public remove(id: string): TAssoc {
-        const assoc = this.associations.get(id)
-        if (!assoc) {
-            throw new Error(`ClaimSourceAssociation "${id}" not found.`)
-        }
+        return this.withValidation(() => {
+            const assoc = this.associations.get(id)
+            if (!assoc) {
+                throw new Error(`ClaimSourceAssociation "${id}" not found.`)
+            }
 
-        this.associations.delete(id)
+            this.associations.delete(id)
 
-        const claimSet = this.claimToAssociations.get(assoc.claimId)
-        if (claimSet) {
-            claimSet.delete(id)
-        }
+            const claimSet = this.claimToAssociations.get(assoc.claimId)
+            if (claimSet) {
+                claimSet.delete(id)
+            }
 
-        const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
-        if (sourceSet) {
-            sourceSet.delete(id)
-        }
+            const sourceSet = this.sourceToAssociations.get(assoc.sourceId)
+            if (sourceSet) {
+                sourceSet.delete(id)
+            }
 
-        return assoc
+            return assoc
+        })
     }
 
     public getForClaim(claimId: string): TAssoc[] {

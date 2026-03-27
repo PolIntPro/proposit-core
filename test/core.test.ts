@@ -20056,3 +20056,102 @@ describe("PremiseEngine — withValidation bracket", () => {
         expect(eng.getExpressionPremiseId("v1")).toBeUndefined()
     })
 })
+
+describe("Library — withValidation brackets", () => {
+    it("ClaimLibrary validates after create", () => {
+        const lib = new ClaimLibrary()
+        lib.create({ id: "c1" })
+        expect(lib.validate().ok).toBe(true)
+    })
+
+    it("ClaimLibrary validates after freeze", () => {
+        const lib = new ClaimLibrary()
+        lib.create({ id: "c1" })
+        lib.freeze("c1")
+        expect(lib.validate().ok).toBe(true)
+    })
+
+    it("ClaimLibrary rolls back on duplicate create", () => {
+        const lib = new ClaimLibrary()
+        lib.create({ id: "c1" })
+        expect(() => lib.create({ id: "c1" })).toThrow()
+        // Only one entry should exist after rollback
+        expect(lib.getAll()).toHaveLength(1)
+    })
+
+    it("SourceLibrary validates after create", () => {
+        const lib = new SourceLibrary()
+        lib.create({ id: "s1" })
+        expect(lib.validate().ok).toBe(true)
+    })
+
+    it("SourceLibrary validates after freeze", () => {
+        const lib = new SourceLibrary()
+        lib.create({ id: "s1" })
+        lib.freeze("s1")
+        expect(lib.validate().ok).toBe(true)
+    })
+
+    it("SourceLibrary rolls back on duplicate create", () => {
+        const lib = new SourceLibrary()
+        lib.create({ id: "s1" })
+        expect(() => lib.create({ id: "s1" })).toThrow()
+        expect(lib.getAll()).toHaveLength(1)
+    })
+
+    it("ClaimSourceLibrary validates after add", () => {
+        const cl = aLib()
+        const sl = sLib()
+        sl.create({ id: "s1" })
+        const csl = new ClaimSourceLibrary(cl, sl)
+        csl.add({
+            id: "a1",
+            claimId: "claim-default",
+            claimVersion: 0,
+            sourceId: "s1",
+            sourceVersion: 0,
+        })
+        expect(csl.validate().ok).toBe(true)
+    })
+
+    it("ClaimSourceLibrary validates after remove", () => {
+        const cl = aLib()
+        const sl = sLib()
+        sl.create({ id: "s1" })
+        const csl = new ClaimSourceLibrary(cl, sl)
+        csl.add({
+            id: "a1",
+            claimId: "claim-default",
+            claimVersion: 0,
+            sourceId: "s1",
+            sourceVersion: 0,
+        })
+        csl.remove("a1")
+        expect(csl.validate().ok).toBe(true)
+        expect(csl.getAll()).toHaveLength(0)
+    })
+
+    it("ClaimSourceLibrary rolls back on duplicate add", () => {
+        const cl = aLib()
+        const sl = sLib()
+        sl.create({ id: "s1" })
+        const csl = new ClaimSourceLibrary(cl, sl)
+        csl.add({
+            id: "a1",
+            claimId: "claim-default",
+            claimVersion: 0,
+            sourceId: "s1",
+            sourceVersion: 0,
+        })
+        expect(() =>
+            csl.add({
+                id: "a1",
+                claimId: "claim-default",
+                claimVersion: 0,
+                sourceId: "s1",
+                sourceVersion: 0,
+            })
+        ).toThrow()
+        expect(csl.getAll()).toHaveLength(1)
+    })
+})
