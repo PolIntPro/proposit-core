@@ -95,7 +95,6 @@ import {
     ARG_CLAIM_REF_NOT_FOUND,
     ARG_PREMISE_REF_NOT_FOUND,
     ARG_CIRCULARITY_DETECTED,
-    ARG_CONCLUSION_NOT_FOUND,
     ARG_CHECKSUM_MISMATCH,
     CLAIM_SCHEMA_INVALID,
     CLAIM_FROZEN_NO_SUCCESSOR,
@@ -15111,7 +15110,7 @@ describe("grammar enforcement config", () => {
             expect(formulaExpr.parentId).toBe("op-and")
         })
 
-        it("fromData with no grammar config uses permissive default", () => {
+        it("fromData with no grammar config defaults to strict enforcement", () => {
             const arg = { id: "arg-1", version: 1 }
             const variables = [
                 {
@@ -15178,6 +15177,7 @@ describe("grammar enforcement config", () => {
                     position: 1,
                 },
             ]
+            // Default now enforces grammar — operator-under-operator throws
             expect(() =>
                 ArgumentEngine.fromData(
                     arg,
@@ -15189,10 +15189,25 @@ describe("grammar enforcement config", () => {
                     expressions,
                     { conclusionPremiseId: "p1" }
                 )
+            ).toThrow()
+            // Explicit permissive config still allows it
+            expect(() =>
+                ArgumentEngine.fromData(
+                    arg,
+                    aLib(),
+                    sLib(),
+                    csLib(),
+                    variables,
+                    premises,
+                    expressions,
+                    { conclusionPremiseId: "p1" },
+                    { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG },
+                    PERMISSIVE_GRAMMAR_CONFIG
+                )
             ).not.toThrow()
         })
 
-        it("rollback to snapshot with operator-under-operator succeeds", () => {
+        it("rollback to snapshot with operator-under-operator rejects and restores", () => {
             const arg = { id: "arg-1", version: 1 }
             const engine = new ArgumentEngine(arg, aLib(), sLib(), csLib())
             engine.addVariable({
@@ -15204,6 +15219,7 @@ describe("grammar enforcement config", () => {
                 claimVersion: 0,
             })
             const { result: pm } = engine.createPremise()
+            const premiseId = pm.getId()
             const snapshot = engine.snapshot()
             const premSnap = snapshot.premises[0]
             premSnap.expressions.expressions = [
@@ -15231,7 +15247,11 @@ describe("grammar enforcement config", () => {
                 },
             ] as TCorePropositionalExpression[]
             premSnap.rootExpressionId = "op-and"
-            expect(() => engine.rollback(snapshot)).not.toThrow()
+            // Rollback now validates — operator-under-operator is rejected
+            expect(() => engine.rollback(snapshot)).toThrow()
+            // Engine should still hold the pre-rollback state
+            expect(engine.hasPremise(premiseId)).toBe(true)
+            expect(engine.validate().ok).toBe(true)
         })
     })
 })
@@ -19649,21 +19669,17 @@ describe("ArgumentEngine — validate", () => {
         // Tamper: set conclusionPremiseId to a non-existent ID
         snap.conclusionPremiseId = "non-existent-premise"
 
-        const restored = ArgumentEngine.fromSnapshot(
-            snap,
-            aLib(),
-            sLib(),
-            csLib(),
-            undefined,
-            "ignore"
-        )
-
-        const result = restored.validate()
-        expect(result.ok).toBe(false)
-        const conclusionViolations = result.violations.filter(
-            (v) => v.code === ARG_CONCLUSION_NOT_FOUND
-        )
-        expect(conclusionViolations.length).toBe(1)
+        // fromSnapshot now validates, so loading a tampered snapshot throws
+        expect(() =>
+            ArgumentEngine.fromSnapshot(
+                snap,
+                aLib(),
+                sLib(),
+                csLib(),
+                undefined,
+                "ignore"
+            )
+        ).toThrow(/non-existent-premise/)
     })
 
     it("detects ownership mismatch on variable", () => {
@@ -20153,5 +20169,83 @@ describe("Library — withValidation brackets", () => {
             })
         ).toThrow()
         expect(csl.getAll()).toHaveLength(1)
+    })
+})
+
+describe("ArgumentEngine — bulk path validation", () => {
+    it("fromSnapshot validates loaded state", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib(), {
+            grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
+        })
+        const { result: pm } = eng.createPremise()
+        eng.addVariable(makeVar("var-p", "P"))
+        pm.addExpression(makeOpExpr("root", "and", { premiseId: pm.getId() }))
+        pm.addExpression(
+            makeOpExpr("child", "or", {
+                parentId: "root",
+                position: 0,
+                premiseId: pm.getId(),
+            })
+        )
+        const snap = eng.snapshot()
+        // Loading with strict config should throw — and→or violates formula-between-operators
+        expect(() =>
+            ArgumentEngine.fromSnapshot(snap, aLib(), sLib(), csLib(), {
+                enforceFormulaBetweenOperators: true,
+                autoNormalize: false,
+            })
+        ).toThrow()
+    })
+
+    it("fromData validates loaded state", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib(), {
+            grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
+        })
+        const { result: pm } = eng.createPremise()
+        eng.addVariable(makeVar("var-p", "P"))
+        pm.addExpression(makeOpExpr("root", "and", { premiseId: pm.getId() }))
+        pm.addExpression(
+            makeOpExpr("child", "or", {
+                parentId: "root",
+                position: 0,
+                premiseId: pm.getId(),
+            })
+        )
+        const snap = eng.snapshot()
+        expect(() =>
+            ArgumentEngine.fromData(
+                snap.argument,
+                aLib(),
+                sLib(),
+                new ClaimSourceLibrary(aLib(), sLib()),
+                snap.variables.variables,
+                snap.premises.map((p) => p.premise),
+                snap.premises.flatMap((p) => p.expressions.expressions),
+                { conclusionPremiseId: snap.conclusionPremiseId },
+                {
+                    grammarConfig: {
+                        enforceFormulaBetweenOperators: true,
+                        autoNormalize: false,
+                    },
+                },
+                {
+                    enforceFormulaBetweenOperators: true,
+                    autoNormalize: false,
+                }
+            )
+        ).toThrow()
+    })
+
+    it("rollback validates and rejects invalid snapshot", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        const premiseId = pm.getId()
+        const goodSnap = eng.snapshot()
+        // Tamper conclusionPremiseId
+        const badSnap = { ...goodSnap, conclusionPremiseId: "nonexistent" }
+        expect(() => eng.rollback(badSnap)).toThrow()
+        // Engine should still hold the good state
+        expect(eng.hasPremise(premiseId)).toBe(true)
+        expect(eng.validate().ok).toBe(true)
     })
 })

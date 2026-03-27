@@ -35,6 +35,7 @@ import type {
     TForkRemapTable,
 } from "../types/fork.js"
 import {
+    DEFAULT_GRAMMAR_CONFIG,
     PERMISSIVE_GRAMMAR_CONFIG,
     type TGrammarConfig,
 } from "../types/grammar.js"
@@ -320,13 +321,13 @@ export class ArgumentEngine<
             const result = fn()
             const validation = this.validate()
             if (!validation.ok) {
-                this.rollback(snap)
+                this.rollbackInternal(snap)
                 throw new InvariantViolationError(validation.violations)
             }
             return result
         } catch (e) {
             if (!(e instanceof InvariantViolationError)) {
-                this.rollback(snap)
+                this.rollbackInternal(snap)
             }
             throw e
         } finally {
@@ -1276,6 +1277,11 @@ export class ArgumentEngine<
             ArgumentEngine.verifySnapshotChecksums(engine, snapshot)
         }
 
+        const validation = engine.validate()
+        if (!validation.ok) {
+            throw new InvariantViolationError(validation.violations)
+        }
+
         return engine
     }
 
@@ -1308,7 +1314,8 @@ export class ArgumentEngine<
         grammarConfig?: TGrammarConfig,
         checksumVerification?: "ignore" | "strict"
     ): ArgumentEngine<TArg, TPremise, TExpr, TVar, TSource, TClaim, TAssoc> {
-        const loadingGrammarConfig = grammarConfig ?? PERMISSIVE_GRAMMAR_CONFIG
+        const loadingGrammarConfig =
+            grammarConfig ?? config?.grammarConfig ?? DEFAULT_GRAMMAR_CONFIG
         const normalizedConfig = config
             ? {
                   ...config,
@@ -1420,6 +1427,11 @@ export class ArgumentEngine<
                 variables,
                 premises
             )
+        }
+
+        const validation = engine.validate()
+        if (!validation.ok) {
+            throw new InvariantViolationError(validation.violations)
         }
 
         return engine
@@ -1611,6 +1623,18 @@ export class ArgumentEngine<
     }
 
     public rollback(
+        snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
+    ): void {
+        const preRollbackSnap = this.snapshot()
+        this.rollbackInternal(snapshot)
+        const validation = this.validate()
+        if (!validation.ok) {
+            this.rollbackInternal(preRollbackSnap)
+            throw new InvariantViolationError(validation.violations)
+        }
+    }
+
+    private rollbackInternal(
         snapshot: TArgumentEngineSnapshot<TArg, TPremise, TExpr, TVar>
     ): void {
         this.argument = { ...snapshot.argument }
