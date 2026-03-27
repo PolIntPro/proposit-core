@@ -1148,9 +1148,16 @@ export class ArgumentEngine<
         }
         for (const v of snapshot.variables.variables) {
             if (isPremiseBound(v as unknown as TCorePropositionalVariable)) {
-                engine.bindVariableToPremise(
-                    v as unknown as TOptionalChecksum<TPremiseBoundVariable>
-                )
+                const pbv = v as unknown as TPremiseBoundVariable
+                if (pbv.boundArgumentId === engine.argument.id) {
+                    engine.bindVariableToPremise(
+                        v as unknown as TOptionalChecksum<TPremiseBoundVariable>
+                    )
+                } else {
+                    engine.bindVariableToExternalPremise(
+                        v as unknown as TOptionalChecksum<TPremiseBoundVariable>
+                    )
+                }
             }
         }
         // Restore conclusion role (don't use setConclusionPremise to avoid auto-assign logic)
@@ -1257,9 +1264,16 @@ export class ArgumentEngine<
         // Register premise-bound variables (depend on premises)
         for (const v of variables) {
             if (isPremiseBound(v as unknown as TCorePropositionalVariable)) {
-                engine.bindVariableToPremise(
-                    v as unknown as TOptionalChecksum<TPremiseBoundVariable>
-                )
+                const pbv = v as unknown as TPremiseBoundVariable
+                if (pbv.boundArgumentId === engine.argument.id) {
+                    engine.bindVariableToPremise(
+                        v as unknown as TOptionalChecksum<TPremiseBoundVariable>
+                    )
+                } else {
+                    engine.bindVariableToExternalPremise(
+                        v as unknown as TOptionalChecksum<TPremiseBoundVariable>
+                    )
+                }
             }
         }
 
@@ -1869,11 +1883,15 @@ export class ArgumentEngine<
             ),
         ].sort()
 
-        // Only claim-bound variables get truth-table columns;
-        // premise-bound variables are resolved lazily from their bound premise.
+        // Claim-bound and externally-bound premise variables get truth-table columns;
+        // internally-bound premise variables are resolved lazily.
         const referencedVariableIds = allVariableIds.filter((vid) => {
             const v = this.variables.getVariable(vid)
-            return v != null && isClaimBound(v)
+            if (v == null) return false
+            if (isClaimBound(v)) return true
+            if (isPremiseBound(v) && v.boundArgumentId !== this.argument.id)
+                return true
+            return false
         })
 
         try {
@@ -1886,9 +1904,15 @@ export class ArgumentEngine<
                     return resolverCache.get(variableId)!
                 }
                 const variable = this.variables.getVariable(variableId)
-                if (!variable || !isPremiseBound(variable)) {
+                if (
+                    !variable ||
+                    !isPremiseBound(variable) ||
+                    variable.boundArgumentId !== this.argument.id
+                ) {
+                    // Claim-bound or externally-bound: read from assignment
                     return assignment.variables[variableId] ?? null
                 }
+                // Internal premise-bound: lazy resolution
                 const boundPremiseId = variable.boundPremiseId
                 const boundPremise = this.premises.get(boundPremiseId)
                 if (!boundPremise) {
@@ -2043,11 +2067,15 @@ export class ArgumentEngine<
             ),
         ].sort()
 
-        // Only claim-bound variables get truth-table columns;
-        // premise-bound variables are resolved lazily from their bound premise.
+        // Claim-bound and externally-bound premise variables get truth-table columns;
+        // internally-bound premise variables are resolved lazily.
         const checkedVariableIds = allVariableIdsForCheck.filter((vid) => {
             const v = this.variables.getVariable(vid)
-            return v != null && isClaimBound(v)
+            if (v == null) return false
+            if (isClaimBound(v)) return true
+            if (isPremiseBound(v) && v.boundArgumentId !== this.argument.id)
+                return true
+            return false
         })
 
         if (

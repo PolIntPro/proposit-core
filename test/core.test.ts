@@ -18582,4 +18582,171 @@ describe("cross-argument variable binding", () => {
         expect(pv.boundArgumentId).toBe("arg-other")
         expect(pv.boundArgumentVersion).toBe(3)
     })
+
+    it("evaluation: internal binding is still lazily resolved", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("v-p", "X"))
+        const { result: pm1 } = eng.createPremiseWithId("p1")
+        pm1.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v-p",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "p1",
+        })
+
+        // Find the auto-created variable for p1
+        const autoVarId = eng
+            .getVariables()
+            .find(
+                (v) =>
+                    isPremiseBound(v) &&
+                    (v as unknown as TPremiseBoundVariable).boundPremiseId ===
+                        "p1"
+            )!.id
+
+        const { result: pm2 } = eng.createPremiseWithId("p2")
+        pm2.addExpression({
+            id: "e2",
+            type: "variable",
+            variableId: autoVarId,
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "p2",
+        })
+
+        // Set p2 as conclusion so evaluate works
+        eng.setConclusionPremise("p2")
+
+        // X = true -> pm1 evaluates to true -> auto-variable resolves to true -> pm2 = true
+        const result = eng.evaluate({
+            variables: { "v-p": true },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+        // p2 uses the auto-variable bound to p1; p1 is a supporting premise
+        // The conclusion (p2) should resolve to true via lazy internal binding
+        expect(result.conclusionTrue).toBe(true)
+    })
+
+    it("evaluation: external binding is evaluator-assigned", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.bindVariableToExternalPremise({
+            id: "v-ext",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "ExtVar",
+            boundPremiseId: "p-other",
+            boundArgumentId: "arg-other",
+            boundArgumentVersion: 0,
+        })
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v-ext",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "p1",
+        })
+
+        // Set conclusion so evaluate works
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { "v-ext": true },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+        expect(result.conclusionTrue).toBe(true)
+    })
+
+    it("truth table: external binding included in columns", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.bindVariableToExternalPremise({
+            id: "v-ext",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "ExtVar",
+            boundPremiseId: "p-other",
+            boundArgumentId: "arg-other",
+            boundArgumentVersion: 0,
+        })
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v-ext",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "p1",
+        })
+        eng.setConclusionPremise("p1")
+
+        const validity = eng.checkValidity({ mode: "exhaustive" })
+        expect(validity.ok).toBe(true)
+        expect(validity.checkedVariableIds).toContain("v-ext")
+        expect(validity.numAssignmentsChecked).toBeGreaterThan(0)
+    })
+
+    it("fromSnapshot restores both internal and external bound variables", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("v-claim", "Claim"))
+        eng.bindVariableToExternalPremise({
+            id: "v-ext",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "ExtVar",
+            boundPremiseId: "p-other",
+            boundArgumentId: "arg-other",
+            boundArgumentVersion: 2,
+        })
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression({
+            id: "e1",
+            type: "variable",
+            variableId: "v-ext",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "p1",
+        })
+
+        eng.setConclusionPremise("p1")
+
+        const snap = eng.snapshot()
+        const restored = ArgumentEngine.fromSnapshot(
+            snap,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+
+        const vars = restored.getVariables()
+        const extVar = vars.find((v) => v.id === "v-ext")
+        expect(extVar).toBeDefined()
+        expect(isPremiseBound(extVar!)).toBe(true)
+        const pv = extVar! as unknown as TPremiseBoundVariable
+        expect(pv.boundArgumentId).toBe("arg-other")
+
+        // Evaluation still works after restoration
+        const result = restored.evaluate({
+            variables: { "v-ext": true, "v-claim": false },
+            rejectedExpressionIds: [],
+        })
+        expect(result.ok).toBe(true)
+    })
 })
