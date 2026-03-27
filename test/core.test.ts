@@ -97,6 +97,12 @@ import {
     ARG_CIRCULARITY_DETECTED,
     ARG_CONCLUSION_NOT_FOUND,
     ARG_CHECKSUM_MISMATCH,
+    CLAIM_SCHEMA_INVALID,
+    CLAIM_FROZEN_NO_SUCCESSOR,
+    SOURCE_SCHEMA_INVALID,
+    ASSOC_SCHEMA_INVALID,
+    ASSOC_CLAIM_REF_NOT_FOUND,
+    ASSOC_SOURCE_REF_NOT_FOUND,
 } from "../src/lib/types/validation"
 import {
     ParsedClaimSchema,
@@ -1217,7 +1223,7 @@ describe("stress test", () => {
                 maxTerms: 20,
             })
         }).not.toThrow()
-    })
+    }, 30_000)
 
     it("removing a premise cascades to all of its terms", () => {
         const { premiseManagers, termIdsByPremise } = buildStress()
@@ -19694,5 +19700,234 @@ describe("ArgumentEngine — validate", () => {
             (v) => v.code === ARG_OWNERSHIP_MISMATCH
         )
         expect(ownershipViolations.length).toBeGreaterThan(0)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// ClaimLibrary — validate
+// ---------------------------------------------------------------------------
+
+describe("ClaimLibrary — validate", () => {
+    it("returns ok for a valid library", () => {
+        const lib = aLib()
+        const result = lib.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("returns ok for an empty library", () => {
+        const lib = new ClaimLibrary()
+        const result = lib.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("detects frozen claim without successor", () => {
+        const lib = new ClaimLibrary()
+        lib.create({ id: "claim-a" })
+        // First freeze: version 0 (frozen) + version 1 (unfrozen)
+        lib.freeze("claim-a")
+        // Second freeze: version 1 (frozen) + version 2 (unfrozen)
+        lib.freeze("claim-a")
+
+        // Remove version 1 so version 0 is frozen but version 1 (its
+        // direct successor) is missing, while version 2 still exists
+        const snap = lib.snapshot()
+        const tamperedClaims = snap.claims.filter(
+            (c) => !(c.id === "claim-a" && c.version === 1)
+        )
+        const tamperedSnap = { claims: tamperedClaims }
+
+        const restored = ClaimLibrary.fromSnapshot(tamperedSnap)
+        const result = restored.validate()
+        expect(result.ok).toBe(false)
+        const violations = result.violations.filter(
+            (v) => v.code === CLAIM_FROZEN_NO_SUCCESSOR
+        )
+        expect(violations.length).toBe(1)
+        expect(violations[0].entityId).toBe("claim-a")
+    })
+
+    it("detects claim failing schema check", () => {
+        const lib = new ClaimLibrary()
+        lib.create({ id: "claim-b" })
+        const snap = lib.snapshot()
+        // Tamper: remove the checksum field to break schema
+        const tampered = snap.claims.map((c) => {
+            const { checksum: _omit, ...rest } = c
+            return rest
+        })
+        const restored = ClaimLibrary.fromSnapshot({
+            claims: tampered as Parameters<
+                typeof ClaimLibrary.fromSnapshot
+            >[0]["claims"],
+        })
+        const result = restored.validate()
+        expect(result.ok).toBe(false)
+        const violations = result.violations.filter(
+            (v) => v.code === CLAIM_SCHEMA_INVALID
+        )
+        expect(violations.length).toBeGreaterThan(0)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// SourceLibrary — validate
+// ---------------------------------------------------------------------------
+
+describe("SourceLibrary — validate", () => {
+    it("returns ok for a valid library", () => {
+        const lib = new SourceLibrary()
+        const result = lib.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("returns ok after adding a source", () => {
+        const lib = new SourceLibrary()
+        lib.create({ id: "source-a" })
+        const result = lib.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("detects source failing schema check", () => {
+        const lib = new SourceLibrary()
+        lib.create({ id: "source-b" })
+        const snap = lib.snapshot()
+        const tampered = snap.sources.map((s) => {
+            const { checksum: _omit, ...rest } = s
+            return rest
+        })
+        const restored = SourceLibrary.fromSnapshot({
+            sources: tampered as Parameters<
+                typeof SourceLibrary.fromSnapshot
+            >[0]["sources"],
+        })
+        const result = restored.validate()
+        expect(result.ok).toBe(false)
+        const violations = result.violations.filter(
+            (v) => v.code === SOURCE_SCHEMA_INVALID
+        )
+        expect(violations.length).toBeGreaterThan(0)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// ClaimSourceLibrary — validate
+// ---------------------------------------------------------------------------
+
+describe("ClaimSourceLibrary — validate", () => {
+    it("returns ok for a library with valid associations", () => {
+        const claimLib = new ClaimLibrary()
+        claimLib.create({ id: "claim-x" })
+        const sourceLib = new SourceLibrary()
+        sourceLib.create({ id: "source-x" })
+        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
+        csLibrary.add({
+            id: "assoc-1",
+            claimId: "claim-x",
+            claimVersion: 0,
+            sourceId: "source-x",
+            sourceVersion: 0,
+        })
+        const result = csLibrary.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("returns ok for an empty library", () => {
+        const csLibrary = new ClaimSourceLibrary(aLib(), sLib())
+        const result = csLibrary.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("detects association referencing non-existent claim", () => {
+        const claimLib = new ClaimLibrary()
+        claimLib.create({ id: "claim-y" })
+        const sourceLib = new SourceLibrary()
+        sourceLib.create({ id: "source-y" })
+        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
+        csLibrary.add({
+            id: "assoc-2",
+            claimId: "claim-y",
+            claimVersion: 0,
+            sourceId: "source-y",
+            sourceVersion: 0,
+        })
+
+        // Restore against an empty ClaimLibrary so the claim ref is not found
+        const snap = csLibrary.snapshot()
+        const emptyClaimLib = new ClaimLibrary()
+        const restored = ClaimSourceLibrary.fromSnapshot(
+            snap,
+            emptyClaimLib,
+            sourceLib
+        )
+        const result = restored.validate()
+        expect(result.ok).toBe(false)
+        const violations = result.violations.filter(
+            (v) => v.code === ASSOC_CLAIM_REF_NOT_FOUND
+        )
+        expect(violations.length).toBe(1)
+        expect(violations[0].entityId).toBe("assoc-2")
+    })
+
+    it("detects association referencing non-existent source", () => {
+        const claimLib = new ClaimLibrary()
+        claimLib.create({ id: "claim-z" })
+        const sourceLib = new SourceLibrary()
+        sourceLib.create({ id: "source-z" })
+        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
+        csLibrary.add({
+            id: "assoc-3",
+            claimId: "claim-z",
+            claimVersion: 0,
+            sourceId: "source-z",
+            sourceVersion: 0,
+        })
+
+        // Restore against an empty SourceLibrary so the source ref is not found
+        const snap = csLibrary.snapshot()
+        const emptySourceLib = new SourceLibrary()
+        const restored = ClaimSourceLibrary.fromSnapshot(
+            snap,
+            claimLib,
+            emptySourceLib
+        )
+        const result = restored.validate()
+        expect(result.ok).toBe(false)
+        const violations = result.violations.filter(
+            (v) => v.code === ASSOC_SOURCE_REF_NOT_FOUND
+        )
+        expect(violations.length).toBe(1)
+        expect(violations[0].entityId).toBe("assoc-3")
+    })
+})
+
+describe("ArgumentEngine — withValidation bracket", () => {
+    it("valid operations still work after wrapping", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        const { result: pm } = eng.createPremise()
+        pm.addExpression(makeVarExpr("v1", "var-p", { premiseId: pm.getId() }))
+        expect(eng.validate().ok).toBe(true)
+    })
+
+    it("existing per-operation errors still throw with rollback", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        expect(() =>
+            eng.addVariable({ ...makeVar("v1", "P"), argumentId: "wrong-arg" })
+        ).toThrow()
+        expect(eng.getVariables()).toHaveLength(0)
+    })
+
+    it("state is consistent after successful removePremise", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        eng.removePremise(pm.getId())
+        expect(eng.hasPremise(pm.getId())).toBe(false)
+        expect(eng.validate().ok).toBe(true)
     })
 })

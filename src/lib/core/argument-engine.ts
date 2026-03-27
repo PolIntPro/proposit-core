@@ -71,6 +71,7 @@ import {
     makeValidationResult,
 } from "./evaluation/validation.js"
 import type { TExpressionInput } from "./expression-manager.js"
+import { InvariantViolationError } from "./invariant-violation-error.js"
 import { PremiseEngine } from "./premise-engine.js"
 import type { TPremiseEngineSnapshot } from "./premise-engine.js"
 import { VariableManager } from "./variable-manager.js"
@@ -283,6 +284,27 @@ export class ArgumentEngine<
     protected notifySubscribers(): void {
         for (const listener of this.listeners) {
             listener()
+        }
+    }
+
+    protected withValidation<T>(fn: () => T): T {
+        if (this.restoringFromSnapshot) {
+            return fn()
+        }
+        const snap = this.snapshot()
+        try {
+            const result = fn()
+            const validation = this.validate()
+            if (!validation.ok) {
+                this.rollback(snap)
+                throw new InvariantViolationError(validation.violations)
+            }
+            return result
+        } catch (e) {
+            if (!(e instanceof InvariantViolationError)) {
+                this.rollback(snap)
+            }
+            throw e
         }
     }
 
@@ -499,117 +521,121 @@ export class ArgumentEngine<
         TPremise,
         TArg
     > {
-        if (this.premises.has(id)) {
-            throw new Error(`Premise "${id}" already exists.`)
-        }
-        const premiseData = {
-            ...extras,
-            id,
-            argumentId: this.argument.id,
-            argumentVersion: this.argument.version,
-        } as TOptionalChecksum<TPremise>
-        const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
-            premiseData,
-            {
-                argument: this.argument,
-                variables: this.variables,
-                expressionIndex: this.expressionIndex,
-            },
-            {
-                checksumConfig: this.checksumConfig,
-                positionConfig: this.positionConfig,
-                grammarConfig: this.grammarConfig,
+        return this.withValidation(() => {
+            if (this.premises.has(id)) {
+                throw new Error(`Premise "${id}" already exists.`)
             }
-        )
-        this.premises.set(id, pm)
-        this.wireCircularityCheck(pm)
-        this.wireEmptyBoundPremiseCheck(pm)
-        pm.setVariableIdsCallback(
-            () => new Set(this.variables.toArray().map((v) => v.id))
-        )
-        pm.setOnMutate(() => {
-            this.markDirty()
-            this.reactiveDirty.premiseIds.add(id)
-            this.notifySubscribers()
-        })
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedPremise(pm.toPremiseData())
-        this.markDirty()
-
-        if (this.conclusionPremiseId === undefined) {
-            this.conclusionPremiseId = id
-            collector.setRoles(this.getRoleState())
-        }
-
-        // Auto-create a premise-bound variable for this premise
-        if (!this.restoringFromSnapshot) {
-            const autoSymbol = symbol ?? this.generateUniqueSymbol()
-            const autoVariable = {
-                id: randomUUID(),
+            const premiseData = {
+                ...extras,
+                id,
                 argumentId: this.argument.id,
-                argumentVersion: this.argument.version as number,
-                symbol: autoSymbol,
-                boundPremiseId: id,
-                boundArgumentId: this.argument.id,
-                boundArgumentVersion: this.argument.version as number,
-            } as TOptionalChecksum<TPremiseBoundVariable>
-            const withChecksum = this.attachVariableChecksum({
-                ...autoVariable,
-            } as unknown as TOptionalChecksum<TVar>)
-            this.variables.addVariable(withChecksum)
-            collector.addedVariable(withChecksum)
-            this.markAllPremisesDirty()
-        }
+                argumentVersion: this.argument.version,
+            } as TOptionalChecksum<TPremise>
+            const pm = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
+                premiseData,
+                {
+                    argument: this.argument,
+                    variables: this.variables,
+                    expressionIndex: this.expressionIndex,
+                },
+                {
+                    checksumConfig: this.checksumConfig,
+                    positionConfig: this.positionConfig,
+                    grammarConfig: this.grammarConfig,
+                }
+            )
+            this.premises.set(id, pm)
+            this.wireCircularityCheck(pm)
+            this.wireEmptyBoundPremiseCheck(pm)
+            pm.setVariableIdsCallback(
+                () => new Set(this.variables.toArray().map((v) => v.id))
+            )
+            pm.setOnMutate(() => {
+                this.markDirty()
+                this.reactiveDirty.premiseIds.add(id)
+                this.notifySubscribers()
+            })
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.addedPremise(pm.toPremiseData())
+            this.markDirty()
 
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: pm,
-            changes,
-        }
+            if (this.conclusionPremiseId === undefined) {
+                this.conclusionPremiseId = id
+                collector.setRoles(this.getRoleState())
+            }
+
+            // Auto-create a premise-bound variable for this premise
+            if (!this.restoringFromSnapshot) {
+                const autoSymbol = symbol ?? this.generateUniqueSymbol()
+                const autoVariable = {
+                    id: randomUUID(),
+                    argumentId: this.argument.id,
+                    argumentVersion: this.argument.version as number,
+                    symbol: autoSymbol,
+                    boundPremiseId: id,
+                    boundArgumentId: this.argument.id,
+                    boundArgumentVersion: this.argument.version as number,
+                } as TOptionalChecksum<TPremiseBoundVariable>
+                const withChecksum = this.attachVariableChecksum({
+                    ...autoVariable,
+                } as unknown as TOptionalChecksum<TVar>)
+                this.variables.addVariable(withChecksum)
+                collector.addedVariable(withChecksum)
+                this.markAllPremisesDirty()
+            }
+
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: pm,
+                changes,
+            }
+        })
     }
 
     public removePremise(
         premiseId: string
     ): TCoreMutationResult<TPremise | undefined, TExpr, TVar, TPremise, TArg> {
-        const pm = this.premises.get(premiseId)
-        if (!pm) return { result: undefined, changes: {} }
-        const data = pm.toPremiseData()
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        // Clean up expression index for removed premise's expressions
-        for (const expr of pm.getExpressions()) {
-            this.expressionIndex.delete(expr.id)
-        }
-        this.premises.delete(premiseId)
-        collector.removedPremise(data)
-        if (this.conclusionPremiseId === premiseId) {
-            this.conclusionPremiseId = undefined
-            collector.setRoles(this.getRoleState())
-        }
-        // Cascade: remove variables bound to the deleted premise
-        const boundVars = this.getVariablesBoundToPremise(premiseId)
-        for (const v of boundVars) {
-            const removeResult = this.removeVariable(v.id)
-            if (removeResult.changes.variables) {
-                for (const rv of removeResult.changes.variables.removed) {
-                    collector.removedVariable(rv)
+        return this.withValidation(() => {
+            const pm = this.premises.get(premiseId)
+            if (!pm) return { result: undefined, changes: {} }
+            const data = pm.toPremiseData()
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            // Clean up expression index for removed premise's expressions
+            for (const expr of pm.getExpressions()) {
+                this.expressionIndex.delete(expr.id)
+            }
+            this.premises.delete(premiseId)
+            collector.removedPremise(data)
+            if (this.conclusionPremiseId === premiseId) {
+                this.conclusionPremiseId = undefined
+                collector.setRoles(this.getRoleState())
+            }
+            // Cascade: remove variables bound to the deleted premise
+            const boundVars = this.getVariablesBoundToPremise(premiseId)
+            for (const v of boundVars) {
+                const removeResult = this.removeVariableCore(v.id)
+                if (removeResult.changes.variables) {
+                    for (const rv of removeResult.changes.variables.removed) {
+                        collector.removedVariable(rv)
+                    }
+                }
+                if (removeResult.changes.expressions) {
+                    for (const re of removeResult.changes.expressions.removed) {
+                        collector.removedExpression(re)
+                    }
                 }
             }
-            if (removeResult.changes.expressions) {
-                for (const re of removeResult.changes.expressions.removed) {
-                    collector.removedExpression(re)
-                }
+            this.markDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: data,
+                changes,
             }
-        }
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: data,
-            changes,
-        }
+        })
     }
 
     public getPremise(
@@ -641,131 +667,141 @@ export class ArgumentEngine<
         variable: TOptionalChecksum<TClaimBoundVariable> &
             Record<string, unknown>
     ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
-        // Only claim-bound variables may be added via addVariable.
-        // Premise-bound variables must use bindVariableToPremise.
-        if (!isClaimBound(variable as unknown as TCorePropositionalVariable)) {
-            throw new Error(
-                "addVariable only accepts claim-bound variables. Use bindVariableToPremise for premise-bound variables."
-            )
-        }
-        if (variable.argumentId !== this.argument.id) {
-            throw new Error(
-                `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
-            )
-        }
-        if (variable.argumentVersion !== this.argument.version) {
-            throw new Error(
-                `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
-            )
-        }
-        // Validate claim reference
-        if (!this.claimLibrary.get(variable.claimId, variable.claimVersion)) {
-            throw new Error(
-                `Claim "${variable.claimId}" version ${variable.claimVersion} does not exist in the claim library.`
-            )
-        }
-        const withChecksum = this.attachVariableChecksum({
-            ...variable,
-        } as unknown as TOptionalChecksum<TVar>)
-        this.variables.addVariable(withChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedVariable(withChecksum)
-        this.markDirty()
-        this.markAllPremisesDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: withChecksum,
-            changes,
-        }
+        return this.withValidation(() => {
+            // Only claim-bound variables may be added via addVariable.
+            // Premise-bound variables must use bindVariableToPremise.
+            if (
+                !isClaimBound(variable as unknown as TCorePropositionalVariable)
+            ) {
+                throw new Error(
+                    "addVariable only accepts claim-bound variables. Use bindVariableToPremise for premise-bound variables."
+                )
+            }
+            if (variable.argumentId !== this.argument.id) {
+                throw new Error(
+                    `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
+                )
+            }
+            if (variable.argumentVersion !== this.argument.version) {
+                throw new Error(
+                    `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
+                )
+            }
+            // Validate claim reference
+            if (
+                !this.claimLibrary.get(variable.claimId, variable.claimVersion)
+            ) {
+                throw new Error(
+                    `Claim "${variable.claimId}" version ${variable.claimVersion} does not exist in the claim library.`
+                )
+            }
+            const withChecksum = this.attachVariableChecksum({
+                ...variable,
+            } as unknown as TOptionalChecksum<TVar>)
+            this.variables.addVariable(withChecksum)
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.addedVariable(withChecksum)
+            this.markDirty()
+            this.markAllPremisesDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: withChecksum,
+                changes,
+            }
+        })
     }
 
     public bindVariableToPremise(
         variable: TOptionalChecksum<TPremiseBoundVariable> &
             Record<string, unknown>
     ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
-        if (variable.argumentId !== this.argument.id) {
-            throw new Error(
-                `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
-            )
-        }
-        if (variable.argumentVersion !== this.argument.version) {
-            throw new Error(
-                `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
-            )
-        }
-        if (variable.boundArgumentId !== this.argument.id) {
-            throw new Error(
-                `Cross-argument bindings are not supported. boundArgumentId "${variable.boundArgumentId}" does not match engine argument ID "${this.argument.id}".`
-            )
-        }
-        if (!this.premises.has(variable.boundPremiseId)) {
-            throw new Error(
-                `Bound premise "${variable.boundPremiseId}" does not exist in this argument.`
-            )
-        }
-        const withChecksum = this.attachVariableChecksum({
-            ...variable,
-        } as unknown as TOptionalChecksum<TVar>)
-        this.variables.addVariable(withChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedVariable(withChecksum)
-        this.markDirty()
-        this.markAllPremisesDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: withChecksum,
-            changes,
-        }
+        return this.withValidation(() => {
+            if (variable.argumentId !== this.argument.id) {
+                throw new Error(
+                    `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
+                )
+            }
+            if (variable.argumentVersion !== this.argument.version) {
+                throw new Error(
+                    `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
+                )
+            }
+            if (variable.boundArgumentId !== this.argument.id) {
+                throw new Error(
+                    `Cross-argument bindings are not supported. boundArgumentId "${variable.boundArgumentId}" does not match engine argument ID "${this.argument.id}".`
+                )
+            }
+            if (!this.premises.has(variable.boundPremiseId)) {
+                throw new Error(
+                    `Bound premise "${variable.boundPremiseId}" does not exist in this argument.`
+                )
+            }
+            const withChecksum = this.attachVariableChecksum({
+                ...variable,
+            } as unknown as TOptionalChecksum<TVar>)
+            this.variables.addVariable(withChecksum)
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.addedVariable(withChecksum)
+            this.markDirty()
+            this.markAllPremisesDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: withChecksum,
+                changes,
+            }
+        })
     }
 
     public bindVariableToExternalPremise(
         variable: TOptionalChecksum<TPremiseBoundVariable> &
             Record<string, unknown>
     ): TCoreMutationResult<TVar, TExpr, TVar, TPremise, TArg> {
-        if (variable.argumentId !== this.argument.id) {
-            throw new Error(
-                `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
-            )
-        }
-        if (variable.argumentVersion !== this.argument.version) {
-            throw new Error(
-                `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
-            )
-        }
-        if (variable.boundArgumentId === this.argument.id) {
-            throw new Error(
-                `boundArgumentId matches this engine's argument — use bindVariableToPremise for internal bindings.`
-            )
-        }
-        if (
-            !this.canBind(
-                variable.boundArgumentId,
-                variable.boundArgumentVersion
-            )
-        ) {
-            throw new Error(
-                `Binding to argument "${variable.boundArgumentId}" version ${variable.boundArgumentVersion} is not allowed.`
-            )
-        }
-        const withChecksum = this.attachVariableChecksum({
-            ...variable,
-        } as unknown as TOptionalChecksum<TVar>)
-        this.variables.addVariable(withChecksum)
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.addedVariable(withChecksum)
-        this.markDirty()
-        this.markAllPremisesDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: withChecksum,
-            changes,
-        }
+        return this.withValidation(() => {
+            if (variable.argumentId !== this.argument.id) {
+                throw new Error(
+                    `Variable argumentId "${variable.argumentId}" does not match engine argument ID "${this.argument.id}".`
+                )
+            }
+            if (variable.argumentVersion !== this.argument.version) {
+                throw new Error(
+                    `Variable argumentVersion "${variable.argumentVersion}" does not match engine argument version "${this.argument.version}".`
+                )
+            }
+            if (variable.boundArgumentId === this.argument.id) {
+                throw new Error(
+                    `boundArgumentId matches this engine's argument — use bindVariableToPremise for internal bindings.`
+                )
+            }
+            if (
+                !this.canBind(
+                    variable.boundArgumentId,
+                    variable.boundArgumentVersion
+                )
+            ) {
+                throw new Error(
+                    `Binding to argument "${variable.boundArgumentId}" version ${variable.boundArgumentVersion} is not allowed.`
+                )
+            }
+            const withChecksum = this.attachVariableChecksum({
+                ...variable,
+            } as unknown as TOptionalChecksum<TVar>)
+            this.variables.addVariable(withChecksum)
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.addedVariable(withChecksum)
+            this.markDirty()
+            this.markAllPremisesDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: withChecksum,
+                changes,
+            }
+        })
     }
 
     public bindVariableToArgument(
@@ -786,98 +822,103 @@ export class ArgumentEngine<
         variableId: string,
         updates: Record<string, unknown>
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg> {
-        const existing = this.variables.getVariable(variableId)
-        if (!existing) {
-            return { result: undefined, changes: {} }
-        }
+        return this.withValidation(() => {
+            const existing = this.variables.getVariable(variableId)
+            if (!existing) {
+                return { result: undefined, changes: {} }
+            }
 
-        const existingVar = existing as unknown as TCorePropositionalVariable
-        const updatesObj = updates
+            const existingVar =
+                existing as unknown as TCorePropositionalVariable
+            const updatesObj = updates
 
-        // Reject binding-type conversion
-        if (isClaimBound(existingVar)) {
-            const premiseBoundFields = [
-                "boundPremiseId",
-                "boundArgumentId",
-                "boundArgumentVersion",
-            ] as const
-            for (const f of premiseBoundFields) {
-                if (updatesObj[f] !== undefined) {
+            // Reject binding-type conversion
+            if (isClaimBound(existingVar)) {
+                const premiseBoundFields = [
+                    "boundPremiseId",
+                    "boundArgumentId",
+                    "boundArgumentVersion",
+                ] as const
+                for (const f of premiseBoundFields) {
+                    if (updatesObj[f] !== undefined) {
+                        throw new Error(
+                            `Cannot set "${f}" on a claim-bound variable. Delete and re-create to change binding type.`
+                        )
+                    }
+                }
+                // Validate: claimId and claimVersion must be provided together
+                const hasClaimId = updatesObj.claimId !== undefined
+                const hasClaimVersion = updatesObj.claimVersion !== undefined
+                if (hasClaimId !== hasClaimVersion) {
                     throw new Error(
-                        `Cannot set "${f}" on a claim-bound variable. Delete and re-create to change binding type.`
+                        "claimId and claimVersion must be provided together."
                     )
                 }
-            }
-            // Validate: claimId and claimVersion must be provided together
-            const hasClaimId = updatesObj.claimId !== undefined
-            const hasClaimVersion = updatesObj.claimVersion !== undefined
-            if (hasClaimId !== hasClaimVersion) {
-                throw new Error(
-                    "claimId and claimVersion must be provided together."
-                )
-            }
-            // Validate claim reference if provided
-            if (hasClaimId && hasClaimVersion) {
-                if (
-                    !this.claimLibrary.get(
-                        updatesObj.claimId as string,
-                        updatesObj.claimVersion as number
-                    )
-                ) {
-                    throw new Error(
-                        `Claim "${String(updatesObj.claimId)}" version ${String(updatesObj.claimVersion)} does not exist in the claim library.`
-                    )
+                // Validate claim reference if provided
+                if (hasClaimId && hasClaimVersion) {
+                    if (
+                        !this.claimLibrary.get(
+                            updatesObj.claimId as string,
+                            updatesObj.claimVersion as number
+                        )
+                    ) {
+                        throw new Error(
+                            `Claim "${String(updatesObj.claimId)}" version ${String(updatesObj.claimVersion)} does not exist in the claim library.`
+                        )
+                    }
+                }
+            } else if (isPremiseBound(existingVar)) {
+                const claimBoundFields = ["claimId", "claimVersion"] as const
+                for (const f of claimBoundFields) {
+                    if (updatesObj[f] !== undefined) {
+                        throw new Error(
+                            `Cannot set "${f}" on a premise-bound variable. Delete and re-create to change binding type.`
+                        )
+                    }
+                }
+                // Validate boundPremiseId if provided
+                if (updatesObj.boundPremiseId !== undefined) {
+                    const newPremiseId = updatesObj.boundPremiseId as string
+                    if (!this.premises.has(newPremiseId)) {
+                        throw new Error(
+                            `Bound premise "${newPremiseId}" does not exist in this argument.`
+                        )
+                    }
                 }
             }
-        } else if (isPremiseBound(existingVar)) {
-            const claimBoundFields = ["claimId", "claimVersion"] as const
-            for (const f of claimBoundFields) {
-                if (updatesObj[f] !== undefined) {
-                    throw new Error(
-                        `Cannot set "${f}" on a premise-bound variable. Delete and re-create to change binding type.`
-                    )
-                }
-            }
-            // Validate boundPremiseId if provided
-            if (updatesObj.boundPremiseId !== undefined) {
-                const newPremiseId = updatesObj.boundPremiseId as string
-                if (!this.premises.has(newPremiseId)) {
-                    throw new Error(
-                        `Bound premise "${newPremiseId}" does not exist in this argument.`
-                    )
-                }
-            }
-        }
 
-        const updated = this.variables.updateVariable(
-            variableId,
-            updates as Partial<TVar>
-        )
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        if (updated) {
-            const withChecksum = this.attachVariableChecksum({ ...updated })
-            // Re-store with updated checksum so VariableManager always holds
-            // variables with correct checksums.
-            this.variables.removeVariable(variableId)
-            this.variables.addVariable(withChecksum)
-            collector.modifiedVariable(withChecksum)
-            this.markDirty()
-            this.markAllPremisesDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const updated = this.variables.updateVariable(
+                variableId,
+                updates as Partial<TVar>
+            )
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            if (updated) {
+                const withChecksum = this.attachVariableChecksum({
+                    ...updated,
+                })
+                // Re-store with updated checksum so VariableManager always holds
+                // variables with correct checksums.
+                this.variables.removeVariable(variableId)
+                this.variables.addVariable(withChecksum)
+                collector.modifiedVariable(withChecksum)
+                this.markDirty()
+                this.markAllPremisesDirty()
+                const changes = collector.toChangeset()
+                this.markReactiveDirty(changes)
+                this.notifySubscribers()
+                return {
+                    result: withChecksum,
+                    changes,
+                }
+            }
             return {
-                result: withChecksum,
-                changes,
+                result: undefined,
+                changes: collector.toChangeset(),
             }
-        }
-        return {
-            result: undefined,
-            changes: collector.toChangeset(),
-        }
+        })
     }
 
-    public removeVariable(
+    private removeVariableCore(
         variableId: string
     ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg> {
         const variable = this.variables.getVariable(variableId)
@@ -908,6 +949,14 @@ export class ArgumentEngine<
             result: variable,
             changes,
         }
+    }
+
+    public removeVariable(
+        variableId: string
+    ): TCoreMutationResult<TVar | undefined, TExpr, TVar, TPremise, TArg> {
+        return this.withValidation(() => {
+            return this.removeVariableCore(variableId)
+        })
     }
 
     public getVariables(): TVar[] {
@@ -1014,22 +1063,24 @@ export class ArgumentEngine<
         TPremise,
         TArg
     > {
-        const premise = this.premises.get(premiseId)
-        if (!premise) {
-            throw new Error(`Premise "${premiseId}" does not exist.`)
-        }
-        this.conclusionPremiseId = premiseId
-        const roles = this.getRoleState()
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.setRoles(roles)
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: roles,
-            changes,
-        }
+        return this.withValidation(() => {
+            const premise = this.premises.get(premiseId)
+            if (!premise) {
+                throw new Error(`Premise "${premiseId}" does not exist.`)
+            }
+            this.conclusionPremiseId = premiseId
+            const roles = this.getRoleState()
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.setRoles(roles)
+            this.markDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: roles,
+                changes,
+            }
+        })
     }
 
     public clearConclusionPremise(): TCoreMutationResult<
@@ -1039,18 +1090,20 @@ export class ArgumentEngine<
         TPremise,
         TArg
     > {
-        this.conclusionPremiseId = undefined
-        const roles = this.getRoleState()
-        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
-        collector.setRoles(roles)
-        this.markDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
-        return {
-            result: roles,
-            changes,
-        }
+        return this.withValidation(() => {
+            this.conclusionPremiseId = undefined
+            const roles = this.getRoleState()
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            collector.setRoles(roles)
+            this.markDirty()
+            const changes = collector.toChangeset()
+            this.markReactiveDirty(changes)
+            this.notifySubscribers()
+            return {
+                result: roles,
+                changes,
+            }
+        })
     }
 
     public getConclusionPremise():
@@ -1677,6 +1730,11 @@ export class ArgumentEngine<
 
     private markDirty(): void {
         this.checksumDirty = true
+        this.cachedMetaChecksum = undefined
+        this.cachedDescendantChecksum = undefined
+        this.cachedCombinedChecksum = undefined
+        this.cachedPremisesCollectionChecksum = undefined
+        this.cachedVariablesCollectionChecksum = undefined
     }
 
     /** Invalidate all premise checksums (e.g. after variable changes). */
