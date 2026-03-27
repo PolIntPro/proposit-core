@@ -83,6 +83,10 @@ import {
     EXPR_CHILD_LIMIT_EXCEEDED,
     EXPR_POSITION_DUPLICATE,
     EXPR_CHECKSUM_MISMATCH,
+    VAR_SCHEMA_INVALID,
+    VAR_DUPLICATE_ID,
+    VAR_DUPLICATE_SYMBOL,
+    VAR_CHECKSUM_MISMATCH,
 } from "../src/lib/types/validation"
 import {
     ParsedClaimSchema,
@@ -19241,6 +19245,147 @@ describe("ExpressionManager — validate", () => {
         ).toBe(true)
         expect(
             result.violations.some((v) => v.code === EXPR_CHILD_LIMIT_EXCEEDED)
+        ).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// VariableManager — validate
+// ---------------------------------------------------------------------------
+
+describe("VariableManager — validate", () => {
+    it("returns ok for a valid set of variables", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        eng.addVariable(makeVar("var-q", "Q"))
+        const vm = (eng as unknown as { variables: VariableManager }).variables
+        const result = vm.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("returns ok for an empty manager", () => {
+        const vm = new VariableManager()
+        const result = vm.validate()
+        expect(result.ok).toBe(true)
+        expect(result.violations).toHaveLength(0)
+    })
+
+    it("detects checksum mismatch after snapshot tampering", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(makeVar("var-p", "P"))
+        const snap = (
+            eng as unknown as { variables: VariableManager }
+        ).variables.snapshot()
+
+        // Tamper the checksum of the variable in the snapshot
+        snap.variables[0] = { ...snap.variables[0], checksum: "deadbeef" }
+
+        const vm = VariableManager.fromSnapshot(snap)
+        const result = vm.validate()
+        expect(result.ok).toBe(false)
+        expect(
+            result.violations.some((v) => v.code === VAR_CHECKSUM_MISMATCH)
+        ).toBe(true)
+        expect(result.violations[0].entityId).toBe("var-p")
+    })
+
+    it("detects schema violation", () => {
+        const vm = new VariableManager()
+        // Bypass addVariable to inject a malformed variable directly
+        const map = (vm as unknown as { variables: Map<string, unknown> })
+            .variables
+        const symbolIndex = (
+            vm as unknown as { variablesBySymbol: Map<string, string> }
+        ).variablesBySymbol
+        const bad = {
+            id: "var-bad",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "X",
+            // Missing claimId/claimVersion and boundPremiseId/boundArgumentId/boundArgumentVersion
+            // so it doesn't satisfy either union branch
+            checksum: "",
+        }
+        map.set("var-bad", bad)
+        symbolIndex.set("X", "var-bad")
+        const result = vm.validate()
+        expect(result.ok).toBe(false)
+        expect(
+            result.violations.some((v) => v.code === VAR_SCHEMA_INVALID)
+        ).toBe(true)
+    })
+
+    it("detects duplicate ID injected after bypass", () => {
+        // Maps cannot have duplicate keys, so we simulate a corrupt state by
+        // temporarily overriding toArray() to return an array with repeated IDs.
+        const dupVars: TClaimBoundVariable[] = [
+            {
+                id: "var-dup",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                symbol: "P",
+                claimId: "claim-default",
+                claimVersion: 0,
+                checksum: "",
+            },
+            {
+                id: "var-dup",
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                symbol: "Q",
+                claimId: "claim-default",
+                claimVersion: 0,
+                checksum: "",
+            },
+        ]
+        const vm = new VariableManager()
+        const origToArray = vm.toArray.bind(vm)
+        ;(vm as unknown as { toArray: () => TClaimBoundVariable[] }).toArray =
+            () => dupVars
+        const result = vm.validate()
+        ;(vm as unknown as { toArray: () => TClaimBoundVariable[] }).toArray =
+            origToArray
+        expect(result.ok).toBe(false)
+        expect(result.violations.some((v) => v.code === VAR_DUPLICATE_ID)).toBe(
+            true
+        )
+    })
+
+    it("detects duplicate symbol injected after bypass", () => {
+        const vm = new VariableManager()
+        // Bypass addVariable to inject a malformed variable directly
+        const map = (vm as unknown as { variables: Map<string, unknown> })
+            .variables
+        const symbolIndex = (
+            vm as unknown as { variablesBySymbol: Map<string, string> }
+        ).variablesBySymbol
+        // Two variables with the same symbol "P" injected directly
+        const v1: TClaimBoundVariable = {
+            id: "var-1",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        }
+        const v2: TClaimBoundVariable = {
+            id: "var-2",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+            checksum: "",
+        }
+        map.set("var-1", v1)
+        map.set("var-2", v2)
+        symbolIndex.set("P", "var-2")
+        const result = vm.validate()
+        expect(result.ok).toBe(false)
+        expect(
+            result.violations.some((v) => v.code === VAR_DUPLICATE_SYMBOL)
         ).toBe(true)
     })
 })
