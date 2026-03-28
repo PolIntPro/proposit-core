@@ -5,7 +5,9 @@ import {
     ClaimLibrary,
     SourceLibrary,
     mergeChangesets,
+    orderChangeset,
 } from "../src/lib/index"
+import type { TOrderedOperation } from "../src/lib/index"
 import { ClaimSourceLibrary } from "../src/lib/core/claim-source-library"
 import type { TReactiveSnapshot } from "../src/lib/index"
 import { Value } from "typebox/value"
@@ -21400,5 +21402,406 @@ describe("mergeChangesets", () => {
         }
         const result = mergeChangesets(a, b)
         expect(result.expressions).toBeUndefined()
+    })
+})
+
+describe("orderChangeset", () => {
+    // Helper: extract entity names from operation list in order
+    const opSummary = (ops: TOrderedOperation[]) =>
+        ops.map((op) => `${op.type}:${op.entity}`)
+
+    it("returns empty array for empty changeset", () => {
+        const result = orderChangeset({})
+        expect(result).toEqual([])
+    })
+
+    it("orders deletes in reverse FK order: expressions → variables → premises", () => {
+        const changeset: TCoreChangeset = {
+            premises: {
+                added: [],
+                modified: [],
+                removed: [
+                    {
+                        id: "p1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+            variables: {
+                added: [],
+                modified: [],
+                removed: [
+                    {
+                        id: "v1",
+                        symbol: "P",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        claimId: "cl",
+                        claimVersion: 0,
+                        checksum: "c",
+                    },
+                ],
+            },
+            expressions: {
+                added: [],
+                modified: [],
+                removed: [
+                    {
+                        id: "e1",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const summary = opSummary(ops)
+        const deleteExpr = summary.indexOf("delete:expression")
+        const deleteVar = summary.indexOf("delete:variable")
+        const deletePremise = summary.indexOf("delete:premise")
+        expect(deleteExpr).toBeLessThan(deleteVar)
+        expect(deleteVar).toBeLessThan(deletePremise)
+    })
+
+    it("orders inserts in FK-safe order: premises → variables → expressions", () => {
+        const changeset: TCoreChangeset = {
+            premises: {
+                added: [
+                    {
+                        id: "p1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+            variables: {
+                added: [
+                    {
+                        id: "v1",
+                        symbol: "P",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        claimId: "cl",
+                        claimVersion: 0,
+                        checksum: "c",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+            expressions: {
+                added: [
+                    {
+                        id: "e1",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const summary = opSummary(ops)
+        const insertPremise = summary.indexOf("insert:premise")
+        const insertVar = summary.indexOf("insert:variable")
+        const insertExpr = summary.indexOf("insert:expression")
+        expect(insertPremise).toBeLessThan(insertVar)
+        expect(insertVar).toBeLessThan(insertExpr)
+    })
+
+    it("orders premise updates before deletes", () => {
+        const changeset: TCoreChangeset = {
+            premises: {
+                added: [],
+                modified: [
+                    {
+                        id: "p1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        checksum: "c2",
+                        descendantChecksum: null,
+                        combinedChecksum: "c2",
+                    },
+                ],
+                removed: [
+                    {
+                        id: "p2",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+            expressions: {
+                added: [],
+                modified: [],
+                removed: [
+                    {
+                        id: "e1",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p2",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const summary = opSummary(ops)
+        const updatePremise = summary.indexOf("update:premise")
+        const deleteExpr = summary.indexOf("delete:expression")
+        expect(updatePremise).toBeLessThan(deleteExpr)
+    })
+
+    it("topologically sorts inserted expressions so parents come before children", () => {
+        const changeset: TCoreChangeset = {
+            expressions: {
+                added: [
+                    {
+                        id: "child",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: "parent",
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                    {
+                        id: "parent",
+                        type: "operator",
+                        operator: "and",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: "d",
+                        combinedChecksum: "cd",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const insertOps = ops.filter(
+            (op) => op.type === "insert" && op.entity === "expression"
+        )
+        expect(insertOps).toHaveLength(2)
+        expect(insertOps[0].data.id).toBe("parent")
+        expect(insertOps[1].data.id).toBe("child")
+    })
+
+    it("topologically sorts 3-level deep inserted expressions", () => {
+        const changeset: TCoreChangeset = {
+            expressions: {
+                added: [
+                    {
+                        id: "grandchild",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: "child",
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                    {
+                        id: "root",
+                        type: "operator",
+                        operator: "and",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: "d",
+                        combinedChecksum: "cd",
+                    },
+                    {
+                        id: "child",
+                        type: "formula",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: "root",
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: "d",
+                        combinedChecksum: "cd",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const insertOps = ops.filter(
+            (op) => op.type === "insert" && op.entity === "expression"
+        )
+        expect(insertOps.map((op) => op.data.id)).toEqual([
+            "root",
+            "child",
+            "grandchild",
+        ])
+    })
+
+    it("puts deletes before inserts", () => {
+        const changeset: TCoreChangeset = {
+            expressions: {
+                added: [
+                    {
+                        id: "e2",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+                modified: [],
+                removed: [
+                    {
+                        id: "e1",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const summary = opSummary(ops)
+        const deleteIdx = summary.indexOf("delete:expression")
+        const insertIdx = summary.indexOf("insert:expression")
+        expect(deleteIdx).toBeLessThan(insertIdx)
+    })
+
+    it("reverse-topologically sorts deleted expressions so children come before parents", () => {
+        const changeset: TCoreChangeset = {
+            expressions: {
+                added: [],
+                modified: [],
+                removed: [
+                    {
+                        id: "parent",
+                        type: "operator",
+                        operator: "and",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: null,
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: "d",
+                        combinedChecksum: "cd",
+                    },
+                    {
+                        id: "child",
+                        type: "variable",
+                        variableId: "v1",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        premiseId: "p1",
+                        parentId: "parent",
+                        position: 1,
+                        checksum: "c",
+                        descendantChecksum: null,
+                        combinedChecksum: "c",
+                    },
+                ],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const deleteOps = ops.filter(
+            (op) => op.type === "delete" && op.entity === "expression"
+        )
+        expect(deleteOps).toHaveLength(2)
+        expect(deleteOps[0].data.id).toBe("child")
+        expect(deleteOps[1].data.id).toBe("parent")
+    })
+
+    it("includes argument and roles updates at the end", () => {
+        const changeset: TCoreChangeset = {
+            roles: { conclusionPremiseId: "p1" },
+            argument: { id: "a1", version: 1 } as TCoreArgument,
+            variables: {
+                added: [
+                    {
+                        id: "v1",
+                        symbol: "P",
+                        argumentId: "a",
+                        argumentVersion: 0,
+                        claimId: "cl",
+                        claimVersion: 0,
+                        checksum: "c",
+                    },
+                ],
+                modified: [],
+                removed: [],
+            },
+        }
+        const ops = orderChangeset(changeset)
+        const summary = opSummary(ops)
+        const insertVar = summary.indexOf("insert:variable")
+        const updateArg = summary.indexOf("update:argument")
+        const updateRoles = summary.indexOf("update:roles")
+        expect(insertVar).toBeLessThan(updateArg)
+        expect(insertVar).toBeLessThan(updateRoles)
     })
 })

@@ -19,7 +19,8 @@ export { ClaimSourceLibrary } from "./core/claim-source-library.js"
 export * from "./types/evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
-export { mergeChangesets } from "./utils/changeset.js"
+export { mergeChangesets, orderChangeset } from "./utils/changeset.js"
+export type { TOrderedOperation } from "./utils/changeset.js"
 export * from "./types/checksum.js"
 export {
     computeHash,
