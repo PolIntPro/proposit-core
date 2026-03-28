@@ -28,6 +28,12 @@ export const CoreArgumentSchema = Type.Object(
                     "The version of the argument this was forked from, or null if not a fork.",
             })
         ),
+        forkId: Type.Optional(
+            Nullable(UUID, {
+                description:
+                    "References the fork record this entity belongs to, or null if not from a fork.",
+            })
+        ),
     },
     {
         additionalProperties: true,

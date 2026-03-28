@@ -21896,4 +21896,30 @@ describe("ForksLibrary", () => {
         }
         expect(Value.Check(CoreForkSchema, fork)).toBe(false)
     })
+
+    it("DEFAULT_CHECKSUM_CONFIG includes forkId in argument fields", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.argumentFields).toContain("forkId")
+    })
+
+    it("DEFAULT_CHECKSUM_CONFIG includes forkId in premise fields", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.premiseFields).toContain("forkId")
+    })
+
+    it("DEFAULT_CHECKSUM_CONFIG includes forkId in expression fields", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.expressionFields).toContain("forkId")
+    })
+
+    it("DEFAULT_CHECKSUM_CONFIG includes forkId in variable fields", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.variableFields).toContain("forkId")
+    })
+
+    it("DEFAULT_CHECKSUM_CONFIG has forkFields", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toBeDefined()
+        expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toContain("id")
+        expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toContain("sourceArgumentId")
+        expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toContain(
+            "sourceArgumentVersion"
+        )
+        expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toContain("createdOn")
+    })
 })

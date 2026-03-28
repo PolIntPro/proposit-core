@@ -65,6 +65,12 @@ const BasePropositionalExpressionSchema = Type.Object({
                 "The argument version of the expression this was forked from, or null if not a fork.",
         })
     ),
+    forkId: Type.Optional(
+        Nullable(UUID, {
+            description:
+                "References the fork record this expression belongs to, or null if not from a fork.",
+        })
+    ),
 })
 
 export const CorePropositionalVariableExpressionSchema = Type.Interface(
@@ -149,6 +155,12 @@ const CoreVariableBaseFields = {
         Nullable(Type.Number(), {
             description:
                 "The argument version of the variable this was forked from, or null if not a fork.",
+        })
+    ),
+    forkId: Type.Optional(
+        Nullable(UUID, {
+            description:
+                "References the fork record this variable belongs to, or null if not from a fork.",
         })
     ),
 }
@@ -254,6 +266,12 @@ export const CorePremiseSchema = Type.Object(
             Nullable(Type.Number(), {
                 description:
                     "The argument version of the premise this was forked from, or null if not a fork.",
+            })
+        ),
+        forkId: Type.Optional(
+            Nullable(UUID, {
+                description:
+                    "References the fork record this premise belongs to, or null if not from a fork.",
             })
         ),
     },
