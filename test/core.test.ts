@@ -13,6 +13,7 @@ import {
 } from "../src/lib/index"
 import type { TOrderedOperation } from "../src/lib/index"
 import { ClaimSourceLibrary } from "../src/lib/core/claim-source-library"
+import { ForksLibrary } from "../src/lib/core/forks-library"
 import type { TReactiveSnapshot } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
@@ -21921,5 +21922,122 @@ describe("ForksLibrary", () => {
             "sourceArgumentVersion"
         )
         expect(DEFAULT_CHECKSUM_CONFIG.forkFields).toContain("createdOn")
+    })
+
+    it("create() stores a fork record and computes checksum", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 3,
+            createdOn: "2026-03-28T12:00:00.000Z",
+        })
+        const fork = lib.get("fork-1")
+        expect(fork).toBeDefined()
+        expect(fork!.id).toBe("fork-1")
+        expect(fork!.sourceArgumentId).toBe("arg-1")
+        expect(fork!.sourceArgumentVersion).toBe(3)
+        expect(fork!.checksum).toBeDefined()
+        expect(typeof fork!.checksum).toBe("string")
+        expect(fork!.checksum.length).toBeGreaterThan(0)
+    })
+
+    it("create() stores a fork with optional creatorId", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 0,
+            createdOn: "2026-03-28T12:00:00.000Z",
+            creatorId: "user-42",
+        })
+        const fork = lib.get("fork-1")
+        expect(fork!.creatorId).toBe("user-42")
+    })
+
+    it("create() throws on duplicate ID", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 0,
+            createdOn: "2026-03-28T12:00:00.000Z",
+        })
+        expect(() =>
+            lib.create({
+                id: "fork-1",
+                sourceArgumentId: "arg-2",
+                sourceArgumentVersion: 1,
+                createdOn: "2026-03-28T13:00:00.000Z",
+            })
+        ).toThrow()
+    })
+
+    it("get() returns undefined for missing ID", () => {
+        const lib = new ForksLibrary()
+        expect(lib.get("nonexistent")).toBeUndefined()
+    })
+
+    it("getAll() returns all fork records", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 0,
+            createdOn: "2026-03-28T12:00:00.000Z",
+        })
+        lib.create({
+            id: "fork-2",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 1,
+            createdOn: "2026-03-28T13:00:00.000Z",
+        })
+        expect(lib.getAll()).toHaveLength(2)
+    })
+
+    it("remove() deletes a fork record", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 0,
+            createdOn: "2026-03-28T12:00:00.000Z",
+        })
+        lib.remove("fork-1")
+        expect(lib.get("fork-1")).toBeUndefined()
+        expect(lib.getAll()).toHaveLength(0)
+    })
+
+    it("remove() throws for missing ID", () => {
+        const lib = new ForksLibrary()
+        expect(() => lib.remove("nonexistent")).toThrow()
+    })
+
+    it("snapshot() and fromSnapshot() round-trip preserves records", () => {
+        const lib = new ForksLibrary()
+        lib.create({
+            id: "fork-1",
+            sourceArgumentId: "arg-1",
+            sourceArgumentVersion: 0,
+            createdOn: "2026-03-28T12:00:00.000Z",
+        })
+        lib.create({
+            id: "fork-2",
+            sourceArgumentId: "arg-2",
+            sourceArgumentVersion: 1,
+            createdOn: "2026-03-28T13:00:00.000Z",
+            creatorId: "user-42",
+        })
+
+        const snap = lib.snapshot()
+        const restored = ForksLibrary.fromSnapshot(snap)
+
+        expect(restored.getAll()).toHaveLength(2)
+        const f1 = restored.get("fork-1")!
+        expect(f1.sourceArgumentId).toBe("arg-1")
+        expect(f1.checksum).toBe(lib.get("fork-1")!.checksum)
+        const f2 = restored.get("fork-2")!
+        expect(f2.creatorId).toBe("user-42")
+        expect(f2.checksum).toBe(lib.get("fork-2")!.checksum)
     })
 })

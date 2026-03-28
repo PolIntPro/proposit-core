@@ -6,6 +6,7 @@ export type TInvariantViolationEntityType =
     | "claim"
     | "source"
     | "association"
+    | "fork"
 
 export type TInvariantViolation = {
     code: string
@@ -67,3 +68,6 @@ export const ASSOC_SCHEMA_INVALID = "ASSOC_SCHEMA_INVALID"
 export const ASSOC_DUPLICATE_ID = "ASSOC_DUPLICATE_ID"
 export const ASSOC_CLAIM_REF_NOT_FOUND = "ASSOC_CLAIM_REF_NOT_FOUND"
 export const ASSOC_SOURCE_REF_NOT_FOUND = "ASSOC_SOURCE_REF_NOT_FOUND"
+
+// -- ForksLibrary codes --
+export const FORK_SCHEMA_INVALID = "FORK_SCHEMA_INVALID"
