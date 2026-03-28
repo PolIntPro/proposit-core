@@ -176,17 +176,18 @@ The auto-created variable gets a symbol from an optional `symbol` parameter, or 
 
 ### Argument forking
 
-An argument can be **forked** via `forkArgument()` to create an independent copy — useful for responding to, critiquing, or expanding on another author's argument. Forking:
+An argument can be **forked** via `ForksLibrary.forkArgument()` to create an independent copy — useful for responding to, critiquing, or expanding on another author's argument. Forking:
 
 - Creates a new argument with a new ID (version 0)
 - Assigns new UUIDs to all premises, expressions, and variables
 - Stamps `forkedFrom` provenance metadata on every entity, pointing back to the originals
+- Records a `TCoreFork` record in the `ForksLibrary` and stamps `forkId` on all forked entities
 - Remaps all internal references (expression parent chains, variable bindings, conclusion role)
-- Returns the new engine and a remap table mapping original IDs to new IDs
+- Returns the new engine, a remap table mapping original IDs to new IDs, and the fork record
 
 The forked argument is fully independent — mutations don't affect the source. The `createForkedFromMatcher()` helper enables fork-aware diffing via `diffArguments()`, pairing entities by their provenance metadata rather than by ID.
 
-Subclasses can override the protected `canFork()` method to restrict which arguments may be forked (e.g., only published versions).
+Subclasses can override the public `canFork()` method to restrict which arguments may be forked (e.g., only published versions). For low-level forking without fork record management, use the standalone `forkArgumentEngine()` function.
 
 ### Cross-argument variable binding
 
@@ -554,12 +555,18 @@ console.log(premise1.toDisplayString()) // (P → Q)
 
 ```typescript
 // Fork John's argument to create Rich's response
-const { engine: richArg, remapTable } = johnEngine.forkArgument(
-    "rich-arg-id",
+import { ForksLibrary } from "@polintpro/proposit-core"
+
+const forksLib = new ForksLibrary()
+const {
+    engine: richArg,
+    remapTable,
+    fork,
+} = forksLib.forkArgument(johnEngine, "rich-arg-id", {
     claimLibrary,
     sourceLibrary,
-    claimSourceLibrary
-)
+    claimSourceLibrary,
+})
 
 // Rich now has a mutable copy — modify, add, or remove premises
 const forkedPremiseId = remapTable.premises.get(originalPremiseId)!
