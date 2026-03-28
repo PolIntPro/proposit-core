@@ -10,6 +10,7 @@ import {
     EMPTY_CLAIM_LOOKUP,
     EMPTY_SOURCE_LOOKUP,
     EMPTY_CLAIM_SOURCE_LOOKUP,
+    forkArgumentEngine,
 } from "../src/lib/index"
 import type { TOrderedOperation } from "../src/lib/index"
 import { ClaimSourceLibrary } from "../src/lib/core/claim-source-library"
@@ -22039,5 +22040,117 @@ describe("ForksLibrary", () => {
         const f2 = restored.get("fork-2")!
         expect(f2.creatorId).toBe("user-42")
         expect(f2.checksum).toBe(lib.get("fork-2")!.checksum)
+    })
+})
+
+describe("forkArgumentEngine", () => {
+    it("produces identical results to the engine method", () => {
+        const claimLib = aLib()
+        const sourceLib = sLib()
+        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
+
+        const eng = new ArgumentEngine(
+            { id: "src-arg", version: 2 },
+            claimLib,
+            sourceLib,
+            csLibrary
+        )
+
+        eng.addVariable({
+            id: "var-p",
+            argumentId: "src-arg",
+            argumentVersion: 2,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+        } as TClaimBoundVariable)
+
+        const { result: pm } = eng.createPremiseWithId("prem-1")
+        pm.addExpression({
+            id: "expr-1",
+            argumentId: "src-arg",
+            argumentVersion: 2,
+            premiseId: "prem-1",
+            type: "variable",
+            variableId: "var-p",
+            parentId: null,
+            position: POSITION_INITIAL,
+        })
+
+        eng.setConclusionPremise("prem-1")
+
+        const forkClaimLib = aLib()
+        const forkSourceLib = sLib()
+        const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
+
+        let counter = 0
+        const { engine: forked, remapTable } = forkArgumentEngine(
+            eng,
+            "fork-arg",
+            {
+                claimLibrary: forkClaimLib,
+                sourceLibrary: forkSourceLib,
+                claimSourceLibrary: forkCsLib,
+            },
+            { generateId: () => `fk-${counter++}` }
+        )
+
+        // Verify argument identity and forkedFrom
+        const forkedArg = forked.getArgument()
+        expect(forkedArg.id).toBe("fork-arg")
+        expect(forkedArg.version).toBe(0)
+        expect(forkedArg.forkedFromArgumentId).toBe("src-arg")
+        expect(forkedArg.forkedFromArgumentVersion).toBe(2)
+
+        // Verify remap table
+        expect(remapTable.argumentId).toEqual({
+            from: "src-arg",
+            to: "fork-arg",
+        })
+        expect(remapTable.premises.size).toBe(1)
+        expect(remapTable.expressions.size).toBe(1)
+        expect(remapTable.variables.size).toBe(2) // var-p + auto premise-bound
+
+        // Verify premise forkedFrom
+        const forkedPremise = forked.listPremises()[0]
+        const forkedPremiseData = forkedPremise.snapshot().premise
+        expect(forkedPremiseData.forkedFromPremiseId).toBe("prem-1")
+
+        // Verify expression forkedFrom
+        const forkedExpr = forkedPremise.getExpressions()[0]
+        expect(forkedExpr.forkedFromExpressionId).toBe("expr-1")
+
+        // Verify variable forkedFrom
+        const forkedVar = forked
+            .getVariables()
+            .find((v) => v.id === remapTable.variables.get("var-p"))!
+        expect(forkedVar.forkedFromVariableId).toBe("var-p")
+
+        // Verify conclusion remapped
+        expect(forked.getConclusionPremise()?.getId()).toBe(
+            remapTable.premises.get("prem-1")
+        )
+
+        // Verify independence
+        forked.createPremise()
+        expect(eng.listPremises()).toHaveLength(1)
+        expect(forked.listPremises()).toHaveLength(2)
+    })
+
+    it("does not call canFork()", () => {
+        class NoForkEngine extends ArgumentEngine {
+            protected override canFork(): boolean {
+                return false
+            }
+        }
+        const eng = new NoForkEngine(ARG, aLib(), sLib(), csLib())
+        // Standalone function should NOT check canFork
+        expect(() =>
+            forkArgumentEngine(eng, "new-arg", {
+                claimLibrary: aLib(),
+                sourceLibrary: sLib(),
+                claimSourceLibrary: csLib(),
+            })
+        ).not.toThrow()
     })
 })
