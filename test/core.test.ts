@@ -20841,9 +20841,7 @@ describe("Changeset includes ancestor checksum updates", () => {
         expect(modifiedAnd.descendantChecksum).toBe(
             inMemoryAnd.descendantChecksum
         )
-        expect(modifiedAnd.combinedChecksum).toBe(
-            inMemoryAnd.combinedChecksum
-        )
+        expect(modifiedAnd.combinedChecksum).toBe(inMemoryAnd.combinedChecksum)
     })
 
     it("addExpression includes all ancestors up to root in modified", () => {
