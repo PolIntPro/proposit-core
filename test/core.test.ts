@@ -22244,6 +22244,65 @@ describe("ForksLibrary", () => {
             expect(forked.listPremises()).toHaveLength(1)
             expect(forked.getArgument().forkId).toBe(fork.id)
         })
+
+        it("createForkedFromMatcher() works with ForksLibrary-forked engines", () => {
+            const claimLib = aLib()
+            const sourceLib = sLib()
+            const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
+            const eng = new ArgumentEngine(
+                { id: "src-arg", version: 0 },
+                claimLib,
+                sourceLib,
+                csLibrary
+            )
+
+            eng.addVariable({
+                id: "var-p",
+                argumentId: "src-arg",
+                argumentVersion: 0,
+                symbol: "P",
+                claimId: "claim-default",
+                claimVersion: 0,
+            } as TClaimBoundVariable)
+
+            const { result: pm } = eng.createPremiseWithId("prem-1")
+            pm.addExpression({
+                id: "expr-1",
+                argumentId: "src-arg",
+                argumentVersion: 0,
+                premiseId: "prem-1",
+                type: "variable",
+                variableId: "var-p",
+                parentId: null,
+                position: POSITION_INITIAL,
+            })
+
+            const forksLib = new ForksLibrary()
+            const forkClaimLib = aLib()
+            const forkSourceLib = sLib()
+            const forkCsLib = new ClaimSourceLibrary(
+                forkClaimLib,
+                forkSourceLib
+            )
+
+            const { engine: forked } = forksLib.forkArgument(eng, "fork-arg", {
+                claimLibrary: forkClaimLib,
+                sourceLibrary: forkSourceLib,
+                claimSourceLibrary: forkCsLib,
+            })
+
+            // Diff with forked-from matchers
+            const matchers = createForkedFromMatcher()
+            const diff = diffArguments(eng, forked, { ...matchers })
+
+            // Premises should be paired (not added/removed)
+            expect(diff.premises.added).toHaveLength(0)
+            expect(diff.premises.removed).toHaveLength(0)
+
+            // Variables should be paired
+            expect(diff.variables.added).toHaveLength(0)
+            expect(diff.variables.removed).toHaveLength(0)
+        })
     })
 })
 
