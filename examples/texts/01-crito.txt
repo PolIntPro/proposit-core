@@ -1,6 +1,6 @@
 Plato, Crito (translated by Benjamin Jowett)
 
-PERSONS OF THE DIALOGUE:Socrates, Crito.
+PERSONS OF THE DIALOGUE: Socrates, Crito.
 
 SCENE: The Prison of Socrates.
 
@@ -71,7 +71,7 @@ CRITO: And what was the nature of the vision?
 SOCRATES: There appeared to me the likeness of a woman, fair and comely,
 clothed in bright raiment, who called to me and said: O Socrates,
 
-‘The third day hence to fertile Phthia shalt thou go.’�3
+‘The third day hence to fertile Phthia shalt thou go.’ [3]
 
 CRITO: What a singular dream, Socrates!
 
@@ -120,7 +120,7 @@ about spending all mine, here are strangers who will give you the use of
 theirs; and one of them, Simmias the Theban, has brought a large sum of
 money for this very purpose; and Cebes and many others are prepared to
 spend their money in helping you to escape. I say, therefore, do not
-hesitate on our account, and do not say, as you did in the court�4
+hesitate on our account, and do not say, as you did in the court, [4]
 that you will have a difficulty in knowing what to do with yourself
 anywhere else. For men will love you in other places to which you may go,
 and not in Athens only; there are friends of mine in Thessaly, if you like
@@ -160,7 +160,7 @@ words: the principles which I have hitherto honoured and revered I still
 honour, and unless we can at once find other and better principles, I am
 certain not to agree with you; no, not even if the power of the multitude
 could inflict many more imprisonments, confiscations, deaths, frightening
-us like children with hobgoblin terrors.�5 What will be the
+us like children with hobgoblin terrors. [5] What will be the
 fairest way of considering the question? Shall I return to your old
 argument about the opinions of men?—we were saying that some of them are
 to be regarded, and others not. Now were we right in maintaining this
@@ -317,7 +317,7 @@ SOCRATES: Then we must do no wrong?
 CRITO: Certainly not.
 
 SOCRATES: Nor, when injured, injure in return, as the many imagine; for we
-must injure no one at all?�6
+must injure no one at all? [6]
 
 CRITO: Clearly not.
 
@@ -447,7 +447,7 @@ will justly retort upon me that I above all other men have acknowledged the
 agreement. ‘There is clear proof,’ they will say, ‘Socrates, that we and
 the city were not displeasing to you. Of all Athenians you have been the
 most constant resident in the city, which, as you never leave, you may be
-supposed to love.�7 For you never went out of the city
+supposed to love. [7] For you never went out of the city
 either to see the games, except once when you went to the Isthmus, or to
 any other place unless when you were on military service; nor did you
 travel as other men do. Nor had you any curiosity to know other states or
@@ -457,7 +457,7 @@ here in this city you begat your children, which is a proof of your
 satisfaction. Moreover, you might in the course of the trial, if you had
 liked, have fixed the penalty at banishment; the state which refuses to let
 you go now would have let you go then. But you pretended that you
-preferred death to exile,�8 and that you were not unwilling
+preferred death to exile, [8] and that you were not unwilling
 to die. And now you have forgotten these fine sentiments, and pay no
 respect to us the laws, of whom you are the destroyer; and are doing what
 only a miserable slave would do, running away and turning your back upon
@@ -546,11 +546,11 @@ CRITO: I have nothing to say, Socrates.
 SOCRATES: Leave me then, Crito, to fulfil the will of God, and to follow
 whither he leads.
 
-1.� See Phaedrus
-2.� See Prose Works
-3.� Homer, Iliad, IX
-4.� Cp. Apology
-5.� Cp. Apology
-6.� Cp. Republic
-7.� Cp. Phaedrus
-8.� Cp. Apology
+1. See Phaedrus
+2. See Prose Works
+3. Homer, Iliad, IX
+4. Cp. Apology
+5. Cp. Apology
+6. Cp. Republic
+7. Cp. Phaedrus
+8. Cp. Apology

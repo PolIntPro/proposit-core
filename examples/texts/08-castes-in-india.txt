@@ -3,11 +3,6 @@ B.R. Ambedkar, Castes in India: Their Mechanism, Genesis and Development (1916)
 Castes in India: Their Mechanism, Genesis, and Development,
 by Dr. B. R. Ambedkar
 
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag("js", new Date());
-gtag("config", "G-H27K4MFP1G");
-
 Text source: Dr. Babasaheb Ambedkar: Writings and Speeches, Vol.
 1. Bombay: Education Department, Government of Maharashtra,
 1979, pp. 3-22. Edited by Frances W. Pritchett. Editing has
@@ -94,7 +89,7 @@ homogeneity. Taking this for granted, I venture to say that
 there is no country that can rival the Indian Peninsula with
 respect to the unity of its culture. It has not only a
 geographic unity, but it has over and above all a deeper and a
-much more fundamental unity�the indubitable cultural unity that
+much more fundamental unity—the indubitable cultural unity that
 covers the land from end to end. But it is because of this
 homogeneity that Caste becomes a problem so difficult to be
 explained. If the Hindu Society were a mere federation of
@@ -159,7 +154,7 @@ completely denied without damaging the working of Caste. The
 Caste, only because the Caste that enjoys the highest rank is
 the priestly Caste: while we know that priest and purity are old
 associates. We may therefore conclude that the "idea of
-pollution" is a  characteristic of Caste only in so far as
+pollution" is a  characteristic of Caste only in so far as
 Caste has a religious flavour.
 [9] Mr. Nesfield in his way dwells on the absence of messing
 with those outside the Caste as one of its characteristics. In
@@ -194,7 +189,7 @@ limit membership. to those born within the group. Thus the two
 are the obverse and the reverse sides of the same medal.
 [11] This critical evaluation of the various characteristics of
 Caste leave no doubt that prohibition, or rather the absence of
-intermarriage�endogamy, to be concise�is the only one that can
+intermarriage—endogamy, to be concise—is the only one that can
 be called the essence of Caste when rightly understood. But some
 may deny this on abstract anthropological grounds, for there
 exist endogamous groups without giving rise to the problem of
@@ -232,7 +227,6 @@ religion is essentially primitive and its tribal code, in spite
 of the advance of time and civilization, operates in all its
 pristine vigour even today. One of these primitive survivals, to
 which I wish particularly to draw your attention, is the Custom
-
 of Exogamy. The prevalence of exogamy in the primitive
 worlds is a fact too well-known to need any explanation. With
 the growth of history, however, exogamy has lost its efficacy,
@@ -409,7 +403,7 @@ morals are preserved.
 [25] It will now be seen that the four means by which numerical
 disparity between the two sexes is conveniently maintained are:
 (1) burning the widow with her deceased husband; (2) compulsory
-widowhood�a milder form of burning; (3) imposing celibacy on the
+widowhood—a milder form of burning; (3) imposing celibacy on the
 widower; and (4) wedding him to a girl not yet marriageable.
 Though, as I said above, burning the widow and imposing celibacy
 on the widower are of doubtful service to the group in its
@@ -473,9 +467,7 @@ know to whom she is going to be married, she must not feel
 affection, for any man at all before marriage. If she does so,
 it is a sin. So it is better for a girl to know whom she has to
 love before any sexual consciousness has been awakened in her" (History
-
 of Caste in India, 1909, pp. 2-33.). Hence girl marriage.
-
 [29] This high-flown and ingenious sophistry indicates why
 these institutions were honoured, but does not tell us why they
 were practiced. My own interpretation is that they were honoured
@@ -522,7 +514,7 @@ established before, endogamy is the only characteristic of Caste
 and when I say Origin of Caste I mean The Origin of
 the Mechanism for Endogamy.
 [31] The atomistic conception of individuals in a Society so
-greatly popularised� I was about to say vulgarised�in political
+greatly popularised— I was about to say vulgarised—in political
 orations is the greatest humbug. To say that individuals make up
 society is trivial; society is always composed of classes. It
 may be an exaggeration to assert the theory of class-conflict,
@@ -538,7 +530,7 @@ that first made itself into a caste, for class and caste, so to
 say, are next door neighbours, and it is only a span that
 separates the two. A Caste is an Enclosed Class.
 [32] The study of the origin of caste must furnish us with an
-answer to the question�what is the class that raised this
+answer to the question—what is the class that raised this
 "enclosure" around itself? The question may seem too
 inquisitorial, but it is pertinent, and an answer to this will
 serve us to elucidate the mystery of the growth and development
@@ -649,7 +641,7 @@ afraid that the latter is the truth.
 several authors for their respective theories based on one or
 other of the above nuclei, one regrets to say that on close
 examination they are nothing more than filling
-illustrations�what Matthew Arnold means by "the grand name
+illustrations—what Matthew Arnold means by "the grand name
 without the grand thing in it." Such are the various theories of
 caste advanced by Sir Denzil lbbetson, Mr. Nesfield, Mr. Senart
 and Sir H. Risley. To criticise them in a lump would be to say
@@ -671,7 +663,7 @@ to the law of disintegration, as explained by Herbert Spencer in
 his formula of evolution; or as natural as "the structural
 differentiation within an organism," to employ the phraseology
 of orthodox apologists; or as an early attempt to test the laws
-of eugenics�as all belonging to the same class of fallacy which
+of eugenics—as all belonging to the same class of fallacy which
 regards the caste system as inevitable, or as being consciously
 imposed in anticipation of these laws on a helpless and humble
 population, I will now lay before you my own view on the
@@ -751,8 +743,8 @@ desire to imitate him. This law of the imitation of the nearest,
 of the least distant, explains the gradual and consecutive
 character of the spread of an example that has been set by the
 higher social ranks" (Ibid., p. 224).
-[42] In order to prove my thesis�which really needs no
-proof�that some castes were formed by imitation, the best way,
+[42] In order to prove my thesis—which really needs no
+proof—that some castes were formed by imitation, the best way,
 it seems to me, is to find out whether or not the vital
 conditions for the formation of castes by imitation exist in the
 Hindu Society. The conditions for imitation, according to this
@@ -777,9 +769,9 @@ the formation of castes is to understand the attitude of
 non-Brahmin classes towards those customs which supported the
 structure of caste in its nascent days until, in the course of
 history, it became embedded in the Hindu mind and hangs there to
-this day without any support�for now it needs no prop but
-belief�like a weed on the surface of a pond. In a way, but only
-in a way, the status of a. caste in the Hindu Society varies
+this day without any support—for now it needs no prop but
+belief—like a weed on the surface of a pond. In a way, but only
+in a way, the status of a caste in the Hindu Society varies
 directly with the extent of the observance of the customs of Sati,
 enforced widowhood, and girl marriage. But observance of these
 customs varies directly with the distance (I am using the word
@@ -821,7 +813,6 @@ has been very detrimental to the proper understanding of the
 subject matter and therefore its correct explanation. I will
 proceed to offer my own explanation by making one remark which I
 will urge you to bear constantly in mind. It is this : that caste
-
 in the singular number is an unreality. Castes exist only in
 the plural number. There is no such thing as a caste:
 There are always castes. To illustrate my meaning: while making
@@ -885,7 +876,7 @@ Aryas. Whether a tribe or a family was racially Aryan or
 Dravidian was a question which never troubled the people of
 India, until foreign scholars came in and began to draw the
 line. The colour of the skin had long ceased to be a matter of
-importance" (History of Caste, p. 82).  Again, they
+importance" (History of Caste, p. 82).  Again, they
 have mistaken mere descriptions for explanation and fought over
 them as though they were theories of origin. There are
 occupational, religious etc., castes, it is true, but it is by
@@ -932,7 +923,3 @@ many learned disquisitions, is likely to remain controversial
 forever. To conclude, while I am ambitious to advance a Theory
 of Caste, if it can be shown to be untenable I shall be equally
 willing to give it up.
-
--- fwp's
-
-main page --
