@@ -23025,14 +23025,25 @@ describe("PropositCore", () => {
             // Create an argument with a variable referencing the frozen claim
             const arg = { id: crypto.randomUUID(), version: 0 }
             const engine = core.arguments.create(arg)
-            const premise = engine.createPremise()
-            const variable = engine.addVariable({
+            const { result: premiseEngine } = engine.createPremise()
+            const premiseId = premiseEngine.toPremiseData().id
+            const { result: variable } = engine.addVariable({
                 id: crypto.randomUUID(),
                 symbol: "P",
                 argumentId: arg.id,
                 argumentVersion: 0,
                 claimId: frozenResult.frozen.id,
                 claimVersion: frozenResult.frozen.version,
+            })
+            premiseEngine.addExpression({
+                id: crypto.randomUUID(),
+                argumentId: arg.id,
+                argumentVersion: 0,
+                premiseId,
+                type: "variable",
+                variableId: variable.id,
+                parentId: null,
+                position: POSITION_INITIAL,
             })
 
             return {
@@ -23043,12 +23054,12 @@ describe("PropositCore", () => {
                 source: frozenSource.frozen,
                 assoc,
                 variable,
-                premise,
+                premiseId,
             }
         }
 
         it("should fork an argument with cloned claims, sources, and associations", () => {
-            const { core, arg } = setupForFork()
+            const { core, arg, premiseId } = setupForFork()
             const newArgId = crypto.randomUUID()
             const result = core.forkArgument(arg.id, newArgId)
 
@@ -23062,6 +23073,9 @@ describe("PropositCore", () => {
             expect(core.forks.variables.getAll().length).toBeGreaterThan(0)
             expect(core.forks.claims.getAll()).toHaveLength(1)
             expect(core.forks.sources.getAll()).toHaveLength(1)
+            expect(core.forks.expressions.getAll().length).toBeGreaterThan(0)
+            const exprFork = core.forks.expressions.getAll()[0]
+            expect(exprFork.forkedFromPremiseId).toBe(premiseId)
         })
 
         it("should update forked variables to reference cloned claims", () => {
@@ -23187,6 +23201,64 @@ describe("PropositCore", () => {
 
             core.forkArgument(arg.id, crypto.randomUUID())
             expect(hookCalled).toBe(true)
+        })
+
+        it("should record forkedFromEntityVersion on claim and source fork records", () => {
+            const { core, arg, claim, source } = setupForFork()
+            const currentClaimVersion = core.claims.getCurrent(
+                claim.id
+            )!.version
+            const currentSourceVersion = core.sources.getCurrent(
+                source.id
+            )!.version
+            core.forkArgument(arg.id, crypto.randomUUID())
+
+            const claimFork = core.forks.claims.getAll()[0]
+            expect(claimFork.forkedFromEntityVersion).toBe(currentClaimVersion)
+
+            const sourceFork = core.forks.sources.getAll()[0]
+            expect(sourceFork.forkedFromEntityVersion).toBe(
+                currentSourceVersion
+            )
+        })
+
+        it("should propagate a custom forkId to all six fork record namespaces", () => {
+            const { core, arg } = setupForFork()
+            const customForkId = "custom-fork-id"
+            core.forkArgument(arg.id, crypto.randomUUID(), {
+                forkId: customForkId,
+            })
+
+            expect(
+                core.forks.arguments
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
+            expect(
+                core.forks.premises
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
+            expect(
+                core.forks.expressions
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
+            expect(
+                core.forks.variables
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
+            expect(
+                core.forks.claims
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
+            expect(
+                core.forks.sources
+                    .getAll()
+                    .every((r) => r.forkId === customForkId)
+            ).toBe(true)
         })
     })
 })
