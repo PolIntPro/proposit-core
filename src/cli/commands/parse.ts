@@ -6,6 +6,7 @@ import {
     BasicsParsingSchema,
 } from "../../extensions/basics/index.js"
 import { hydratePropositCore, persistEngine, persistCore } from "../engine.js"
+import { PropositCore } from "../../lib/core/proposit-core.js"
 import { ClaimLibrary } from "../../lib/core/claim-library.js"
 import { SourceLibrary } from "../../lib/core/source-library.js"
 import { ClaimSourceLibrary } from "../../lib/core/claim-source-library.js"
@@ -192,7 +193,7 @@ export function registerParseCommand(args: Command): void {
                         ...built.sourceLibrary.snapshot().sources,
                     ],
                 })
-                const _mergedAssocs = ClaimSourceLibrary.fromSnapshot(
+                const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
                     {
                         claimSourceAssociations: [
                             ...existing.claimSources.snapshot()
@@ -205,9 +206,16 @@ export function registerParseCommand(args: Command): void {
                     mergedSources
                 )
 
+                const merged = new PropositCore({
+                    claimLibrary: mergedClaims,
+                    sourceLibrary: mergedSources,
+                    claimSourceLibrary: mergedAssocs,
+                    forkLibrary: existing.forks,
+                })
+
                 // 11. Persist and output
                 await persistEngine(built.engine)
-                await persistCore(existing)
+                await persistCore(merged)
                 printLine(built.engine.getArgument().id)
             }
         )

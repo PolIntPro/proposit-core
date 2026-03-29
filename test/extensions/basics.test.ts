@@ -99,6 +99,64 @@ describe("Basics extension", () => {
         })
     })
 
+    describe("maxLength truncation", () => {
+        it("should truncate claim titles exceeding maxLength instead of throwing", () => {
+            const resp = basicsResponse()
+            const arg = resp.argument as Record<string, unknown>
+            const claims = arg.claims as Record<string, unknown>[]
+            claims[0].title = "A".repeat(60) // exceeds maxLength: 50
+
+            const parser = new BasicsArgumentParser()
+            const validated = parser.validate(resp)
+            const claim = validated.argument!.claims[0] as Record<
+                string,
+                unknown
+            >
+            expect((claim.title as string).length).toBeLessThanOrEqual(50)
+        })
+
+        it("should truncate premise titles exceeding maxLength instead of throwing", () => {
+            const resp = basicsResponse()
+            const arg = resp.argument as Record<string, unknown>
+            const premises = arg.premises as Record<string, unknown>[]
+            premises[0].title = "B".repeat(60) // exceeds maxLength: 50
+
+            const parser = new BasicsArgumentParser()
+            const validated = parser.validate(resp)
+            const premise = validated.argument!.premises[0] as Record<
+                string,
+                unknown
+            >
+            expect((premise.title as string).length).toBeLessThanOrEqual(50)
+        })
+
+        it("should truncate argument titles exceeding maxLength instead of throwing", () => {
+            const resp = basicsResponse()
+            const arg = resp.argument as Record<string, unknown>
+            arg.title = "C".repeat(60) // exceeds maxLength: 50
+
+            const parser = new BasicsArgumentParser()
+            const validated = parser.validate(resp)
+            const parsedArg = validated.argument as Record<string, unknown>
+            expect((parsedArg.title as string).length).toBeLessThanOrEqual(50)
+        })
+
+        it("should truncate claim bodies exceeding maxLength instead of throwing", () => {
+            const resp = basicsResponse()
+            const arg = resp.argument as Record<string, unknown>
+            const claims = arg.claims as Record<string, unknown>[]
+            claims[0].body = "D".repeat(510) // exceeds maxLength: 500
+
+            const parser = new BasicsArgumentParser()
+            const validated = parser.validate(resp)
+            const claim = validated.argument!.claims[0] as Record<
+                string,
+                unknown
+            >
+            expect((claim.body as string).length).toBeLessThanOrEqual(500)
+        })
+    })
+
     describe("BasicsArgumentParser", () => {
         it("maps title/body onto claims", () => {
             const parser = new BasicsArgumentParser()
