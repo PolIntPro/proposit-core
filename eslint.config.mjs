@@ -126,6 +126,7 @@ export default defineConfig([
         "node_modules/",
         ".untracked/",
         ".worktrees/",
+        ".claude/",
         "src/lib/core/parser/formula-gen.js",
     ]),
 ])
