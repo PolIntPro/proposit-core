@@ -401,9 +401,7 @@ export function registerExpressionCommands(
 
     exprs
         .command("toggle-negation <premise_id> <expression_id>")
-        .description(
-            "Toggle negation on an expression (wrap in NOT or unwrap)"
-        )
+        .description("Toggle negation on an expression (wrap in NOT or unwrap)")
         .action(async (premiseId: string, expressionId: string) => {
             await assertNotPublished(argumentId, version)
             if (!(await premiseExists(argumentId, version, premiseId))) {
@@ -435,14 +433,8 @@ export function registerExpressionCommands(
     exprs
         .command("change-operator <premise_id> <expression_id> <new_operator>")
         .description("Change the operator type of an operator expression")
-        .option(
-            "--source-child-id <id>",
-            "Source child ID for split behavior"
-        )
-        .option(
-            "--target-child-id <id>",
-            "Target child ID for split behavior"
-        )
+        .option("--source-child-id <id>", "Source child ID for split behavior")
+        .option("--target-child-id <id>", "Target child ID for split behavior")
         .action(
             async (
                 premiseId: string,

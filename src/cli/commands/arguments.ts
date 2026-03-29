@@ -4,7 +4,12 @@ import path from "node:path"
 import { Command } from "commander"
 import { importArgumentFromYaml } from "../import.js"
 import { getVersionDir } from "../config.js"
-import { hydratePropositCore, hydrateEngine, persistEngine, persistCore } from "../engine.js"
+import {
+    hydratePropositCore,
+    hydrateEngine,
+    persistEngine,
+    persistCore,
+} from "../engine.js"
 import { ClaimLibrary } from "../../lib/core/claim-library.js"
 import { SourceLibrary } from "../../lib/core/source-library.js"
 import { ClaimSourceLibrary } from "../../lib/core/claim-source-library.js"
@@ -87,7 +92,7 @@ export function registerArgumentCommands(program: Command): void {
                     ...result.sourceLibrary.snapshot().sources,
                 ],
             })
-            const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
+            const _mergedAssocs = ClaimSourceLibrary.fromSnapshot(
                 {
                     claimSourceAssociations: [
                         ...existing.claimSources.snapshot()
@@ -229,7 +234,11 @@ export function registerArgumentCommands(program: Command): void {
         .description("Fork an argument (creates an independent copy)")
         .action(async (argumentId: string) => {
             const core = await hydratePropositCore()
-            const engine = await hydrateEngine(argumentId, (await latestVersionNumber(argumentId)), core)
+            const engine = await hydrateEngine(
+                argumentId,
+                await latestVersionNumber(argumentId),
+                core
+            )
             core.arguments.register(engine)
 
             const newArgumentId = randomUUID()

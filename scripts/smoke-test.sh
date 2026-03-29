@@ -69,6 +69,7 @@ $CLI "$ARG" latest variables show "$T"
 $CLI "$ARG" latest variables update "$T" --symbol T
 
 # list-unused should show T (not referenced by any expression yet)
+# (premises haven't been created yet, so no auto-variables exist)
 echo "--- unused variables (expect T) ---"
 $CLI "$ARG" latest variables list-unused
 $CLI "$ARG" latest variables list-unused --json
@@ -144,6 +145,40 @@ $CLI "$ARG" latest expressions create "$P3" \
   --type variable --variable-id "$S" \
   --parent-id "$ROOT3" --position 1
 
+$CLI "$ARG" latest premises render "$P3"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5c2. EXPRESSIONS — toggle negation
+# ─────────────────────────────────────────────────────────────────────────────
+section "5c2. expressions — toggle negation on P3"
+
+echo "P3 before toggle:"
+$CLI "$ARG" latest premises render "$P3"
+
+$CLI "$ARG" latest expressions toggle-negation "$P3" "$EXPR_R3"
+echo "P3 after negating R:"
+$CLI "$ARG" latest premises render "$P3"
+
+# Toggle back to remove the negation
+$CLI "$ARG" latest expressions toggle-negation "$P3" "$EXPR_R3"
+echo "P3 after un-negating R:"
+$CLI "$ARG" latest premises render "$P3"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5c3. EXPRESSIONS — change operator
+# ─────────────────────────────────────────────────────────────────────────────
+section "5c3. expressions — change operator on P3"
+
+echo "P3 before change-operator:"
+$CLI "$ARG" latest premises render "$P3"
+
+$CLI "$ARG" latest expressions change-operator "$P3" "$ROOT3" iff
+echo "P3 after changing implies to iff:"
+$CLI "$ARG" latest premises render "$P3"
+
+# Change back
+$CLI "$ARG" latest expressions change-operator "$P3" "$ROOT3" implies
+echo "P3 restored:"
 $CLI "$ARG" latest premises render "$P3"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -237,7 +272,11 @@ $CLI "$ARG" latest premises list
 # 6b. VARIABLES — delete-unused (T is now unreferenced)
 # ─────────────────────────────────────────────────────────────────────────────
 section "6b. variables — delete-unused"
-echo "--- unused variables (expect T) ---"
+# T is unused (claim-bound, unreferenced by any expression).
+# Auto-created premise-bound variables for P1, P2, P3 are also unreferenced
+# by expressions, so they appear as unused too. P4's auto-variable was
+# cascade-deleted when P4 was deleted.
+echo "--- unused variables ---"
 $CLI "$ARG" latest variables list-unused
 
 $CLI "$ARG" latest variables delete-unused --confirm --json
@@ -262,6 +301,13 @@ $CLI "$ARG" latest roles set-conclusion "$P3"
 # ─────────────────────────────────────────────────────────────────────────────
 section "8. render (full argument)"
 $CLI "$ARG" latest render
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8b. VALIDATE — invariant check
+# ─────────────────────────────────────────────────────────────────────────────
+section "8b. validate (invariant check)"
+$CLI "$ARG" latest validate
+$CLI "$ARG" latest validate --json
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9. ANALYSIS — validate-argument, create, show, set, reset, reject, accept,
@@ -418,6 +464,31 @@ $CLI "$ARG2" latest premises render "$P2_1"
 $CLI diff "$ARG" 0 "$ARG2" latest
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 11c. FORK — fork an argument and diff
+# ─────────────────────────────────────────────────────────────────────────────
+section "11c. fork and fork-aware diff"
+
+FORKED=$($CLI arguments fork "$ARG")
+echo "FORKED=$FORKED"
+
+$CLI "$FORKED" latest show
+$CLI "$FORKED" latest render
+
+# Modify the fork: rename a claim-bound variable R → Rain
+FORKED_R=$($CLI "$FORKED" latest variables list --json | node -e "
+const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+const v = d.find(v => v.symbol === 'R');
+if (v) process.stdout.write(v.id);
+")
+if [ -n "$FORKED_R" ]; then
+    $CLI "$FORKED" latest variables update "$FORKED_R" --symbol Rain
+fi
+
+# Diff original vs fork (fork-aware matching)
+$CLI diff "$ARG" latest "$FORKED" latest
+$CLI diff "$ARG" latest "$FORKED" latest --json
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 12. IMPORT — import an argument from YAML
 # ─────────────────────────────────────────────────────────────────────────────
 section "12. import from YAML"
@@ -511,6 +582,9 @@ $CLI "$ARG2" latest variables list
 # 14. CLEANUP — delete arguments
 # ─────────────────────────────────────────────────────────────────────────────
 section "14. cleanup"
+if [ -n "${FORKED:-}" ]; then
+    $CLI arguments delete "$FORKED" --all --confirm
+fi
 $CLI arguments delete "$ARG2" --all --confirm
 $CLI arguments delete "$ARG3" --all --confirm
 $CLI arguments delete "$ARG4" --all --confirm

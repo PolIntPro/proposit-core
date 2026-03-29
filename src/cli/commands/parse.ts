@@ -192,7 +192,7 @@ export function registerParseCommand(args: Command): void {
                         ...built.sourceLibrary.snapshot().sources,
                     ],
                 })
-                const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
+                const _mergedAssocs = ClaimSourceLibrary.fromSnapshot(
                     {
                         claimSourceAssociations: [
                             ...existing.claimSources.snapshot()

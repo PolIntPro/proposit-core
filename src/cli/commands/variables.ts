@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import { hydrateEngine, persistEngine } from "../engine.js"
+import {
+    hydrateEngine,
+    hydratePropositCore,
+    persistCore,
+    persistEngine,
+} from "../engine.js"
 import {
     errorExit,
     printJson,
@@ -43,7 +48,15 @@ export function registerVariableCommands(
         )
         .action(async (symbol: string, opts: { id?: string }) => {
             await assertNotPublished(argumentId, version)
-            const engine = await hydrateEngine(argumentId, version)
+            const core = await hydratePropositCore()
+            const engine = await hydrateEngine(argumentId, version, core)
+
+            // Auto-create a frozen claim for the variable
+            const claim = core.claims.create({
+                id: randomUUID(),
+                title: symbol,
+            } as Parameters<typeof core.claims.create>[0])
+            core.claims.freeze(claim.id)
 
             const newId = opts.id ?? randomUUID()
             const variable = {
@@ -51,8 +64,7 @@ export function registerVariableCommands(
                 argumentId,
                 argumentVersion: version,
                 symbol,
-                // TODO: resolve actual claimId from ClaimLibrary
-                claimId: "",
+                claimId: claim.id,
                 claimVersion: 0,
             }
 
@@ -62,6 +74,7 @@ export function registerVariableCommands(
                 errorExit(err instanceof Error ? err.message : String(err))
             }
 
+            await persistCore(core)
             await persistEngine(engine)
             printLine(newId)
         })

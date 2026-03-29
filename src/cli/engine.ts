@@ -124,6 +124,12 @@ export async function hydrateEngine(
         claimLibrary = ClaimLibrary.fromSnapshot(snapshot)
     }
 
+    // Grammar config used for the CLI: enforce rules but auto-normalize.
+    const cliGrammarConfig = {
+        enforceFormulaBetweenOperators: true,
+        autoNormalize: true,
+    }
+
     // Build premise snapshots from disk data
     const premiseSnapshots: TPremiseEngineSnapshot[] = []
     for (const premiseId of premiseIds) {
@@ -147,6 +153,12 @@ export async function hydrateEngine(
                     premiseId,
                     argumentVersion: version,
                 })) as TCorePropositionalExpression[],
+                config: {
+                    grammarConfig: cliGrammarConfig,
+                },
+            },
+            config: {
+                grammarConfig: cliGrammarConfig,
             },
         })
     }
@@ -162,6 +174,9 @@ export async function hydrateEngine(
         },
         premises: premiseSnapshots,
         conclusionPremiseId: roles.conclusionPremiseId,
+        config: {
+            grammarConfig: cliGrammarConfig,
+        },
     }
 
     // Use fromSnapshot which correctly handles restoringFromSnapshot flag,
@@ -212,6 +227,8 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
             argumentId: _a,
             argumentVersion: _av,
             checksum: _c,
+            descendantChecksum: _dc,
+            combinedChecksum: _cc,
             ...premiseMeta
         } = data as Record<string, unknown>
         await writePremiseMeta(id, arg.version, {
