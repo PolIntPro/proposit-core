@@ -21,6 +21,7 @@ import { ClaimLibrary } from "../core/claim-library.js"
 import { SourceLibrary } from "../core/source-library.js"
 import { ClaimSourceLibrary } from "../core/claim-source-library.js"
 import { ParsedArgumentResponseSchema } from "./schemata.js"
+import { clampMaxLengths } from "./clamp-max-lengths.js"
 import type {
     TParsedArgumentResponse,
     TParsedArgument,
@@ -254,6 +255,7 @@ export class ArgumentParser<
      * Validate raw LLM output against the response schema.
      */
     public validate(raw: unknown): TParsedArgumentResponse {
+        clampMaxLengths(this.responseSchema, raw)
         return Value.Parse(this.responseSchema, raw)
     }
 
