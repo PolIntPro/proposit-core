@@ -207,8 +207,12 @@ export function buildDotGraph(
             lines.push(`    "${nid}" [${attrs.join(" ")}];`)
         }
 
-        // Parent-child edges within expression tree
-        for (const expr of expressions) {
+        // Parent-child edges within expression tree (sorted by position
+        // so Graphviz renders siblings left-to-right in ascending order)
+        const byPosition = [...expressions].sort(
+            (a, b) => a.position - b.position
+        )
+        for (const expr of byPosition) {
             if (expr.parentId !== null) {
                 lines.push(
                     `    "${shortId(expr.parentId)}" -> "${shortId(expr.id)}";`
