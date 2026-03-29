@@ -22494,4 +22494,61 @@ describe("PropositCore", () => {
             expect(() => core.diffArguments("a", "b")).toThrow(/not found/)
         })
     })
+
+    // ---------------------------------------------------------------------------
+    // generateId injection — ExpressionManager
+    // ---------------------------------------------------------------------------
+
+    describe("generateId injection — ExpressionManager", () => {
+        it("uses injected generateId for auto-formula buffers in addExpression", () => {
+            let counter = 0
+            const generateId = () => `em-id-${++counter}`
+
+            const em = new ExpressionManager({
+                grammarConfig: {
+                    enforceFormulaBetweenOperators: true,
+                    autoNormalize: true,
+                },
+                generateId,
+            })
+
+            // Root AND
+            em.addExpression(
+                makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+            )
+            // Add nested OR — should auto-insert a formula buffer
+            em.addExpression(
+                makeOpExpr("op-or", "or", { parentId: "op-and", position: 0 })
+            )
+
+            const allExprs = em.toArray()
+            const formulaExpr = allExprs.find((e) => e.type === "formula")
+            expect(formulaExpr).toBeDefined()
+            expect(formulaExpr!.id).toMatch(/^em-id-/)
+        })
+
+        it("uses default generateId when none provided", () => {
+            const em = new ExpressionManager({
+                grammarConfig: {
+                    enforceFormulaBetweenOperators: true,
+                    autoNormalize: true,
+                },
+            })
+
+            em.addExpression(
+                makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+            )
+            em.addExpression(
+                makeOpExpr("op-or", "or", { parentId: "op-and", position: 0 })
+            )
+
+            const allExprs = em.toArray()
+            const formulaExpr = allExprs.find((e) => e.type === "formula")
+            expect(formulaExpr).toBeDefined()
+            // Default produces a valid UUID-format string
+            expect(formulaExpr!.id).toMatch(
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+            )
+        })
+    })
 })
