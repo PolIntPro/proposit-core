@@ -33,8 +33,6 @@ export type {
     TClaimSourceLookup,
     TClaimSourceLibraryManagement,
     TClaimSourceLibrarySnapshot,
-    TForkLookup,
-    TForksLibrarySnapshot,
     TForkLibrarySnapshot,
     TArgumentLibrarySnapshot,
     TPropositCoreSnapshot,

@@ -24,7 +24,6 @@ import type {
     TCoreSourceForkRecord,
 } from "../src/lib/index"
 import { ClaimSourceLibrary } from "../src/lib/core/claim-source-library"
-import { ForksLibrary } from "../src/lib/core/forks-library"
 import type { TReactiveSnapshot } from "../src/lib/index"
 import { Value } from "typebox/value"
 import {
@@ -32,7 +31,6 @@ import {
     CorePropositionalVariableSchema,
     CorePropositionalExpressionSchema,
     CorePremiseSchema,
-    CoreForkSchema,
     CoreEntityForkRecordSchema,
     CoreExpressionForkRecordSchema,
     CoreClaimForkRecordSchema,
@@ -75,7 +73,6 @@ import {
     defaultComparePremise,
     defaultCompareExpression,
     diffArguments,
-    createForkedFromMatcher,
 } from "../src/lib/core/diff"
 import {
     kleeneNot,
@@ -18007,14 +18004,7 @@ describe("forkArgument", () => {
             }
         }
         const eng = new NoForkEngine(ARG, aLib(), sLib(), csLib())
-        const forksLib = new ForksLibrary()
-        expect(() =>
-            forksLib.forkArgument(eng, "new-arg", {
-                claimLibrary: aLib(),
-                sourceLibrary: sLib(),
-                claimSourceLibrary: csLib(),
-            })
-        ).toThrow("Forking is not allowed")
+        expect(eng.canFork()).toBe(false)
     })
 
     it("forks a simple argument with new IDs", () => {
@@ -18041,9 +18031,8 @@ describe("forkArgument", () => {
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
 
-        const forksLib = new ForksLibrary()
         let idCounter = 0
-        const { engine: forked, remapTable } = forksLib.forkArgument(
+        const { engine: forked, remapTable } = forkArgumentEngine(
             eng,
             "forked-arg",
             {
@@ -18201,9 +18190,8 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
         let counter = 0
-        const { engine: forked, remapTable } = forksLib.forkArgument(
+        const { engine: forked, remapTable } = forkArgumentEngine(
             eng,
             "fork-arg",
             {
@@ -18332,8 +18320,7 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { remapTable } = forksLib.forkArgument(eng, "forked-arg", {
+        const { remapTable } = forkArgumentEngine(eng, "forked-arg", {
             claimLibrary: forkClaimLib,
             sourceLibrary: forkSourceLib,
             claimSourceLibrary: forkCsLib,
@@ -18371,8 +18358,7 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked } = forksLib.forkArgument(eng, "forked-arg", {
+        const { engine: forked } = forkArgumentEngine(eng, "forked-arg", {
             claimLibrary: forkClaimLib,
             sourceLibrary: forkSourceLib,
             claimSourceLibrary: forkCsLib,
@@ -18453,8 +18439,7 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked, remapTable } = forksLib.forkArgument(
+        const { engine: forked, remapTable } = forkArgumentEngine(
             eng,
             "forked-arg",
             {
@@ -18517,8 +18502,7 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked } = forksLib.forkArgument(eng, "forked-arg", {
+        const { engine: forked } = forkArgumentEngine(eng, "forked-arg", {
             claimLibrary: forkClaimLib,
             sourceLibrary: forkSourceLib,
             claimSourceLibrary: forkCsLib,
@@ -18568,8 +18552,7 @@ describe("forkArgument", () => {
         const forkClaimLib = aLib()
         const forkSourceLib = sLib()
         const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked } = forksLib.forkArgument(eng, "forked-arg", {
+        const { engine: forked } = forkArgumentEngine(eng, "forked-arg", {
             claimLibrary: forkClaimLib,
             sourceLibrary: forkSourceLib,
             claimSourceLibrary: forkCsLib,
@@ -18583,160 +18566,6 @@ describe("forkArgument", () => {
         expect(diff.premises.modified).toHaveLength(0)
         expect(diff.variables.removed).toHaveLength(2) // VAR_P + 1 auto
         expect(diff.variables.added).toHaveLength(2)
-    })
-
-    // Skipped: createForkedFromMatcher reads forkedFrom* fields removed from entities; removed in Task 9
-    it.skip("diffArguments with createForkedFromMatcher pairs forked entities", () => {
-        const claimLib = aLib()
-        const sourceLib = sLib()
-        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
-        const eng = new ArgumentEngine(ARG, claimLib, sourceLib, csLibrary)
-        eng.addVariable(VAR_P)
-        const { result: pm } = eng.createPremise()
-        pm.addExpression(
-            makeVarExpr("expr-1", "var-p", { premiseId: pm.getId() })
-        )
-
-        const forkClaimLib = aLib()
-        const forkSourceLib = sLib()
-        const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked } = forksLib.forkArgument(eng, "forked-arg", {
-            claimLibrary: forkClaimLib,
-            sourceLibrary: forkSourceLib,
-            claimSourceLibrary: forkCsLib,
-        })
-
-        const matchers = createForkedFromMatcher()
-        const diff = diffArguments(eng, forked, { ...matchers })
-
-        // With matchers, entities are paired (not removed + added)
-        expect(diff.premises.removed).toHaveLength(0)
-        expect(diff.premises.added).toHaveLength(0)
-        expect(diff.variables.removed).toHaveLength(0)
-        expect(diff.variables.added).toHaveLength(0)
-    })
-
-    // Skipped: createForkedFromMatcher reads forkedFrom* fields removed from entities; removed in Task 9
-    it.skip("fork-aware diff detects mutations after fork", () => {
-        const claimLib = aLib()
-        const sourceLib = sLib()
-        const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
-        const eng = new ArgumentEngine(
-            { id: "src-arg", version: 0 },
-            claimLib,
-            sourceLib,
-            csLibrary
-        )
-
-        // Add P and Q variables
-        eng.addVariable({
-            id: "var-p",
-            argumentId: "src-arg",
-            argumentVersion: 0,
-            symbol: "P",
-            claimId: "claim-default",
-            claimVersion: 0,
-        } as TClaimBoundVariable)
-        eng.addVariable({
-            id: "var-q",
-            argumentId: "src-arg",
-            argumentVersion: 0,
-            symbol: "Q",
-            claimId: "claim-default",
-            claimVersion: 0,
-        } as TClaimBoundVariable)
-
-        // Premise 1: P and Q (using and operator)
-        const { result: pm1 } = eng.createPremiseWithId("prem-1")
-        pm1.addExpression({
-            id: "op-and",
-            argumentId: "src-arg",
-            argumentVersion: 0,
-            premiseId: "prem-1",
-            type: "operator",
-            operator: "and",
-            parentId: null,
-            position: POSITION_INITIAL,
-        })
-        pm1.addExpression({
-            id: "expr-p",
-            argumentId: "src-arg",
-            argumentVersion: 0,
-            premiseId: "prem-1",
-            type: "variable",
-            variableId: "var-p",
-            parentId: "op-and",
-            position: POSITION_INITIAL,
-        })
-        pm1.addExpression({
-            id: "expr-q",
-            argumentId: "src-arg",
-            argumentVersion: 0,
-            premiseId: "prem-1",
-            type: "variable",
-            variableId: "var-q",
-            parentId: "op-and",
-            position: midpoint(POSITION_INITIAL, POSITION_MAX),
-        })
-
-        // Fork
-        const forkClaimLib = aLib()
-        const forkSourceLib = sLib()
-        const forkCsLib = new ClaimSourceLibrary(forkClaimLib, forkSourceLib)
-        const forksLib = new ForksLibrary()
-        const { engine: forked } = forksLib.forkArgument(eng, "fork-arg", {
-            claimLibrary: forkClaimLib,
-            sourceLibrary: forkSourceLib,
-            claimSourceLibrary: forkCsLib,
-        })
-
-        // Mutate the fork: change and → or
-        const forkedPm1 = forked.listPremises()[0]
-        const exprs = forkedPm1.getExpressions()
-        const opExpr = exprs.find((e) => e.type === "operator")!
-        forkedPm1.updateExpression(opExpr.id, { operator: "or" })
-
-        // Add a new premise to the fork
-        forked.addVariable({
-            id: "var-r",
-            argumentId: "fork-arg",
-            argumentVersion: 0,
-            symbol: "R",
-            claimId: "claim-default",
-            claimVersion: 0,
-        } as TClaimBoundVariable)
-        const { result: forkedPm2 } = forked.createPremise()
-        forkedPm2.addExpression({
-            id: "expr-r",
-            argumentId: "fork-arg",
-            argumentVersion: 0,
-            premiseId: forkedPm2.getId(),
-            type: "variable",
-            variableId: "var-r",
-            parentId: null,
-            position: POSITION_INITIAL,
-        })
-
-        // Diff with fork-aware matchers
-        const matchers = createForkedFromMatcher()
-        const diff = diffArguments(eng, forked, { ...matchers })
-
-        // The original premise should be paired and show expression changes
-        expect(diff.premises.removed).toHaveLength(0)
-        expect(diff.premises.added).toHaveLength(1)
-        expect(diff.premises.modified).toHaveLength(1)
-
-        const modifiedPremise = diff.premises.modified[0]
-        const operatorChange = modifiedPremise.expressions.modified.find((ed) =>
-            ed.changes.some(
-                (c) =>
-                    c.field === "operator" &&
-                    c.before === "and" &&
-                    c.after === "or"
-            )
-        )
-        expect(operatorChange).toBeDefined()
     })
 })
 
@@ -21667,386 +21496,6 @@ describe("empty lookup constants", () => {
 
     it("EMPTY_CLAIM_SOURCE_LOOKUP.getForSource returns empty array", () => {
         expect(EMPTY_CLAIM_SOURCE_LOOKUP.getForSource("any")).toEqual([])
-    })
-})
-
-describe("ForksLibrary", () => {
-    it("CoreForkSchema validates a complete fork record", () => {
-        const fork = {
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 3,
-            createdOn: "2026-03-28T12:00:00.000Z",
-            checksum: "abc123",
-        }
-        expect(Value.Check(CoreForkSchema, fork)).toBe(true)
-    })
-
-    it("CoreForkSchema validates a fork with optional creatorId", () => {
-        const fork = {
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 3,
-            createdOn: "2026-03-28T12:00:00.000Z",
-            creatorId: "user-42",
-            checksum: "abc123",
-        }
-        expect(Value.Check(CoreForkSchema, fork)).toBe(true)
-    })
-
-    it("CoreForkSchema rejects a fork missing required fields", () => {
-        const fork = {
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            // missing sourceArgumentVersion, createdOn, checksum
-        }
-        expect(Value.Check(CoreForkSchema, fork)).toBe(false)
-    })
-
-    it("create() stores a fork record and computes checksum", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 3,
-            createdOn: "2026-03-28T12:00:00.000Z",
-        })
-        const fork = lib.get("fork-1")
-        expect(fork).toBeDefined()
-        expect(fork!.id).toBe("fork-1")
-        expect(fork!.sourceArgumentId).toBe("arg-1")
-        expect(fork!.sourceArgumentVersion).toBe(3)
-        expect(fork!.checksum).toBeDefined()
-        expect(typeof fork!.checksum).toBe("string")
-        expect(fork!.checksum.length).toBeGreaterThan(0)
-    })
-
-    it("create() stores a fork with optional creatorId", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 0,
-            createdOn: "2026-03-28T12:00:00.000Z",
-            creatorId: "user-42",
-        })
-        const fork = lib.get("fork-1")
-        expect(fork!.creatorId).toBe("user-42")
-    })
-
-    it("create() throws on duplicate ID", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 0,
-            createdOn: "2026-03-28T12:00:00.000Z",
-        })
-        expect(() =>
-            lib.create({
-                id: "fork-1",
-                sourceArgumentId: "arg-2",
-                sourceArgumentVersion: 1,
-                createdOn: "2026-03-28T13:00:00.000Z",
-            })
-        ).toThrow()
-    })
-
-    it("get() returns undefined for missing ID", () => {
-        const lib = new ForksLibrary()
-        expect(lib.get("nonexistent")).toBeUndefined()
-    })
-
-    it("getAll() returns all fork records", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 0,
-            createdOn: "2026-03-28T12:00:00.000Z",
-        })
-        lib.create({
-            id: "fork-2",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 1,
-            createdOn: "2026-03-28T13:00:00.000Z",
-        })
-        expect(lib.getAll()).toHaveLength(2)
-    })
-
-    it("remove() deletes a fork record", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 0,
-            createdOn: "2026-03-28T12:00:00.000Z",
-        })
-        lib.remove("fork-1")
-        expect(lib.get("fork-1")).toBeUndefined()
-        expect(lib.getAll()).toHaveLength(0)
-    })
-
-    it("remove() throws for missing ID", () => {
-        const lib = new ForksLibrary()
-        expect(() => lib.remove("nonexistent")).toThrow()
-    })
-
-    it("snapshot() and fromSnapshot() round-trip preserves records", () => {
-        const lib = new ForksLibrary()
-        lib.create({
-            id: "fork-1",
-            sourceArgumentId: "arg-1",
-            sourceArgumentVersion: 0,
-            createdOn: "2026-03-28T12:00:00.000Z",
-        })
-        lib.create({
-            id: "fork-2",
-            sourceArgumentId: "arg-2",
-            sourceArgumentVersion: 1,
-            createdOn: "2026-03-28T13:00:00.000Z",
-            creatorId: "user-42",
-        })
-
-        const snap = lib.snapshot()
-        const restored = ForksLibrary.fromSnapshot(snap)
-
-        expect(restored.getAll()).toHaveLength(2)
-        const f1 = restored.get("fork-1")!
-        expect(f1.sourceArgumentId).toBe("arg-1")
-        expect(f1.checksum).toBe(lib.get("fork-1")!.checksum)
-        const f2 = restored.get("fork-2")!
-        expect(f2.creatorId).toBe("user-42")
-        expect(f2.checksum).toBe(lib.get("fork-2")!.checksum)
-    })
-
-    it("canFork() is publicly accessible", () => {
-        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
-        expect(eng.canFork()).toBe(true)
-    })
-
-    it("canFork() override still works on subclass", () => {
-        class RestrictedEngine extends ArgumentEngine {
-            public override canFork(): boolean {
-                return false
-            }
-        }
-        const eng = new RestrictedEngine(ARG, aLib(), sLib(), csLib())
-        expect(eng.canFork()).toBe(false)
-    })
-
-    describe("ForksLibrary.forkArgument()", () => {
-        it("creates fork record, returns engine + remapTable + fork", () => {
-            const claimLib = aLib()
-            const sourceLib = sLib()
-            const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
-
-            const eng = new ArgumentEngine(
-                { id: "src-arg", version: 2 },
-                claimLib,
-                sourceLib,
-                csLibrary
-            )
-
-            eng.addVariable({
-                id: "var-p",
-                argumentId: "src-arg",
-                argumentVersion: 2,
-                symbol: "P",
-                claimId: "claim-default",
-                claimVersion: 0,
-            } as TClaimBoundVariable)
-
-            const { result: pm } = eng.createPremiseWithId("prem-1")
-            pm.addExpression({
-                id: "expr-1",
-                argumentId: "src-arg",
-                argumentVersion: 2,
-                premiseId: "prem-1",
-                type: "variable",
-                variableId: "var-p",
-                parentId: null,
-                position: POSITION_INITIAL,
-            })
-
-            const forksLib = new ForksLibrary()
-            const forkClaimLib = aLib()
-            const forkSourceLib = sLib()
-            const forkCsLib = new ClaimSourceLibrary(
-                forkClaimLib,
-                forkSourceLib
-            )
-
-            let counter = 0
-            const {
-                engine: forked,
-                remapTable,
-                fork,
-            } = forksLib.forkArgument(
-                eng,
-                "fork-arg",
-                {
-                    claimLibrary: forkClaimLib,
-                    sourceLibrary: forkSourceLib,
-                    claimSourceLibrary: forkCsLib,
-                },
-                {
-                    generateId: () => `fk-${counter++}`,
-                    creatorId: "user-42",
-                }
-            )
-
-            // Fork record created in library
-            expect(fork.id).toBeDefined()
-            expect(fork.sourceArgumentId).toBe("src-arg")
-            expect(fork.sourceArgumentVersion).toBe(2)
-            expect(fork.creatorId).toBe("user-42")
-            expect(fork.createdOn).toBeDefined()
-            expect(forksLib.get(fork.id)).toEqual(fork)
-
-            // Forked argument has new ID
-            const forkedArg = forked.getArgument()
-            expect(forkedArg.id).toBe("fork-arg")
-            expect(forkedArg.version).toBe(0)
-
-            // Remap table correct
-            expect(remapTable.premises.size).toBe(1)
-            expect(remapTable.expressions.size).toBe(1)
-        })
-
-        it("calls canFork() and throws when false", () => {
-            class NoForkEngine extends ArgumentEngine {
-                public override canFork(): boolean {
-                    return false
-                }
-            }
-            const eng = new NoForkEngine(ARG, aLib(), sLib(), csLib())
-            const forksLib = new ForksLibrary()
-
-            expect(() =>
-                forksLib.forkArgument(eng, "new-arg", {
-                    claimLibrary: aLib(),
-                    sourceLibrary: sLib(),
-                    claimSourceLibrary: csLib(),
-                })
-            ).toThrow("Forking is not allowed")
-        })
-
-        it("accepts a caller-provided forkId", () => {
-            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
-            const forksLib = new ForksLibrary()
-
-            const { fork } = forksLib.forkArgument(
-                eng,
-                "fork-arg",
-                {
-                    claimLibrary: aLib(),
-                    sourceLibrary: sLib(),
-                    claimSourceLibrary: csLib(),
-                },
-                { forkId: "my-custom-fork-id" }
-            )
-
-            expect(fork.id).toBe("my-custom-fork-id")
-            expect(forksLib.get("my-custom-fork-id")).toBeDefined()
-        })
-
-        it("remove() does not cascade to forked entities", () => {
-            const claimLib = aLib()
-            const sourceLib = sLib()
-            const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
-            const eng = new ArgumentEngine(
-                { id: "src-arg", version: 0 },
-                claimLib,
-                sourceLib,
-                csLibrary
-            )
-            eng.createPremise()
-
-            const forksLib = new ForksLibrary()
-            const forkClaimLib = aLib()
-            const forkSourceLib = sLib()
-            const forkCsLib = new ClaimSourceLibrary(
-                forkClaimLib,
-                forkSourceLib
-            )
-
-            const { engine: forked, fork } = forksLib.forkArgument(
-                eng,
-                "fork-arg",
-                {
-                    claimLibrary: forkClaimLib,
-                    sourceLibrary: forkSourceLib,
-                    claimSourceLibrary: forkCsLib,
-                }
-            )
-
-            forksLib.remove(fork.id)
-            expect(forksLib.get(fork.id)).toBeUndefined()
-
-            // Forked engine is unaffected
-            expect(forked.listPremises()).toHaveLength(1)
-        })
-
-        // Skipped: createForkedFromMatcher reads forkedFrom* fields removed from entities; removed in Task 9
-        it.skip("createForkedFromMatcher() works with ForksLibrary-forked engines", () => {
-            const claimLib = aLib()
-            const sourceLib = sLib()
-            const csLibrary = new ClaimSourceLibrary(claimLib, sourceLib)
-            const eng = new ArgumentEngine(
-                { id: "src-arg", version: 0 },
-                claimLib,
-                sourceLib,
-                csLibrary
-            )
-
-            eng.addVariable({
-                id: "var-p",
-                argumentId: "src-arg",
-                argumentVersion: 0,
-                symbol: "P",
-                claimId: "claim-default",
-                claimVersion: 0,
-            } as TClaimBoundVariable)
-
-            const { result: pm } = eng.createPremiseWithId("prem-1")
-            pm.addExpression({
-                id: "expr-1",
-                argumentId: "src-arg",
-                argumentVersion: 0,
-                premiseId: "prem-1",
-                type: "variable",
-                variableId: "var-p",
-                parentId: null,
-                position: POSITION_INITIAL,
-            })
-
-            const forksLib = new ForksLibrary()
-            const forkClaimLib = aLib()
-            const forkSourceLib = sLib()
-            const forkCsLib = new ClaimSourceLibrary(
-                forkClaimLib,
-                forkSourceLib
-            )
-
-            const { engine: forked } = forksLib.forkArgument(eng, "fork-arg", {
-                claimLibrary: forkClaimLib,
-                sourceLibrary: forkSourceLib,
-                claimSourceLibrary: forkCsLib,
-            })
-
-            // Diff with forked-from matchers
-            const matchers = createForkedFromMatcher()
-            const diff = diffArguments(eng, forked, { ...matchers })
-
-            // Premises should be paired (not added/removed)
-            expect(diff.premises.added).toHaveLength(0)
-            expect(diff.premises.removed).toHaveLength(0)
-
-            // Variables should be paired
-            expect(diff.variables.added).toHaveLength(0)
-            expect(diff.variables.removed).toHaveLength(0)
-        })
     })
 })
 

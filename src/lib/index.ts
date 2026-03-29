@@ -18,7 +18,6 @@ export { SourceLibrary } from "./core/source-library.js"
 export { ClaimSourceLibrary } from "./core/claim-source-library.js"
 export { ArgumentLibrary } from "./core/argument-library.js"
 export type { TArgumentLibraryLibraries } from "./core/argument-library.js"
-export { ForksLibrary } from "./core/forks-library.js"
 export { ForkNamespace } from "./core/fork-namespace.js"
 export { ForkLibrary } from "./core/fork-library.js"
 export { PropositCore } from "./core/proposit-core.js"
@@ -46,7 +45,6 @@ export {
     defaultCompareVariable,
     defaultComparePremise,
     defaultCompareExpression,
-    createForkedFromMatcher,
 } from "./core/diff.js"
 export * from "./types/relationships.js"
 export {
