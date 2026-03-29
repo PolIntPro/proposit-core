@@ -309,6 +309,11 @@ section "8b. validate (invariant check)"
 $CLI "$ARG" latest validate
 $CLI "$ARG" latest validate --json
 
+section "8c. repair (grammar auto-normalization)"
+$CLI "$ARG" latest repair --dry-run
+$CLI "$ARG" latest repair --json
+$CLI "$ARG" latest repair
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 9. ANALYSIS — validate-argument, create, show, set, reset, reject, accept,
 #    validate-assignments, evaluate, check-validity, refs, export, delete
