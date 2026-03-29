@@ -21,6 +21,26 @@ function dotEscape(s: string): string {
     return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
 }
 
+function htmlEscape(s: string): string {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+function wordWrap(s: string, maxWidth: number): string[] {
+    const lines: string[] = []
+    const words = s.split(/\s+/)
+    let current = ""
+    for (const word of words) {
+        if (current && current.length + 1 + word.length > maxWidth) {
+            lines.push(current)
+            current = word
+        } else {
+            current = current ? current + " " + word : word
+        }
+    }
+    if (current) lines.push(current)
+    return lines
+}
+
 function shortId(id: string): string {
     return id.slice(0, 8)
 }
@@ -164,7 +184,7 @@ export function buildDotGraph(
                 label = operatorLabel(expr.operator)
                 shape = "diamond"
             } else {
-                label = "()"
+                label = "\u24D5"
                 shape = "ellipse"
             }
 
@@ -271,6 +291,57 @@ export function buildDotGraph(
                     `  "var_${shortId(v.id)}" -> "${shortId(typed.boundPremiseId)}_anchor" [style=bold color=blue label="${dotEscape(typed.symbol)}" lhead=cluster_${shortId(typed.boundPremiseId)}];`
                 )
             }
+        }
+    }
+
+    // Claim detail tiles (below the graph)
+    const claimTiles: string[] = []
+    for (const v of variables) {
+        const typed = v as unknown as TCorePropositionalVariable
+        if (!isClaimBound(typed)) continue
+        const claim = core.claims.get(typed.claimId, typed.claimVersion)
+        if (!claim) continue
+        const rec = claim as Record<string, unknown>
+        const title = typeof rec.title === "string" ? rec.title : "(untitled)"
+        const body = typeof rec.body === "string" ? rec.body : ""
+        if (!body) continue
+
+        const bodyLines = wordWrap(body, 60)
+            .map((l) => htmlEscape(l))
+            .join("<BR/>")
+
+        claimTiles.push(
+            `    "claim_${shortId(v.id)}" [shape=plaintext label=<` +
+                `<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" BGCOLOR="lightyellow">` +
+                `<TR><TD><B>${htmlEscape(typed.symbol)}</B></TD></TR>` +
+                `<TR><TD><I>${htmlEscape(title)}</I></TD></TR>` +
+                `<TR><TD BALIGN="LEFT">${bodyLines}</TD></TR>` +
+                `</TABLE>>];`
+        )
+    }
+
+    if (claimTiles.length > 0) {
+        lines.push("")
+        lines.push("  // Claim detail tiles")
+        lines.push("  subgraph cluster_claims {")
+        lines.push("    rank=sink;")
+        lines.push("    style=invis;")
+        for (const tile of claimTiles) {
+            lines.push(tile)
+        }
+        lines.push("  }")
+
+        // Invisible edges to push tiles below variable nodes
+        for (const v of variables) {
+            const typed = v as unknown as TCorePropositionalVariable
+            if (!isClaimBound(typed)) continue
+            const claim = core.claims.get(typed.claimId, typed.claimVersion)
+            if (!claim) continue
+            const rec = claim as Record<string, unknown>
+            if (typeof rec.body !== "string" || !rec.body) continue
+            lines.push(
+                `  "var_${shortId(v.id)}" -> "claim_${shortId(v.id)}" [style=invis];`
+            )
         }
     }
 
