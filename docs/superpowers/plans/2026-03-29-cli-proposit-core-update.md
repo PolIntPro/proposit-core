@@ -15,6 +15,7 @@
 ### Task 1: Add ForkLibrary storage I/O
 
 **Files:**
+
 - Modify: `src/cli/storage/libraries.ts`
 
 - [ ] **Step 1: Add readForkLibrary and writeForkLibrary functions**
@@ -64,6 +65,7 @@ git commit -m "feat(cli): add ForkLibrary read/write storage"
 ### Task 2: Refactor engine.ts to use PropositCore
 
 **Files:**
+
 - Modify: `src/cli/engine.ts`
 
 - [ ] **Step 1: Replace hydrateLibraries with hydratePropositCore**
@@ -301,6 +303,7 @@ export async function persistEngine(engine: ArgumentEngine): Promise<void> {
 ```
 
 Key changes:
+
 - `hydrateLibraries()` replaced by `hydratePropositCore()` returning a `PropositCore`
 - `persistLibraries()` replaced by `persistCore()` writing all 4 libraries (claims, sources, claimSources, forks)
 - `hydrateEngine()` third parameter changed from loose libraries to `PropositCore?`
@@ -324,6 +327,7 @@ git commit -m "refactor(cli): replace hydrateLibraries with hydratePropositCore"
 ### Task 3: Update all callers of hydrateLibraries/persistLibraries
 
 **Files:**
+
 - Modify: `src/cli/commands/arguments.ts`
 - Modify: `src/cli/commands/claims.ts`
 - Modify: `src/cli/commands/sources.ts`
@@ -338,24 +342,31 @@ git commit -m "refactor(cli): replace hydrateLibraries with hydratePropositCore"
 In `src/cli/commands/arguments.ts`:
 
 Replace the import:
+
 ```typescript
 import { hydrateLibraries, persistEngine, persistLibraries } from "../engine.js"
 ```
+
 with:
+
 ```typescript
 import { hydratePropositCore, persistEngine, persistCore } from "../engine.js"
 ```
 
 In the `import` action (around line 77), replace:
+
 ```typescript
 const existing = await hydrateLibraries()
 ```
+
 with:
+
 ```typescript
 const existing = await hydratePropositCore()
 ```
 
 Replace library merge section. Replace:
+
 ```typescript
 const mergedClaims = ClaimLibrary.fromSnapshot({
     claims: [
@@ -372,10 +383,8 @@ const mergedSources = SourceLibrary.fromSnapshot({
 const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
     {
         claimSourceAssociations: [
-            ...existing.claimSourceLibrary.snapshot()
-                .claimSourceAssociations,
-            ...result.claimSourceLibrary.snapshot()
-                .claimSourceAssociations,
+            ...existing.claimSourceLibrary.snapshot().claimSourceAssociations,
+            ...result.claimSourceLibrary.snapshot().claimSourceAssociations,
         ],
     },
     mergedClaims,
@@ -385,7 +394,9 @@ const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
 await persistEngine(result.engine)
 await persistLibraries(mergedClaims, mergedSources, mergedAssocs)
 ```
+
 with:
+
 ```typescript
 const mergedClaims = ClaimLibrary.fromSnapshot({
     claims: [
@@ -402,10 +413,8 @@ const mergedSources = SourceLibrary.fromSnapshot({
 const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
     {
         claimSourceAssociations: [
-            ...existing.claimSources.snapshot()
-                .claimSourceAssociations,
-            ...result.claimSourceLibrary.snapshot()
-                .claimSourceAssociations,
+            ...existing.claimSources.snapshot().claimSourceAssociations,
+            ...result.claimSourceLibrary.snapshot().claimSourceAssociations,
         ],
     },
     mergedClaims,
@@ -423,10 +432,13 @@ Remove unused imports: `ClaimSourceLibrary` is still used. Remove `SourceLibrary
 In `src/cli/commands/claims.ts`:
 
 Replace:
+
 ```typescript
 import { hydrateLibraries, persistLibraries } from "../engine.js"
 ```
+
 with:
+
 ```typescript
 import { hydratePropositCore, persistCore } from "../engine.js"
 ```
@@ -434,10 +446,13 @@ import { hydratePropositCore, persistCore } from "../engine.js"
 Replace every `await hydrateLibraries()` with `await hydratePropositCore()`. The returned object has `.claims` instead of `.claimLibrary`, `.sources` instead of `.sourceLibrary`, `.claimSources` instead of `.claimSourceLibrary`.
 
 In each action handler, replace the destructuring pattern. For example, change:
+
 ```typescript
 const { claimLibrary } = await hydrateLibraries()
 ```
+
 to:
+
 ```typescript
 const core = await hydratePropositCore()
 const claimLibrary = core.claims
@@ -458,20 +473,26 @@ Replace import, replace `hydrateLibraries()` calls with `hydratePropositCore()`,
 In `src/cli/commands/render.ts`:
 
 Replace:
+
 ```typescript
 import { hydrateEngine, hydrateLibraries } from "../engine.js"
 ```
+
 with:
+
 ```typescript
 import { hydrateEngine, hydratePropositCore } from "../engine.js"
 ```
 
 Replace:
+
 ```typescript
 const libs = await hydrateLibraries()
 const engine = await hydrateEngine(argumentId, version, libs)
 ```
+
 with:
+
 ```typescript
 const core = await hydratePropositCore()
 const engine = await hydrateEngine(argumentId, version, core)
@@ -484,11 +505,14 @@ Replace `libs.claimLibrary` with `core.claims`, `libs.sourceLibrary` with `core.
 In `src/cli/commands/diff.ts`:
 
 Replace:
+
 ```typescript
 import { diffArguments } from "../../lib/core/diff.js"
 import { hydrateEngine } from "../engine.js"
 ```
+
 with:
+
 ```typescript
 import { diffArguments } from "../../lib/core/diff.js"
 import { hydrateEngine, hydratePropositCore } from "../engine.js"
@@ -497,6 +521,7 @@ import { hydrateEngine, hydratePropositCore } from "../engine.js"
 Note: keep the standalone `diffArguments` import — it's needed for same-argument diffs.
 
 Replace the action body:
+
 ```typescript
 const [versionA, versionB] = await Promise.all([
     resolveVersion(idA, verArgA),
@@ -510,7 +535,9 @@ const [engineA, engineB] = await Promise.all([
 
 const diff = diffArguments(engineA, engineB)
 ```
+
 with:
+
 ```typescript
 const [versionA, versionB] = await Promise.all([
     resolveVersion(idA, verArgA),
@@ -569,6 +596,7 @@ git commit -m "refactor(cli): update all callers to use hydratePropositCore/pers
 ### Task 4: Rewrite premises create to go through the engine
 
 **Files:**
+
 - Modify: `src/cli/commands/premises.ts`
 
 - [ ] **Step 1: Rewrite the create action**
@@ -582,31 +610,31 @@ import { hydrateEngine, persistEngine } from "../engine.js"
 Replace the `premises create` command registration (the `.command("create")` block) with:
 
 ```typescript
-    premises
-        .command("create")
-        .description("Create a new premise")
-        .option("--title <title>", "Optional title for the premise")
-        .option(
-            "--symbol <symbol>",
-            "Symbol for the auto-created premise-bound variable"
-        )
-        .action(async (opts: { title?: string; symbol?: string }) => {
-            await assertNotPublished(argumentId, version)
-            const engine = await hydrateEngine(argumentId, version)
+premises
+    .command("create")
+    .description("Create a new premise")
+    .option("--title <title>", "Optional title for the premise")
+    .option(
+        "--symbol <symbol>",
+        "Symbol for the auto-created premise-bound variable"
+    )
+    .action(async (opts: { title?: string; symbol?: string }) => {
+        await assertNotPublished(argumentId, version)
+        const engine = await hydrateEngine(argumentId, version)
 
-            const id = randomUUID()
-            const extras: Record<string, unknown> = {}
-            if (opts.title) extras.title = opts.title
+        const id = randomUUID()
+        const extras: Record<string, unknown> = {}
+        if (opts.title) extras.title = opts.title
 
-            try {
-                engine.createPremiseWithId(id, extras, opts.symbol)
-            } catch (err) {
-                errorExit(err instanceof Error ? err.message : String(err))
-            }
+        try {
+            engine.createPremiseWithId(id, extras, opts.symbol)
+        } catch (err) {
+            errorExit(err instanceof Error ? err.message : String(err))
+        }
 
-            await persistEngine(engine)
-            printLine(id)
-        })
+        await persistEngine(engine)
+        printLine(id)
+    })
 ```
 
 - [ ] **Step 2: Verify build**
@@ -626,6 +654,7 @@ git commit -m "feat(cli): premises create goes through engine for auto-variable 
 ### Task 5: Rewrite premises delete to go through the engine
 
 **Files:**
+
 - Modify: `src/cli/commands/premises.ts`
 
 - [ ] **Step 1: Rewrite the delete action**
@@ -635,30 +664,30 @@ In `src/cli/commands/premises.ts`, add `deletePremiseDir` to the imports from `.
 Replace the `premises delete` command registration with:
 
 ```typescript
-    premises
-        .command("delete <premise_id>")
-        .description("Delete a premise")
-        .option("--confirm", "Skip confirmation prompt")
-        .action(async (premiseId: string, opts: { confirm?: boolean }) => {
-            await assertNotPublished(argumentId, version)
-            if (!(await premiseExists(argumentId, version, premiseId))) {
-                errorExit(`Premise "${premiseId}" not found.`)
-            }
-            if (!opts.confirm) {
-                await requireConfirmation(`Delete premise "${premiseId}"?`)
-            }
+premises
+    .command("delete <premise_id>")
+    .description("Delete a premise")
+    .option("--confirm", "Skip confirmation prompt")
+    .action(async (premiseId: string, opts: { confirm?: boolean }) => {
+        await assertNotPublished(argumentId, version)
+        if (!(await premiseExists(argumentId, version, premiseId))) {
+            errorExit(`Premise "${premiseId}" not found.`)
+        }
+        if (!opts.confirm) {
+            await requireConfirmation(`Delete premise "${premiseId}"?`)
+        }
 
-            const engine = await hydrateEngine(argumentId, version)
-            try {
-                engine.removePremise(premiseId)
-            } catch (err) {
-                errorExit(err instanceof Error ? err.message : String(err))
-            }
+        const engine = await hydrateEngine(argumentId, version)
+        try {
+            engine.removePremise(premiseId)
+        } catch (err) {
+            errorExit(err instanceof Error ? err.message : String(err))
+        }
 
-            await persistEngine(engine)
-            await deletePremiseDir(argumentId, version, premiseId)
-            printLine("success")
-        })
+        await persistEngine(engine)
+        await deletePremiseDir(argumentId, version, premiseId)
+        printLine("success")
+    })
 ```
 
 - [ ] **Step 2: Remove unused imports**
@@ -685,6 +714,7 @@ git commit -m "feat(cli): premises delete goes through engine for cascade behavi
 ### Task 6: Add expressions toggle-negation command
 
 **Files:**
+
 - Modify: `src/cli/commands/expressions.ts`
 
 - [ ] **Step 1: Add the toggle-negation command**
@@ -692,38 +722,34 @@ git commit -m "feat(cli): premises delete goes through engine for cascade behavi
 In `src/cli/commands/expressions.ts`, after the `show` command registration (at the end of `registerExpressionCommands`), add:
 
 ```typescript
-    exprs
-        .command("toggle-negation <premise_id> <expression_id>")
-        .description(
-            "Toggle negation on an expression (wrap in NOT or unwrap)"
-        )
-        .action(async (premiseId: string, expressionId: string) => {
-            await assertNotPublished(argumentId, version)
-            if (!(await premiseExists(argumentId, version, premiseId))) {
-                errorExit(`Premise "${premiseId}" not found.`)
-            }
+exprs
+    .command("toggle-negation <premise_id> <expression_id>")
+    .description("Toggle negation on an expression (wrap in NOT or unwrap)")
+    .action(async (premiseId: string, expressionId: string) => {
+        await assertNotPublished(argumentId, version)
+        if (!(await premiseExists(argumentId, version, premiseId))) {
+            errorExit(`Premise "${premiseId}" not found.`)
+        }
 
-            const engine = await hydrateEngine(argumentId, version)
-            const pm = engine.getPremise(premiseId)
-            if (!pm) errorExit(`Premise "${premiseId}" not found in engine.`)
+        const engine = await hydrateEngine(argumentId, version)
+        const pm = engine.getPremise(premiseId)
+        if (!pm) errorExit(`Premise "${premiseId}" not found in engine.`)
 
-            try {
-                pm.toggleNegation(expressionId)
-            } catch (e) {
-                errorExit(
-                    e instanceof Error
-                        ? e.message
-                        : "Failed to toggle negation."
-                )
-            }
+        try {
+            pm.toggleNegation(expressionId)
+        } catch (e) {
+            errorExit(
+                e instanceof Error ? e.message : "Failed to toggle negation."
+            )
+        }
 
-            await writePremiseData(argumentId, version, premiseId, {
-                rootExpressionId: pm.getRootExpressionId(),
-                variables: [...pm.getReferencedVariableIds()].sort(),
-                expressions: pm.getExpressions(),
-            })
-            printLine("success")
+        await writePremiseData(argumentId, version, premiseId, {
+            rootExpressionId: pm.getRootExpressionId(),
+            variables: [...pm.getReferencedVariableIds()].sort(),
+            expressions: pm.getExpressions(),
         })
+        printLine("success")
+    })
 ```
 
 - [ ] **Step 2: Verify build**
@@ -743,6 +769,7 @@ git commit -m "feat(cli): add expressions toggle-negation command"
 ### Task 7: Add expressions change-operator command
 
 **Files:**
+
 - Modify: `src/cli/commands/expressions.ts`
 
 - [ ] **Step 1: Add the change-operator command**
@@ -750,60 +777,53 @@ git commit -m "feat(cli): add expressions toggle-negation command"
 In `src/cli/commands/expressions.ts`, after the `toggle-negation` command, add:
 
 ```typescript
-    exprs
-        .command("change-operator <premise_id> <expression_id> <new_operator>")
-        .description("Change the operator type of an operator expression")
-        .option(
-            "--source-child-id <id>",
-            "Source child ID for split behavior"
-        )
-        .option(
-            "--target-child-id <id>",
-            "Target child ID for split behavior"
-        )
-        .action(
-            async (
-                premiseId: string,
-                expressionId: string,
-                newOperator: string,
-                opts: {
-                    sourceChildId?: string
-                    targetChildId?: string
-                }
-            ) => {
-                await assertNotPublished(argumentId, version)
-                if (!(await premiseExists(argumentId, version, premiseId))) {
-                    errorExit(`Premise "${premiseId}" not found.`)
-                }
-
-                const engine = await hydrateEngine(argumentId, version)
-                const pm = engine.getPremise(premiseId)
-                if (!pm)
-                    errorExit(`Premise "${premiseId}" not found in engine.`)
-
-                try {
-                    pm.changeOperator(
-                        expressionId,
-                        newOperator as TCoreLogicalOperatorType,
-                        opts.sourceChildId,
-                        opts.targetChildId
-                    )
-                } catch (e) {
-                    errorExit(
-                        e instanceof Error
-                            ? e.message
-                            : "Failed to change operator."
-                    )
-                }
-
-                await writePremiseData(argumentId, version, premiseId, {
-                    rootExpressionId: pm.getRootExpressionId(),
-                    variables: [...pm.getReferencedVariableIds()].sort(),
-                    expressions: pm.getExpressions(),
-                })
-                printLine("success")
+exprs
+    .command("change-operator <premise_id> <expression_id> <new_operator>")
+    .description("Change the operator type of an operator expression")
+    .option("--source-child-id <id>", "Source child ID for split behavior")
+    .option("--target-child-id <id>", "Target child ID for split behavior")
+    .action(
+        async (
+            premiseId: string,
+            expressionId: string,
+            newOperator: string,
+            opts: {
+                sourceChildId?: string
+                targetChildId?: string
             }
-        )
+        ) => {
+            await assertNotPublished(argumentId, version)
+            if (!(await premiseExists(argumentId, version, premiseId))) {
+                errorExit(`Premise "${premiseId}" not found.`)
+            }
+
+            const engine = await hydrateEngine(argumentId, version)
+            const pm = engine.getPremise(premiseId)
+            if (!pm) errorExit(`Premise "${premiseId}" not found in engine.`)
+
+            try {
+                pm.changeOperator(
+                    expressionId,
+                    newOperator as TCoreLogicalOperatorType,
+                    opts.sourceChildId,
+                    opts.targetChildId
+                )
+            } catch (e) {
+                errorExit(
+                    e instanceof Error
+                        ? e.message
+                        : "Failed to change operator."
+                )
+            }
+
+            await writePremiseData(argumentId, version, premiseId, {
+                rootExpressionId: pm.getRootExpressionId(),
+                variables: [...pm.getReferencedVariableIds()].sort(),
+                expressions: pm.getExpressions(),
+            })
+            printLine("success")
+        }
+    )
 ```
 
 - [ ] **Step 2: Verify build**
@@ -823,6 +843,7 @@ git commit -m "feat(cli): add expressions change-operator command"
 ### Task 8: Add validate command
 
 **Files:**
+
 - Create: `src/cli/commands/validate.ts`
 - Modify: `src/cli.ts`
 
@@ -878,7 +899,7 @@ import { registerValidateCommand } from "./cli/commands/validate.js"
 Add the registration call in the version-scoped section, after `registerAnalysisCommands`:
 
 ```typescript
-    registerValidateCommand(sub, argumentId, version)
+registerValidateCommand(sub, argumentId, version)
 ```
 
 - [ ] **Step 3: Verify build**
@@ -898,6 +919,7 @@ git commit -m "feat(cli): add validate command for invariant checking"
 ### Task 9: Add arguments fork command
 
 **Files:**
+
 - Modify: `src/cli/commands/arguments.ts`
 
 - [ ] **Step 1: Add the fork command**
@@ -905,7 +927,12 @@ git commit -m "feat(cli): add validate command for invariant checking"
 In `src/cli/commands/arguments.ts`, add imports:
 
 ```typescript
-import { hydratePropositCore, hydrateEngine, persistEngine, persistCore } from "../engine.js"
+import {
+    hydratePropositCore,
+    hydrateEngine,
+    persistEngine,
+    persistCore,
+} from "../engine.js"
 ```
 
 (Adjust the existing import line to include `hydrateEngine`.)
@@ -913,25 +940,29 @@ import { hydratePropositCore, hydrateEngine, persistEngine, persistCore } from "
 Before the `registerParseCommand(args)` line at the end of `registerArgumentCommands`, add:
 
 ```typescript
-    args.command("fork <argument_id>")
-        .description("Fork an argument (creates an independent copy)")
-        .action(async (argumentId: string) => {
-            const core = await hydratePropositCore()
-            const engine = await hydrateEngine(argumentId, (await latestVersionNumber(argumentId)), core)
-            core.arguments.register(engine)
+args.command("fork <argument_id>")
+    .description("Fork an argument (creates an independent copy)")
+    .action(async (argumentId: string) => {
+        const core = await hydratePropositCore()
+        const engine = await hydrateEngine(
+            argumentId,
+            await latestVersionNumber(argumentId),
+            core
+        )
+        core.arguments.register(engine)
 
-            const newArgumentId = randomUUID()
-            let result
-            try {
-                result = core.forkArgument(argumentId, newArgumentId)
-            } catch (err) {
-                errorExit(err instanceof Error ? err.message : String(err))
-            }
+        const newArgumentId = randomUUID()
+        let result
+        try {
+            result = core.forkArgument(argumentId, newArgumentId)
+        } catch (err) {
+            errorExit(err instanceof Error ? err.message : String(err))
+        }
 
-            await persistEngine(result.engine)
-            await persistCore(core)
-            printLine(newArgumentId)
-        })
+        await persistEngine(result.engine)
+        await persistCore(core)
+        printLine(newArgumentId)
+    })
 ```
 
 - [ ] **Step 2: Verify build**
@@ -951,6 +982,7 @@ git commit -m "feat(cli): add arguments fork command"
 ### Task 10: Update smoke test
 
 **Files:**
+
 - Modify: `scripts/smoke-test.sh`
 
 - [ ] **Step 1: Account for auto-variables from premises create**
@@ -1077,6 +1109,7 @@ git commit -m "test(cli): update smoke test for PropositCore, fork, toggle-negat
 ### Task 11: Lint and final verification
 
 **Files:**
+
 - All modified files
 
 - [ ] **Step 1: Run full check suite**
