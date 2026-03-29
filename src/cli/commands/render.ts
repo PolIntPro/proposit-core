@@ -1,5 +1,5 @@
 import { Command } from "commander"
-import { hydrateEngine, hydrateLibraries } from "../engine.js"
+import { hydrateEngine, hydratePropositCore } from "../engine.js"
 import { isClaimBound, isPremiseBound } from "../../lib/schemata/index.js"
 import type { TCorePropositionalVariable } from "../../lib/schemata/index.js"
 import { printLine } from "../output.js"
@@ -24,8 +24,8 @@ export function registerRenderCommand(
         .command("render")
         .description("Render all premises as logical expression strings")
         .action(async () => {
-            const libs = await hydrateLibraries()
-            const engine = await hydrateEngine(argumentId, version, libs)
+            const core = await hydratePropositCore()
+            const engine = await hydrateEngine(argumentId, version, core)
             const arg = engine.getArgument() as Record<string, unknown>
             const roles = engine.getRoleState()
             const conclusionId = roles.conclusionPremiseId
@@ -72,7 +72,7 @@ export function registerRenderCommand(
                     const typed = v as unknown as TCorePropositionalVariable
                     let binding = ""
                     if (isClaimBound(typed)) {
-                        const claim = libs.claimLibrary.get(
+                        const claim = core.claims.get(
                             typed.claimId,
                             typed.claimVersion
                         )
@@ -92,7 +92,7 @@ export function registerRenderCommand(
             }
 
             // Claims
-            const claims = libs.claimLibrary.getAll()
+            const claims = core.claims.getAll()
             if (claims.length > 0) {
                 printLine("")
                 printLine("Claims:")
@@ -105,7 +105,7 @@ export function registerRenderCommand(
             }
 
             // Sources
-            const sources = libs.sourceLibrary.getAll()
+            const sources = core.sources.getAll()
             if (sources.length > 0) {
                 printLine("")
                 printLine("Sources:")

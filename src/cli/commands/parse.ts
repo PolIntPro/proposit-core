@@ -5,7 +5,7 @@ import {
     BasicsArgumentParser,
     BasicsParsingSchema,
 } from "../../extensions/basics/index.js"
-import { hydrateLibraries, persistEngine, persistLibraries } from "../engine.js"
+import { hydratePropositCore, persistEngine, persistCore } from "../engine.js"
 import { ClaimLibrary } from "../../lib/core/claim-library.js"
 import { SourceLibrary } from "../../lib/core/source-library.js"
 import { ClaimSourceLibrary } from "../../lib/core/claim-source-library.js"
@@ -179,23 +179,23 @@ export function registerParseCommand(args: Command): void {
                 }
 
                 // 10. Merge libraries with existing global state
-                const existing = await hydrateLibraries()
+                const existing = await hydratePropositCore()
                 const mergedClaims = ClaimLibrary.fromSnapshot({
                     claims: [
-                        ...existing.claimLibrary.snapshot().claims,
+                        ...existing.claims.snapshot().claims,
                         ...built.claimLibrary.snapshot().claims,
                     ],
                 })
                 const mergedSources = SourceLibrary.fromSnapshot({
                     sources: [
-                        ...existing.sourceLibrary.snapshot().sources,
+                        ...existing.sources.snapshot().sources,
                         ...built.sourceLibrary.snapshot().sources,
                     ],
                 })
                 const mergedAssocs = ClaimSourceLibrary.fromSnapshot(
                     {
                         claimSourceAssociations: [
-                            ...existing.claimSourceLibrary.snapshot()
+                            ...existing.claimSources.snapshot()
                                 .claimSourceAssociations,
                             ...built.claimSourceLibrary.snapshot()
                                 .claimSourceAssociations,
@@ -207,11 +207,7 @@ export function registerParseCommand(args: Command): void {
 
                 // 11. Persist and output
                 await persistEngine(built.engine)
-                await persistLibraries(
-                    mergedClaims,
-                    mergedSources,
-                    mergedAssocs
-                )
+                await persistCore(existing)
                 printLine(built.engine.getArgument().id)
             }
         )

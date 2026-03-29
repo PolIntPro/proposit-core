@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Command } from "commander"
-import { hydrateLibraries, persistLibraries } from "../engine.js"
+import { hydratePropositCore, persistCore } from "../engine.js"
 import { errorExit, printJson, printLine } from "../output.js"
 
 export function registerClaimCommands(program: Command): void {
@@ -13,8 +13,8 @@ export function registerClaimCommands(program: Command): void {
         .description("List all claims")
         .option("--json", "Output as JSON")
         .action(async (opts: { json?: boolean }) => {
-            const { claimLibrary } = await hydrateLibraries()
-            const all = claimLibrary.getAll()
+            const core = await hydratePropositCore()
+            const all = core.claims.getAll()
             if (opts.json) {
                 printJson(all)
             } else {
@@ -35,8 +35,8 @@ export function registerClaimCommands(program: Command): void {
         .description("Show all versions of a claim")
         .option("--json", "Output as JSON")
         .action(async (claimId: string, opts: { json?: boolean }) => {
-            const { claimLibrary } = await hydrateLibraries()
-            const versions = claimLibrary.getVersions(claimId)
+            const core = await hydratePropositCore()
+            const versions = core.claims.getVersions(claimId)
             if (versions.length === 0) {
                 errorExit(`Claim "${claimId}" not found.`)
             }
@@ -63,17 +63,13 @@ export function registerClaimCommands(program: Command): void {
         .option("--title <title>", "Short title summarizing the claim")
         .option("--body <body>", "Detailed description of the claim")
         .action(async (opts: { title?: string; body?: string }) => {
-            const libs = await hydrateLibraries()
-            const claim = libs.claimLibrary.create({
+            const core = await hydratePropositCore()
+            const claim = core.claims.create({
                 id: randomUUID(),
                 ...(opts.title !== undefined ? { title: opts.title } : {}),
                 ...(opts.body !== undefined ? { body: opts.body } : {}),
-            } as Parameters<typeof libs.claimLibrary.create>[0])
-            await persistLibraries(
-                libs.claimLibrary,
-                libs.sourceLibrary,
-                libs.claimSourceLibrary
-            )
+            } as Parameters<typeof core.claims.create>[0])
+            await persistCore(core)
             printLine(claim.id)
         })
 
@@ -87,8 +83,8 @@ export function registerClaimCommands(program: Command): void {
                 claimId: string,
                 opts: { title?: string; body?: string }
             ) => {
-                const libs = await hydrateLibraries()
-                const current = libs.claimLibrary.getCurrent(claimId)
+                const core = await hydratePropositCore()
+                const current = core.claims.getCurrent(claimId)
                 if (!current) {
                     errorExit(`Claim "${claimId}" not found.`)
                 }
@@ -103,15 +99,11 @@ export function registerClaimCommands(program: Command): void {
                 if (Object.keys(updates).length === 0) {
                     errorExit("No updates specified. Use --title or --body.")
                 }
-                libs.claimLibrary.update(
+                core.claims.update(
                     claimId,
-                    updates as Parameters<typeof libs.claimLibrary.update>[1]
+                    updates as Parameters<typeof core.claims.update>[1]
                 )
-                await persistLibraries(
-                    libs.claimLibrary,
-                    libs.sourceLibrary,
-                    libs.claimSourceLibrary
-                )
+                await persistCore(core)
                 printLine("success")
             }
         )
@@ -122,14 +114,14 @@ export function registerClaimCommands(program: Command): void {
             "Freeze the current version and create a new mutable version"
         )
         .action(async (claimId: string) => {
-            const libs = await hydrateLibraries()
-            const current = libs.claimLibrary.getCurrent(claimId)
+            const core = await hydratePropositCore()
+            const current = core.claims.getCurrent(claimId)
             if (!current) {
                 errorExit(`Claim "${claimId}" not found.`)
             }
             let frozen, newVersion
             try {
-                const result = libs.claimLibrary.freeze(claimId)
+                const result = core.claims.freeze(claimId)
                 frozen = result.frozen
                 newVersion = result.current
             } catch (error) {
@@ -137,11 +129,7 @@ export function registerClaimCommands(program: Command): void {
                     error instanceof Error ? error.message : String(error)
                 )
             }
-            await persistLibraries(
-                libs.claimLibrary,
-                libs.sourceLibrary,
-                libs.claimSourceLibrary
-            )
+            await persistCore(core)
             printLine(
                 `Frozen v${frozen.version}, new mutable v${newVersion.version}`
             )

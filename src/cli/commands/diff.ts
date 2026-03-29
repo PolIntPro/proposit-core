@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { diffArguments } from "../../lib/core/diff.js"
-import { hydrateEngine } from "../engine.js"
+import { hydrateEngine, hydratePropositCore } from "../engine.js"
 import { errorExit, printJson } from "../output.js"
 import { renderDiff } from "../output/diff-renderer.js"
 import { resolveVersion } from "../router.js"
@@ -38,12 +38,30 @@ export function registerDiffCommand(program: Command): void {
                 resolveVersion(idB, verArgB),
             ])
 
+            const core = await hydratePropositCore()
+
             const [engineA, engineB] = await Promise.all([
-                hydrateEngine(idA, versionA),
-                hydrateEngine(idB, versionB),
+                hydrateEngine(idA, versionA, core),
+                hydrateEngine(idB, versionB, core),
             ])
 
-            const diff = diffArguments(engineA, engineB)
+            // For cross-argument diffs, use PropositCore.diffArguments() which
+            // automatically applies fork-aware entity matching from ForkLibrary.
+            // For same-argument diffs (two versions of the same argument),
+            // ArgumentLibrary can't hold two engines with the same ID, so fall
+            // back to the standalone diffArguments().
+            const isCrossArgument = idA !== idB
+            let diff
+            if (isCrossArgument) {
+                core.arguments.register(engineA)
+                core.arguments.register(engineB)
+                diff = core.diffArguments(
+                    engineA.getArgument().id,
+                    engineB.getArgument().id
+                )
+            } else {
+                diff = diffArguments(engineA, engineB)
+            }
 
             if (opts.json) {
                 printJson(diff)

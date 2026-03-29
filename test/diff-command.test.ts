@@ -17,10 +17,12 @@ vi.mock("../src/cli/output.js", () => ({
     },
 }))
 
-// Mock hydrateEngine to return minimal ArgumentEngine stubs
+// Mock hydrateEngine and hydratePropositCore
 const mockHydrateEngine = vi.fn()
+const mockHydratePropositCore = vi.fn()
 vi.mock("../src/cli/engine.js", () => ({
     hydrateEngine: mockHydrateEngine,
+    hydratePropositCore: mockHydratePropositCore,
 }))
 
 // Mock resolveVersion to return the version number as-is
@@ -45,11 +47,17 @@ const { registerDiffCommand } = await import("../src/cli/commands/diff.js")
 
 import { Command } from "commander"
 
+const mockCore = {
+    arguments: { register: vi.fn() },
+    diffArguments: vi.fn(),
+}
+
 beforeEach(() => {
     printedLines.length = 0
     printedJson = undefined
     _exitMessage = undefined
     vi.clearAllMocks()
+    mockHydratePropositCore.mockResolvedValue(mockCore)
 })
 
 describe("registerDiffCommand", () => {
@@ -88,23 +96,32 @@ describe("registerDiffCommand", () => {
 
         expect(mockResolveVersion).toHaveBeenCalledWith("myarg", "0")
         expect(mockResolveVersion).toHaveBeenCalledWith("myarg", "1")
+        expect(mockHydratePropositCore).toHaveBeenCalledTimes(1)
         expect(mockHydrateEngine).toHaveBeenCalledTimes(2)
         expect(mockHydrateEngine).toHaveBeenNthCalledWith(
             1,
             "myarg",
-            expect.any(Number)
+            expect.any(Number),
+            mockCore
         )
         expect(mockHydrateEngine).toHaveBeenNthCalledWith(
             2,
             "myarg",
-            expect.any(Number)
+            expect.any(Number),
+            mockCore
         )
+        // Same-argument diff uses standalone diffArguments
+        expect(mockDiffArguments).toHaveBeenCalledTimes(1)
     })
 
     it("parses 4-arg full form (cross-argument)", async () => {
         mockResolveVersion.mockResolvedValue(0)
-        mockHydrateEngine.mockResolvedValue({})
-        mockDiffArguments.mockReturnValue(emptyDiff)
+        const mockEngineA = { getArgument: () => ({ id: "argA" }) }
+        const mockEngineB = { getArgument: () => ({ id: "argB" }) }
+        mockHydrateEngine
+            .mockResolvedValueOnce(mockEngineA)
+            .mockResolvedValueOnce(mockEngineB)
+        mockCore.diffArguments.mockReturnValue(emptyDiff)
 
         const program = makeProgram()
         await program.parseAsync([
@@ -122,16 +139,23 @@ describe("registerDiffCommand", () => {
         expect(mockHydrateEngine).toHaveBeenNthCalledWith(
             1,
             "argA",
-            expect.any(Number)
+            expect.any(Number),
+            mockCore
         )
         expect(mockHydrateEngine).toHaveBeenNthCalledWith(
             2,
             "argB",
-            expect.any(Number)
+            expect.any(Number),
+            mockCore
         )
+        // Cross-argument diff uses core.diffArguments with fork-aware matching
+        expect(mockCore.arguments.register).toHaveBeenCalledTimes(2)
+        expect(mockCore.diffArguments).toHaveBeenCalledWith("argA", "argB")
+        // Standalone diffArguments should NOT be called for cross-argument
+        expect(mockDiffArguments).not.toHaveBeenCalled()
     })
 
-    it("outputs JSON when --json is passed", async () => {
+    it("outputs JSON when --json is passed (same-argument)", async () => {
         mockResolveVersion.mockResolvedValue(0)
         mockHydrateEngine.mockResolvedValue({})
         mockDiffArguments.mockReturnValue(emptyDiff)
@@ -151,7 +175,7 @@ describe("registerDiffCommand", () => {
         expect(mockRenderDiff).not.toHaveBeenCalled()
     })
 
-    it("calls renderDiff for human-readable output", async () => {
+    it("calls renderDiff for human-readable output (same-argument)", async () => {
         mockResolveVersion.mockResolvedValue(0)
         mockHydrateEngine.mockResolvedValue({})
         mockDiffArguments.mockReturnValue(emptyDiff)
