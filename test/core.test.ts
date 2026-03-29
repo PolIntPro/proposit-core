@@ -12,8 +12,15 @@ import {
     EMPTY_CLAIM_SOURCE_LOOKUP,
     forkArgumentEngine,
     ForkNamespace,
+    ForkLibrary,
 } from "../src/lib/index"
-import type { TOrderedOperation, TCoreEntityForkRecord } from "../src/lib/index"
+import type {
+    TOrderedOperation,
+    TCoreEntityForkRecord,
+    TCoreExpressionForkRecord,
+    TCoreClaimForkRecord,
+    TCoreSourceForkRecord,
+} from "../src/lib/index"
 import { ClaimSourceLibrary } from "../src/lib/core/claim-source-library"
 import { ForksLibrary } from "../src/lib/core/forks-library"
 import type { TReactiveSnapshot } from "../src/lib/index"
@@ -22617,5 +22624,69 @@ describe("ForkNamespace", () => {
             const result = ns.validate()
             expect(result.ok).toBe(true)
         })
+    })
+})
+
+describe("ForkLibrary", () => {
+    const makeBaseRecord = (
+        overrides: Partial<TCoreEntityForkRecord> = {}
+    ): TCoreEntityForkRecord => ({
+        entityId: crypto.randomUUID(),
+        forkedFromEntityId: crypto.randomUUID(),
+        forkedFromArgumentId: crypto.randomUUID(),
+        forkedFromArgumentVersion: 0,
+        forkId: crypto.randomUUID(),
+        ...overrides,
+    })
+
+    it("should expose six namespaces", () => {
+        const lib = new ForkLibrary()
+        expect(lib.arguments).toBeInstanceOf(ForkNamespace)
+        expect(lib.premises).toBeInstanceOf(ForkNamespace)
+        expect(lib.expressions).toBeInstanceOf(ForkNamespace)
+        expect(lib.variables).toBeInstanceOf(ForkNamespace)
+        expect(lib.claims).toBeInstanceOf(ForkNamespace)
+        expect(lib.sources).toBeInstanceOf(ForkNamespace)
+    })
+
+    it("should round-trip all namespaces via snapshot/fromSnapshot", () => {
+        const lib = new ForkLibrary()
+        const forkId = crypto.randomUUID()
+        const argRecord = lib.arguments.create(makeBaseRecord({ forkId }))
+        const premRecord = lib.premises.create(makeBaseRecord({ forkId }))
+        const exprRecord = lib.expressions.create({
+            ...makeBaseRecord({ forkId }),
+            forkedFromPremiseId: crypto.randomUUID(),
+        } as TCoreExpressionForkRecord)
+        const varRecord = lib.variables.create(makeBaseRecord({ forkId }))
+        const claimRecord = lib.claims.create({
+            ...makeBaseRecord({ forkId }),
+            forkedFromEntityVersion: 2,
+        } as TCoreClaimForkRecord)
+        const sourceRecord = lib.sources.create({
+            ...makeBaseRecord({ forkId }),
+            forkedFromEntityVersion: 1,
+        } as TCoreSourceForkRecord)
+
+        const snap = lib.snapshot()
+        const restored = ForkLibrary.fromSnapshot(snap)
+
+        expect(restored.arguments.get(argRecord.entityId)).toEqual(argRecord)
+        expect(restored.premises.get(premRecord.entityId)).toEqual(premRecord)
+        expect(restored.expressions.get(exprRecord.entityId)).toEqual(
+            exprRecord
+        )
+        expect(restored.variables.get(varRecord.entityId)).toEqual(varRecord)
+        expect(restored.claims.get(claimRecord.entityId)).toEqual(claimRecord)
+        expect(restored.sources.get(sourceRecord.entityId)).toEqual(
+            sourceRecord
+        )
+    })
+
+    it("should merge validation results from all namespaces", () => {
+        const lib = new ForkLibrary()
+        lib.arguments.create(makeBaseRecord())
+        const result = lib.validate()
+        expect(result.ok).toBe(true)
     })
 })

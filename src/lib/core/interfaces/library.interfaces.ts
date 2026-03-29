@@ -4,6 +4,14 @@ import type {
     TCoreSource,
 } from "../../schemata/source.js"
 import type { TCoreFork } from "../../schemata/fork.js"
+import type {
+    TCoreArgumentForkRecord,
+    TCorePremiseForkRecord,
+    TCoreExpressionForkRecord,
+    TCoreVariableForkRecord,
+    TCoreClaimForkRecord,
+    TCoreSourceForkRecord,
+} from "../../schemata/fork.js"
 import type { TInvariantValidationResult } from "../../types/validation.js"
 
 /**
@@ -358,4 +366,30 @@ export interface TForkLookup<TFork extends TCoreFork = TCoreFork> {
 export type TForksLibrarySnapshot<TFork extends TCoreFork = TCoreFork> = {
     /** All fork record entities in the library. */
     forks: TFork[]
+}
+
+/**
+ * Serializable snapshot of a `ForkLibrary`. Contains arrays of fork records
+ * for each entity type.
+ */
+export type TForkLibrarySnapshot<
+    TArgFork extends TCoreArgumentForkRecord = TCoreArgumentForkRecord,
+    TPremiseFork extends TCorePremiseForkRecord = TCorePremiseForkRecord,
+    TExprFork extends TCoreExpressionForkRecord = TCoreExpressionForkRecord,
+    TVarFork extends TCoreVariableForkRecord = TCoreVariableForkRecord,
+    TClaimFork extends TCoreClaimForkRecord = TCoreClaimForkRecord,
+    TSourceFork extends TCoreSourceForkRecord = TCoreSourceForkRecord,
+> = {
+    /** All argument fork records. */
+    arguments: TArgFork[]
+    /** All premise fork records. */
+    premises: TPremiseFork[]
+    /** All expression fork records. */
+    expressions: TExprFork[]
+    /** All variable fork records. */
+    variables: TVarFork[]
+    /** All claim fork records. */
+    claims: TClaimFork[]
+    /** All source fork records. */
+    sources: TSourceFork[]
 }
