@@ -23,6 +23,10 @@ import {
     CorePropositionalExpressionSchema,
     CorePremiseSchema,
     CoreForkSchema,
+    CoreEntityForkRecordSchema,
+    CoreExpressionForkRecordSchema,
+    CoreClaimForkRecordSchema,
+    CoreSourceForkRecordSchema,
     isClaimBound,
     isPremiseBound,
     isExternallyBound,
@@ -22415,5 +22419,98 @@ describe("forkArgumentEngine", () => {
                 claimSourceLibrary: csLib(),
             })
         ).not.toThrow()
+    })
+})
+
+describe("ForkRecordSchemas", () => {
+    describe("CoreEntityForkRecordSchema", () => {
+        it("should accept a valid entity fork record", () => {
+            const record = {
+                entityId: crypto.randomUUID(),
+                forkedFromEntityId: crypto.randomUUID(),
+                forkedFromArgumentId: crypto.randomUUID(),
+                forkedFromArgumentVersion: 3,
+                forkId: crypto.randomUUID(),
+            }
+            expect(Value.Check(CoreEntityForkRecordSchema, record)).toBe(true)
+        })
+
+        it("should reject a record missing required fields", () => {
+            const record = {
+                entityId: crypto.randomUUID(),
+            }
+            expect(Value.Check(CoreEntityForkRecordSchema, record)).toBe(false)
+        })
+
+        it("should accept additional properties", () => {
+            const record = {
+                entityId: crypto.randomUUID(),
+                forkedFromEntityId: crypto.randomUUID(),
+                forkedFromArgumentId: crypto.randomUUID(),
+                forkedFromArgumentVersion: 0,
+                forkId: crypto.randomUUID(),
+                customField: "hello",
+            }
+            expect(Value.Check(CoreEntityForkRecordSchema, record)).toBe(true)
+        })
+    })
+
+    describe("CoreExpressionForkRecordSchema", () => {
+        it("should require forkedFromPremiseId", () => {
+            const base = {
+                entityId: crypto.randomUUID(),
+                forkedFromEntityId: crypto.randomUUID(),
+                forkedFromArgumentId: crypto.randomUUID(),
+                forkedFromArgumentVersion: 0,
+                forkId: crypto.randomUUID(),
+            }
+            expect(Value.Check(CoreExpressionForkRecordSchema, base)).toBe(
+                false
+            )
+
+            const withPremise = {
+                ...base,
+                forkedFromPremiseId: crypto.randomUUID(),
+            }
+            expect(
+                Value.Check(CoreExpressionForkRecordSchema, withPremise)
+            ).toBe(true)
+        })
+    })
+
+    describe("CoreClaimForkRecordSchema", () => {
+        it("should require forkedFromEntityVersion", () => {
+            const base = {
+                entityId: crypto.randomUUID(),
+                forkedFromEntityId: crypto.randomUUID(),
+                forkedFromArgumentId: crypto.randomUUID(),
+                forkedFromArgumentVersion: 0,
+                forkId: crypto.randomUUID(),
+            }
+            expect(Value.Check(CoreClaimForkRecordSchema, base)).toBe(false)
+
+            const withVersion = { ...base, forkedFromEntityVersion: 2 }
+            expect(Value.Check(CoreClaimForkRecordSchema, withVersion)).toBe(
+                true
+            )
+        })
+    })
+
+    describe("CoreSourceForkRecordSchema", () => {
+        it("should require forkedFromEntityVersion", () => {
+            const base = {
+                entityId: crypto.randomUUID(),
+                forkedFromEntityId: crypto.randomUUID(),
+                forkedFromArgumentId: crypto.randomUUID(),
+                forkedFromArgumentVersion: 0,
+                forkId: crypto.randomUUID(),
+            }
+            expect(Value.Check(CoreSourceForkRecordSchema, base)).toBe(false)
+
+            const withVersion = { ...base, forkedFromEntityVersion: 1 }
+            expect(Value.Check(CoreSourceForkRecordSchema, withVersion)).toBe(
+                true
+            )
+        })
     })
 })
