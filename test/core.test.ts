@@ -23261,4 +23261,61 @@ describe("PropositCore", () => {
             ).toBe(true)
         })
     })
+
+    describe("diffArguments", () => {
+        it("should diff two arguments", () => {
+            const core = new PropositCore()
+            const arg1 = { id: crypto.randomUUID(), version: 0 }
+            const arg2 = { id: crypto.randomUUID(), version: 0 }
+            core.arguments.create(arg1)
+            core.arguments.create(arg2)
+
+            const diff = core.diffArguments(arg1.id, arg2.id)
+            expect(diff).toBeDefined()
+            expect(diff.argument).toBeDefined()
+        })
+
+        it("should automatically pair forked entities via fork records", () => {
+            const core = new PropositCore()
+            const claim = core.claims.create({ id: crypto.randomUUID() })
+            const arg = { id: crypto.randomUUID(), version: 0 }
+            const engine = core.arguments.create(arg)
+            engine.createPremise()
+            engine.addVariable({
+                id: crypto.randomUUID(),
+                symbol: "P",
+                argumentId: arg.id,
+                argumentVersion: 0,
+                claimId: claim.id,
+                claimVersion: claim.version,
+            })
+
+            const newArgId = crypto.randomUUID()
+            core.forkArgument(arg.id, newArgId)
+
+            const diff = core.diffArguments(arg.id, newArgId)
+            // Forked premises should be paired (not added/removed)
+            expect(diff.premises.added).toHaveLength(0)
+            expect(diff.premises.removed).toHaveLength(0)
+        })
+
+        it("should allow caller-provided matchers to override", () => {
+            const core = new PropositCore()
+            const arg1 = { id: crypto.randomUUID(), version: 0 }
+            const arg2 = { id: crypto.randomUUID(), version: 0 }
+            core.arguments.create(arg1)
+            core.arguments.create(arg2)
+
+            const neverMatch = () => false
+            const diff = core.diffArguments(arg1.id, arg2.id, {
+                premiseMatcher: neverMatch,
+            })
+            expect(diff).toBeDefined()
+        })
+
+        it("should throw when argument not found", () => {
+            const core = new PropositCore()
+            expect(() => core.diffArguments("a", "b")).toThrow(/not found/)
+        })
+    })
 })

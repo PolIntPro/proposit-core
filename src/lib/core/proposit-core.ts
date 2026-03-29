@@ -27,6 +27,7 @@ import type {
     TInvariantViolation,
 } from "../types/validation.js"
 import type { TForkArgumentOptions, TForkRemapTable } from "../types/fork.js"
+import type { TCoreArgumentDiff, TCoreDiffOptions } from "../types/diff.js"
 import { isClaimBound } from "../schemata/propositional.js"
 import { ClaimLibrary } from "./claim-library.js"
 import { SourceLibrary } from "./source-library.js"
@@ -35,6 +36,7 @@ import { ArgumentLibrary } from "./argument-library.js"
 import { ArgumentEngine } from "./argument-engine.js"
 import { ForkLibrary } from "./fork-library.js"
 import { forkArgumentEngine } from "./fork.js"
+import { diffArguments as standaloneDiffArguments } from "./diff.js"
 
 /**
  * Options for constructing a `PropositCore` instance. Accepts optional
@@ -674,5 +676,55 @@ export class PropositCore<
             sourceRemap,
             argumentFork,
         }
+    }
+
+    /**
+     * Computes a structural diff between two arguments managed by this
+     * `PropositCore` instance. Automatically injects fork-aware entity
+     * matchers derived from the fork records stored in `this.forks`.
+     * Caller-provided matchers in `options` take precedence over the
+     * fork-aware defaults.
+     *
+     * @param argumentIdA - The ID of the "before" argument.
+     * @param argumentIdB - The ID of the "after" argument.
+     * @param options - Optional diff configuration and comparator overrides.
+     * @returns A structural diff between the two arguments.
+     */
+    public diffArguments(
+        argumentIdA: string,
+        argumentIdB: string,
+        options?: TCoreDiffOptions<TArg, TVar, TPremise, TExpr>
+    ): TCoreArgumentDiff<TArg, TVar, TPremise, TExpr> {
+        const engineA = this.arguments.get(argumentIdA)
+        if (!engineA) {
+            throw new Error(`Argument "${argumentIdA}" not found.`)
+        }
+        const engineB = this.arguments.get(argumentIdB)
+        if (!engineB) {
+            throw new Error(`Argument "${argumentIdB}" not found.`)
+        }
+
+        // Build fork-aware matchers from fork records
+        const forkPremiseMatcher = (a: TPremise, b: TPremise): boolean => {
+            const record = this.forks.premises.get(b.id)
+            return record?.forkedFromEntityId === a.id
+        }
+        const forkVariableMatcher = (a: TVar, b: TVar): boolean => {
+            const record = this.forks.variables.get(b.id)
+            return record?.forkedFromEntityId === a.id
+        }
+        const forkExpressionMatcher = (a: TExpr, b: TExpr): boolean => {
+            const record = this.forks.expressions.get(b.id)
+            return record?.forkedFromEntityId === a.id
+        }
+
+        // Caller-provided matchers override fork-aware matchers
+        return standaloneDiffArguments(engineA, engineB, {
+            ...options,
+            premiseMatcher: options?.premiseMatcher ?? forkPremiseMatcher,
+            variableMatcher: options?.variableMatcher ?? forkVariableMatcher,
+            expressionMatcher:
+                options?.expressionMatcher ?? forkExpressionMatcher,
+        })
     }
 }
