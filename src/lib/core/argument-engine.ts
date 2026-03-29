@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import { Value } from "typebox/value"
 import {
     CoreArgumentSchema,
@@ -87,10 +86,15 @@ import type {
     TClaimSourceLookup,
 } from "./interfaces/index.js"
 
+/** Default ID generator using the Web Crypto API (Node.js 20+, all modern browsers). */
+export const defaultGenerateId = (): string => globalThis.crypto.randomUUID()
+
 export type TLogicEngineOptions = {
     checksumConfig?: TCoreChecksumConfig
     positionConfig?: TCorePositionConfig
     grammarConfig?: TGrammarConfig
+    /** UUID generator for new entity IDs. Defaults to `globalThis.crypto.randomUUID()`. */
+    generateId?: () => string
 }
 
 export type TArgumentEngineSnapshot<
@@ -529,7 +533,7 @@ export class ArgumentEngine<
         TPremise,
         TArg
     > {
-        return this.createPremiseWithId(randomUUID(), extras, symbol)
+        return this.createPremiseWithId(globalThis.crypto.randomUUID(), extras, symbol)
     }
 
     public createPremiseWithId(
@@ -593,7 +597,7 @@ export class ArgumentEngine<
             if (!this.restoringFromSnapshot) {
                 const autoSymbol = symbol ?? this.generateUniqueSymbol()
                 const autoVariable = {
-                    id: randomUUID(),
+                    id: globalThis.crypto.randomUUID(),
                     argumentId: this.argument.id,
                     argumentVersion: this.argument.version as number,
                     symbol: autoSymbol,
