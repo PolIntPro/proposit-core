@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import type {
     TCoreArgument,
     TCorePremise,
@@ -25,11 +26,15 @@ import type {
     TInvariantValidationResult,
     TInvariantViolation,
 } from "../types/validation.js"
+import type { TForkArgumentOptions, TForkRemapTable } from "../types/fork.js"
+import { isClaimBound } from "../schemata/propositional.js"
 import { ClaimLibrary } from "./claim-library.js"
 import { SourceLibrary } from "./source-library.js"
 import { ClaimSourceLibrary } from "./claim-source-library.js"
 import { ArgumentLibrary } from "./argument-library.js"
+import { ArgumentEngine } from "./argument-engine.js"
 import { ForkLibrary } from "./fork-library.js"
+import { forkArgumentEngine } from "./fork.js"
 
 /**
  * Options for constructing a `PropositCore` instance. Accepts optional
@@ -368,5 +373,306 @@ export class PropositCore<
             ...this.arguments.validate().violations,
         ]
         return { ok: violations.length === 0, violations }
+    }
+
+    /**
+     * Forks an argument, cloning its referenced claims, sources, and
+     * claim-source associations, then remaps variable claim references to
+     * point at the cloned claims. Creates fork records in all six
+     * namespaces.
+     *
+     * @param argumentId - The ID of the argument to fork.
+     * @param newArgumentId - The ID for the forked argument.
+     * @param options - Optional fork configuration and extras for fork records.
+     * @returns The forked engine, remap tables, and the argument fork record.
+     */
+    public forkArgument(
+        argumentId: string,
+        newArgumentId: string,
+        options?: TForkArgumentOptions & {
+            forkId?: string
+            argumentForkExtras?: Partial<
+                Omit<TArgFork, keyof TCoreArgumentForkRecord>
+            >
+            premiseForkExtras?: Partial<
+                Omit<TPremiseFork, keyof TCorePremiseForkRecord>
+            >
+            expressionForkExtras?: Partial<
+                Omit<TExprFork, keyof TCoreExpressionForkRecord>
+            >
+            variableForkExtras?: Partial<
+                Omit<TVarFork, keyof TCoreVariableForkRecord>
+            >
+            claimForkExtras?: Partial<
+                Omit<TClaimFork, keyof TCoreClaimForkRecord>
+            >
+            sourceForkExtras?: Partial<
+                Omit<TSourceFork, keyof TCoreSourceForkRecord>
+            >
+        }
+    ): {
+        engine: ArgumentEngine<
+            TArg,
+            TPremise,
+            TExpr,
+            TVar,
+            TSource,
+            TClaim,
+            TAssoc
+        >
+        remapTable: TForkRemapTable
+        claimRemap: Map<string, string>
+        sourceRemap: Map<string, string>
+        argumentFork: TArgFork
+    } {
+        // Step 1: Retrieve source engine
+        const engine = this.arguments.get(argumentId)
+        if (!engine) {
+            throw new Error(
+                `Argument "${argumentId}" not found in ArgumentLibrary.`
+            )
+        }
+
+        // Step 2: canFork guard
+        if (!engine.canFork()) {
+            throw new Error(`Forking argument "${argumentId}" is not allowed.`)
+        }
+
+        const sourceArg = engine.getArgument()
+        const forkId = options?.forkId ?? randomUUID()
+
+        // Build expressionId → premiseId map from source engine snapshot
+        const sourceSnap = engine.snapshot()
+        const exprToPremiseMap = new Map<string, string>()
+        for (const ps of sourceSnap.premises) {
+            for (const expr of ps.expressions.expressions) {
+                exprToPremiseMap.set(expr.id, ps.premise.id)
+            }
+        }
+
+        // Step 3: Clone claims
+        const claimRemap = new Map<string, string>()
+        const claimVersionMap = new Map<string, number>()
+        const variables = engine.getVariables()
+        const uniqueClaimIds = new Set<string>()
+        for (const v of variables) {
+            if (isClaimBound(v)) {
+                uniqueClaimIds.add(v.claimId)
+            }
+        }
+        for (const originalClaimId of uniqueClaimIds) {
+            const currentClaim = this.claims.getCurrent(originalClaimId)
+            if (!currentClaim) {
+                throw new Error(
+                    `Claim "${originalClaimId}" not found in ClaimLibrary.`
+                )
+            }
+            claimVersionMap.set(originalClaimId, currentClaim.version)
+            const newClaimId = randomUUID()
+            const {
+                id: _id,
+                version: _v,
+                frozen: _f,
+                checksum: _c,
+                ...claimData
+            } = currentClaim as Record<string, unknown>
+            this.claims.create({
+                ...claimData,
+                id: newClaimId,
+            } as Omit<TClaim, "version" | "frozen" | "checksum">)
+            claimRemap.set(originalClaimId, newClaimId)
+        }
+
+        // Step 4: Clone sources
+        const sourceRemap = new Map<string, string>()
+        const sourceVersionMap = new Map<string, number>()
+        const uniqueSourceIds = new Set<string>()
+        for (const originalClaimId of uniqueClaimIds) {
+            const associations = this.claimSources.getForClaim(originalClaimId)
+            for (const assoc of associations) {
+                uniqueSourceIds.add(assoc.sourceId)
+            }
+        }
+        for (const originalSourceId of uniqueSourceIds) {
+            const currentSource = this.sources.getCurrent(originalSourceId)
+            if (!currentSource) {
+                throw new Error(
+                    `Source "${originalSourceId}" not found in SourceLibrary.`
+                )
+            }
+            sourceVersionMap.set(originalSourceId, currentSource.version)
+            const newSourceId = randomUUID()
+            const {
+                id: _id,
+                version: _v,
+                frozen: _f,
+                checksum: _c,
+                ...sourceData
+            } = currentSource as Record<string, unknown>
+            this.sources.create({
+                ...sourceData,
+                id: newSourceId,
+            } as Omit<TSource, "version" | "frozen" | "checksum">)
+            sourceRemap.set(originalSourceId, newSourceId)
+        }
+
+        // Step 5: Clone associations
+        for (const originalClaimId of uniqueClaimIds) {
+            const associations = this.claimSources.getForClaim(originalClaimId)
+            for (const assoc of associations) {
+                const clonedClaimId = claimRemap.get(originalClaimId)!
+                const clonedSourceId = sourceRemap.get(assoc.sourceId)
+                if (clonedSourceId) {
+                    this.claimSources.add({
+                        id: randomUUID(),
+                        claimId: clonedClaimId,
+                        claimVersion: 0,
+                        sourceId: clonedSourceId,
+                        sourceVersion: 0,
+                    } as Omit<TAssoc, "checksum">)
+                }
+            }
+        }
+
+        // Step 6: Fork engine
+        const { engine: forkedEngine, remapTable } = forkArgumentEngine<
+            TArg,
+            TPremise,
+            TExpr,
+            TVar,
+            TSource,
+            TClaim,
+            TAssoc
+        >(
+            engine,
+            newArgumentId,
+            {
+                claimLibrary: this.claims,
+                sourceLibrary: this.sources,
+                claimSourceLibrary: this.claimSources,
+            },
+            options
+        )
+
+        // Step 7: Remap claim references
+        const snap = forkedEngine.snapshot()
+        snap.variables.variables = snap.variables.variables.map((v) => {
+            if (isClaimBound(v)) {
+                const clonedClaimId = claimRemap.get(v.claimId)
+                if (clonedClaimId) {
+                    return {
+                        ...v,
+                        claimId: clonedClaimId,
+                        claimVersion: 0,
+                    } as typeof v
+                }
+            }
+            return v
+        })
+
+        const finalEngine = ArgumentEngine.fromSnapshot<
+            TArg,
+            TPremise,
+            TExpr,
+            TVar,
+            TSource,
+            TClaim,
+            TAssoc
+        >(
+            snap,
+            this.claims,
+            this.sources,
+            this.claimSources,
+            snap.config?.grammarConfig,
+            "ignore"
+        )
+
+        // Step 8: Register engine
+        this.arguments.register(finalEngine)
+
+        // Step 9: Create fork records
+
+        // Argument fork record
+        const argumentFork = this.forks.arguments.create({
+            entityId: newArgumentId,
+            forkedFromEntityId: sourceArg.id,
+            forkedFromArgumentId: sourceArg.id,
+            forkedFromArgumentVersion: sourceArg.version,
+            forkId,
+            ...options?.argumentForkExtras,
+        } as TArgFork)
+
+        // Premise fork records
+        for (const [oldPremiseId, newPremiseId] of remapTable.premises) {
+            this.forks.premises.create({
+                entityId: newPremiseId,
+                forkedFromEntityId: oldPremiseId,
+                forkedFromArgumentId: sourceArg.id,
+                forkedFromArgumentVersion: sourceArg.version,
+                forkId,
+                ...options?.premiseForkExtras,
+            } as TPremiseFork)
+        }
+
+        // Expression fork records
+        for (const [oldExprId, newExprId] of remapTable.expressions) {
+            this.forks.expressions.create({
+                entityId: newExprId,
+                forkedFromEntityId: oldExprId,
+                forkedFromArgumentId: sourceArg.id,
+                forkedFromArgumentVersion: sourceArg.version,
+                forkId,
+                forkedFromPremiseId: exprToPremiseMap.get(oldExprId)!,
+                ...options?.expressionForkExtras,
+            } as TExprFork)
+        }
+
+        // Variable fork records
+        for (const [oldVarId, newVarId] of remapTable.variables) {
+            this.forks.variables.create({
+                entityId: newVarId,
+                forkedFromEntityId: oldVarId,
+                forkedFromArgumentId: sourceArg.id,
+                forkedFromArgumentVersion: sourceArg.version,
+                forkId,
+                ...options?.variableForkExtras,
+            } as TVarFork)
+        }
+
+        // Claim fork records
+        for (const [originalClaimId, clonedClaimId] of claimRemap) {
+            this.forks.claims.create({
+                entityId: clonedClaimId,
+                forkedFromEntityId: originalClaimId,
+                forkedFromArgumentId: sourceArg.id,
+                forkedFromArgumentVersion: sourceArg.version,
+                forkId,
+                forkedFromEntityVersion: claimVersionMap.get(originalClaimId)!,
+                ...options?.claimForkExtras,
+            } as TClaimFork)
+        }
+
+        // Source fork records
+        for (const [originalSourceId, clonedSourceId] of sourceRemap) {
+            this.forks.sources.create({
+                entityId: clonedSourceId,
+                forkedFromEntityId: originalSourceId,
+                forkedFromArgumentId: sourceArg.id,
+                forkedFromArgumentVersion: sourceArg.version,
+                forkId,
+                forkedFromEntityVersion:
+                    sourceVersionMap.get(originalSourceId)!,
+                ...options?.sourceForkExtras,
+            } as TSourceFork)
+        }
+
+        // Step 10: Return
+        return {
+            engine: finalEngine,
+            remapTable,
+            claimRemap,
+            sourceRemap,
+            argumentFork,
+        }
     }
 }

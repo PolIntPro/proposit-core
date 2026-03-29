@@ -23000,4 +23000,193 @@ describe("PropositCore", () => {
         expect(engine).toBeDefined()
         expect(engine.getArgument().id).toBe(argId)
     })
+
+    describe("forkArgument", () => {
+        const setupForFork = () => {
+            const core = new PropositCore()
+
+            // Create a claim and freeze it
+            const claim = core.claims.create({ id: crypto.randomUUID() })
+            const frozenResult = core.claims.freeze(claim.id)
+
+            // Create a source and freeze it
+            const source = core.sources.create({ id: crypto.randomUUID() })
+            const frozenSource = core.sources.freeze(source.id)
+
+            // Create claim-source association
+            const assoc = core.claimSources.add({
+                id: crypto.randomUUID(),
+                claimId: frozenResult.frozen.id,
+                claimVersion: frozenResult.frozen.version,
+                sourceId: frozenSource.frozen.id,
+                sourceVersion: frozenSource.frozen.version,
+            })
+
+            // Create an argument with a variable referencing the frozen claim
+            const arg = { id: crypto.randomUUID(), version: 0 }
+            const engine = core.arguments.create(arg)
+            const premise = engine.createPremise()
+            const variable = engine.addVariable({
+                id: crypto.randomUUID(),
+                symbol: "P",
+                argumentId: arg.id,
+                argumentVersion: 0,
+                claimId: frozenResult.frozen.id,
+                claimVersion: frozenResult.frozen.version,
+            })
+
+            return {
+                core,
+                arg,
+                engine,
+                claim: frozenResult.frozen,
+                source: frozenSource.frozen,
+                assoc,
+                variable,
+                premise,
+            }
+        }
+
+        it("should fork an argument with cloned claims, sources, and associations", () => {
+            const { core, arg } = setupForFork()
+            const newArgId = crypto.randomUUID()
+            const result = core.forkArgument(arg.id, newArgId)
+
+            expect(core.arguments.get(newArgId)).toBeDefined()
+            expect(result.engine.getArgument().id).toBe(newArgId)
+            expect(result.claimRemap.size).toBe(1)
+            expect(result.sourceRemap.size).toBe(1)
+            expect(result.argumentFork).toBeDefined()
+            expect(core.forks.arguments.getAll()).toHaveLength(1)
+            expect(core.forks.premises.getAll().length).toBeGreaterThan(0)
+            expect(core.forks.variables.getAll().length).toBeGreaterThan(0)
+            expect(core.forks.claims.getAll()).toHaveLength(1)
+            expect(core.forks.sources.getAll()).toHaveLength(1)
+        })
+
+        it("should update forked variables to reference cloned claims", () => {
+            const { core, arg, claim } = setupForFork()
+            const newArgId = crypto.randomUUID()
+            const result = core.forkArgument(arg.id, newArgId)
+
+            const forkedVars = result.engine.getVariables()
+            // createPremise auto-creates a premise-bound variable, so we have 2
+            const claimBoundVars = forkedVars.filter(isClaimBound)
+            expect(claimBoundVars).toHaveLength(1)
+            const forkedVar = claimBoundVars[0]
+            expect(forkedVar.claimId).not.toBe(claim.id)
+            expect(result.claimRemap.get(claim.id)).toBe(forkedVar.claimId)
+        })
+
+        it("should throw when canFork returns false", () => {
+            const core = new PropositCore()
+            const arg = { id: crypto.randomUUID(), version: 0 }
+            core.arguments.create(arg)
+
+            // Replace with a no-fork engine
+            const engine = core.arguments.remove(arg.id)
+            class NoForkEngine extends ArgumentEngine {
+                public override canFork(): boolean {
+                    return false
+                }
+            }
+            const noFork = new NoForkEngine(
+                engine.getArgument(),
+                core.claims,
+                core.sources,
+                core.claimSources
+            )
+            core.arguments.register(noFork)
+
+            expect(() =>
+                core.forkArgument(arg.id, crypto.randomUUID())
+            ).toThrow(/not allowed/)
+        })
+
+        it("should throw when argument not found", () => {
+            const core = new PropositCore()
+            expect(() =>
+                core.forkArgument("nonexistent", crypto.randomUUID())
+            ).toThrow(/not found/)
+        })
+
+        it("should create cloned claim-source associations", () => {
+            const { core, arg } = setupForFork()
+            const assocsBefore = core.claimSources.getAll().length
+            core.forkArgument(arg.id, crypto.randomUUID())
+            expect(core.claimSources.getAll().length).toBe(assocsBefore + 1)
+        })
+
+        it("should dedup claims when multiple variables reference the same claim", () => {
+            const core = new PropositCore()
+            const claim = core.claims.create({ id: crypto.randomUUID() })
+
+            const arg = { id: crypto.randomUUID(), version: 0 }
+            const engine = core.arguments.create(arg)
+            engine.createPremise()
+            engine.addVariable({
+                id: crypto.randomUUID(),
+                symbol: "P",
+                argumentId: arg.id,
+                argumentVersion: 0,
+                claimId: claim.id,
+                claimVersion: claim.version,
+            })
+            engine.addVariable({
+                id: crypto.randomUUID(),
+                symbol: "Q",
+                argumentId: arg.id,
+                argumentVersion: 0,
+                claimId: claim.id,
+                claimVersion: claim.version,
+            })
+
+            const result = core.forkArgument(arg.id, crypto.randomUUID())
+            expect(result.claimRemap.size).toBe(1)
+            const forkedVars = result.engine.getVariables()
+            const claimBoundVars = forkedVars.filter(isClaimBound)
+            const claimIds = new Set(claimBoundVars.map((v) => v.claimId))
+            expect(claimIds.size).toBe(1)
+        })
+
+        it("should merge extras into fork records", () => {
+            const { core, arg } = setupForFork()
+            const result = core.forkArgument(arg.id, crypto.randomUUID(), {
+                argumentForkExtras: {
+                    customTag: "test",
+                } as Record<string, unknown>,
+            })
+            expect(
+                (result.argumentFork as Record<string, unknown>).customTag
+            ).toBe("test")
+        })
+
+        it("should be overridable by subclasses", () => {
+            let hookCalled = false
+            class CustomCore extends PropositCore {
+                public override forkArgument(
+                    ...args: Parameters<PropositCore["forkArgument"]>
+                ) {
+                    hookCalled = true
+                    return super.forkArgument(...args)
+                }
+            }
+            const core = new CustomCore()
+            const claim = core.claims.create({ id: crypto.randomUUID() })
+            const arg = { id: crypto.randomUUID(), version: 0 }
+            const engine = core.arguments.create(arg)
+            engine.createPremise()
+            engine.addVariable({
+                id: crypto.randomUUID(),
+                symbol: "P",
+                argumentId: arg.id,
+                argumentVersion: 0,
+                claimId: claim.id,
+                claimVersion: claim.version,
+            })
+
+            core.forkArgument(arg.id, crypto.randomUUID())
+            expect(hookCalled).toBe(true)
+        })
+    })
 })
