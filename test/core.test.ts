@@ -22551,4 +22551,91 @@ describe("PropositCore", () => {
             )
         })
     })
+
+    // ---------------------------------------------------------------------------
+    // generateId injection — PremiseEngine
+    // ---------------------------------------------------------------------------
+
+    describe("generateId injection — PremiseEngine", () => {
+        it("uses injected generateId for toggleNegation wrapper IDs", () => {
+            let counter = 0
+            const generateId = () => `pe-id-${++counter}`
+
+            const vm = new VariableManager()
+            vm.addVariable(VAR_P as TCorePropositionalVariable)
+
+            const pe = new PremiseEngine(
+                {
+                    id: "premise-1",
+                    argumentId: ARG.id,
+                    argumentVersion: ARG.version,
+                } as TCorePremise,
+                { argument: ARG, variables: vm },
+                { generateId }
+            )
+
+            // Add a single variable expression
+            pe.addExpression(
+                makeVarExpr("v-p", "var-p", { parentId: null, position: 0 })
+            )
+
+            // Toggle negation wraps it with a NOT — the NOT's ID should use generateId
+            pe.toggleNegation("v-p")
+
+            const allExprs = pe.getExpressions()
+            const notExpr = allExprs.find(
+                (e) => e.type === "operator" && e.operator === "not"
+            )
+            expect(notExpr).toBeDefined()
+            expect(notExpr!.id).toMatch(/^pe-id-/)
+        })
+
+        it("uses injected generateId for changeOperator sub-expression IDs", () => {
+            let counter = 0
+            const generateId = () => `pe-id-${++counter}`
+
+            const vm = new VariableManager()
+            vm.addVariable(VAR_P as TCorePropositionalVariable)
+            vm.addVariable(VAR_Q as TCorePropositionalVariable)
+            vm.addVariable(VAR_R as TCorePropositionalVariable)
+
+            const pe = new PremiseEngine(
+                {
+                    id: "premise-1",
+                    argumentId: ARG.id,
+                    argumentVersion: ARG.version,
+                } as TCorePremise,
+                { argument: ARG, variables: vm },
+                {
+                    generateId,
+                    grammarConfig: {
+                        enforceFormulaBetweenOperators: true,
+                        autoNormalize: true,
+                    },
+                }
+            )
+
+            // Build: AND(P, Q, R) — 3 children
+            pe.addExpression(
+                makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+            )
+            pe.addExpression(
+                makeVarExpr("v-p", "var-p", { parentId: "op-and", position: 0 })
+            )
+            pe.addExpression(
+                makeVarExpr("v-q", "var-q", { parentId: "op-and", position: 1 })
+            )
+            pe.addExpression(
+                makeVarExpr("v-r", "var-r", { parentId: "op-and", position: 2 })
+            )
+
+            // changeOperator groups two siblings under a new sub-operator
+            pe.changeOperator("op-and", "or", "v-p", "v-q")
+
+            const allExprs = pe.getExpressions()
+            const generatedExprs = allExprs.filter((e) => e.id.startsWith("pe-id-"))
+            // Should have generated at least the sub-operator + formula buffer IDs
+            expect(generatedExprs.length).toBeGreaterThanOrEqual(2)
+        })
+    })
 })
