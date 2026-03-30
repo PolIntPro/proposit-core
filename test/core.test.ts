@@ -22495,3 +22495,158 @@ describe("PropositCore", () => {
         })
     })
 })
+
+describe("DEFAULT_CHECKSUM_CONFIG excludes entity id", () => {
+    it("expression checksum does not change when id differs", () => {
+        const eng1 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng1.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm1 } = eng1.createPremise()
+        pm1.addExpression({
+            id: "expr-AAA",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: pm1.getId(),
+            parentId: null,
+            position: 1,
+        })
+
+        const eng2 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng2.addVariable({
+            id: "v1",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm2 } = eng2.createPremise()
+        pm2.addExpression({
+            id: "expr-BBB",
+            type: "variable",
+            variableId: "v1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            premiseId: pm2.getId(),
+            parentId: null,
+            position: 1,
+        })
+
+        eng1.flushChecksums()
+        eng2.flushChecksums()
+
+        const e1 = pm1.getExpression("expr-AAA")!
+        const e2 = pm2.getExpression("expr-BBB")!
+        expect(e1.checksum).toBe(e2.checksum)
+    })
+
+    it("variable checksum does not change when id differs", () => {
+        const eng1 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng1.addVariable({
+            id: "var-AAA",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+
+        const eng2 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng2.addVariable({
+            id: "var-BBB",
+            symbol: "P",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+
+        eng1.flushChecksums()
+        eng2.flushChecksums()
+
+        const v1 = eng1.getVariable("var-AAA")!
+        const v2 = eng2.getVariable("var-BBB")!
+        expect(v1.checksum).toBe(v2.checksum)
+    })
+
+    it("premise checksum does not change when id differs", () => {
+        const eng1 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm1 } = eng1.createPremiseWithId("prem-AAA")
+
+        const eng2 = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm2 } = eng2.createPremiseWithId("prem-BBB")
+
+        eng1.flushChecksums()
+        eng2.flushChecksums()
+
+        expect(pm1.checksum()).toBe(pm2.checksum())
+    })
+
+    it("argument checksum does not change when id differs", () => {
+        const eng1 = new ArgumentEngine(
+            { id: "arg-AAA", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const eng2 = new ArgumentEngine(
+            { id: "arg-BBB", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+
+        eng1.flushChecksums()
+        eng2.flushChecksums()
+
+        expect(eng1.checksum()).toBe(eng2.checksum())
+    })
+
+    it("DEFAULT_CHECKSUM_CONFIG field sets do not contain 'id'", () => {
+        expect(DEFAULT_CHECKSUM_CONFIG.expressionFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.variableFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.premiseFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.argumentFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.claimFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.sourceFields!.has("id")).toBe(false)
+        expect(DEFAULT_CHECKSUM_CONFIG.claimSourceAssociationFields!.has("id")).toBe(false)
+    })
+})
