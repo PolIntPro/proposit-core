@@ -23,6 +23,11 @@ export { ForkLibrary } from "./core/fork-library.js"
 export { PropositCore } from "./core/proposit-core.js"
 export type { TPropositCoreOptions } from "./core/proposit-core.js"
 export * from "./types/evaluation.js"
+export { gradeEvaluation } from "./core/evaluation/grading.js"
+export type {
+    TCoreEvaluationGrade,
+    TCoreEvaluationGrading,
+} from "./core/evaluation/grading.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
 export { mergeChangesets, orderChangeset } from "./utils/changeset.js"

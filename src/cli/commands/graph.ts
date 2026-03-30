@@ -7,6 +7,7 @@ import type {
     TCorePremiseEvaluationResult,
     TCoreTrivalentValue,
 } from "../../lib/types/evaluation.js"
+import { gradeEvaluation } from "../../lib/core/evaluation/grading.js"
 import type { ArgumentEngine } from "../../lib/core/argument-engine.js"
 import type { PropositCore } from "../../lib/core/proposit-core.js"
 import { printJson, printLine, errorExit } from "../output.js"
@@ -103,31 +104,40 @@ export function buildDotGraph(
     lines.push("  compound=true;")
     lines.push("  rankdir=TB;")
 
-    // Build graph label with optional evaluation summary
-    if (overlay) {
-        const r = overlay.result
-        const summaryParts: string[] = []
-        if (r.isAdmissibleAssignment !== undefined)
-            summaryParts.push(
-                `admissible: ${r.isAdmissibleAssignment ?? "unknown"}`
-            )
-        if (r.isCounterexample !== undefined)
-            summaryParts.push(
-                `counterexample: ${r.isCounterexample ?? "unknown"}`
-            )
-        if (r.preservesTruthUnderAssignment !== undefined)
-            summaryParts.push(
-                `preserves truth: ${r.preservesTruthUnderAssignment ?? "unknown"}`
-            )
-        const subtitle = summaryParts.join(" | ")
-        lines.push(`  label="${dotEscape(argTitle)}\\n${dotEscape(subtitle)}";`)
-    } else {
-        lines.push(`  label="${dotEscape(argTitle)}";`)
-    }
-
+    lines.push(`  label="${dotEscape(argTitle)}";`)
     lines.push("  labelloc=t;")
     lines.push("  fontsize=16;")
     lines.push("")
+
+    // Evaluation summary box (top-right)
+    if (overlay) {
+        const r = overlay.result
+        const grading = gradeEvaluation(r)
+
+        const gradeColorMap: Record<string, string> = {
+            green: "#28a745",
+            orange: "#d48806",
+            red: "#dc3545",
+            gray: "#6c757d",
+        }
+        const gradeHtmlColor = gradeColorMap[grading.color] ?? "#6c757d"
+
+        const tri = (v: TCoreTrivalentValue | undefined): string =>
+            v === true ? "true" : v === false ? "false" : "unknown"
+
+        const summaryHtml = [
+            `<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" BGCOLOR="white">`,
+            `<TR><TD COLSPAN="2"><FONT POINT-SIZE="14" COLOR="${gradeHtmlColor}"><B>${htmlEscape(grading.label)}</B></FONT></TD></TR>`,
+            `<TR><TD ALIGN="LEFT">admissible</TD><TD ALIGN="RIGHT">${tri(r.isAdmissibleAssignment)}</TD></TR>`,
+            `<TR><TD ALIGN="LEFT">all supporting</TD><TD ALIGN="RIGHT">${tri(r.allSupportingPremisesTrue)}</TD></TR>`,
+            `<TR><TD ALIGN="LEFT">conclusion true</TD><TD ALIGN="RIGHT">${tri(r.conclusionTrue)}</TD></TR>`,
+            `<TR><TD ALIGN="LEFT">counterexample</TD><TD ALIGN="RIGHT">${tri(r.isCounterexample)}</TD></TR>`,
+            `</TABLE>`,
+        ].join("")
+
+        lines.push(`  eval_summary [shape=plaintext label=<${summaryHtml}>];`)
+        lines.push("")
+    }
 
     const premises = engine.listPremises()
     for (const pm of premises) {
