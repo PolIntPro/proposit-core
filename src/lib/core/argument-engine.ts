@@ -8,6 +8,7 @@ import {
     type TCoreArgument,
     type TCoreClaim,
     type TCoreClaimSourceAssociation,
+    type TCoreLogicalOperatorType,
     type TCorePremise,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
@@ -22,6 +23,7 @@ import type {
     TCoreExpressionAssignment,
     TCorePremiseEvaluationResult,
     TCoreTrivalentValue,
+    TCoreVariableAssignment,
     TCoreValidationIssue,
     TCoreValidationResult,
     TCoreValidityCheckOptions,
@@ -60,7 +62,13 @@ import type {
 import { getOrCreate, sortedUnique } from "../utils/collections.js"
 import { ChangeCollector } from "./change-collector.js"
 import { canonicalSerialize, computeHash, entityChecksum } from "./checksum.js"
-import { kleeneAnd, kleeneNot } from "./evaluation/kleene.js"
+import {
+    kleeneAnd,
+    kleeneNot,
+    kleeneOr,
+    kleeneImplies,
+    kleeneIff,
+} from "./evaluation/kleene.js"
 import {
     makeErrorIssue,
     makeValidationResult,
@@ -2203,6 +2211,208 @@ export class ArgumentEngine<
         return makeValidationResult(issues)
     }
 
+    /**
+     * Run fixed-point constraint propagation over accepted operators.
+     * Fills unknown (null) variable values based on operator semantics.
+     * Never overwrites user-assigned values (true/false).
+     */
+    private propagateOperatorConstraints(
+        assignment: TCoreExpressionAssignment
+    ): TCoreVariableAssignment {
+        const vars: TCoreVariableAssignment = { ...assignment.variables }
+        const opAssignments = assignment.operatorAssignments
+
+        // Collect all expressions across all premises, indexed by id
+        const exprById = new Map<
+            string,
+            TCorePropositionalExpression & { premiseId: string }
+        >()
+        // Children lookup: parentId -> sorted children
+        const childrenOf = new Map<string, TCorePropositionalExpression[]>()
+
+        for (const pm of this.listPremises()) {
+            for (const expr of pm.getExpressions()) {
+                exprById.set(expr.id, expr as TCorePropositionalExpression & { premiseId: string })
+            }
+            // Build children map using getChildExpressions for each operator/formula
+            for (const expr of pm.getExpressions()) {
+                if (expr.type === "operator" || expr.type === "formula") {
+                    childrenOf.set(
+                        expr.id,
+                        pm.getChildExpressions(expr.id) as TCorePropositionalExpression[]
+                    )
+                }
+            }
+        }
+
+        /**
+         * Resolve the current Kleene value of an expression subtree
+         * given the current variable assignments. Does not force-accept
+         * nested operators — evaluates them normally via Kleene logic.
+         */
+        const resolveValue = (
+            exprId: string
+        ): TCoreTrivalentValue => {
+            const expr = exprById.get(exprId)
+            if (!expr) return null
+
+            if (expr.type === "variable") {
+                return vars[(expr as TCorePropositionalExpression<"variable">).variableId] ?? null
+            }
+
+            if (expr.type === "formula") {
+                const children = childrenOf.get(expr.id) ?? []
+                return children.length > 0 ? resolveValue(children[0].id) : null
+            }
+
+            // operator
+            const op = (expr as TCorePropositionalExpression<"operator">).operator
+            const children = childrenOf.get(expr.id) ?? []
+
+            switch (op) {
+                case "not":
+                    return kleeneNot(resolveValue(children[0].id))
+                case "and":
+                    return children.reduce<TCoreTrivalentValue>(
+                        (acc, child) => kleeneAnd(acc, resolveValue(child.id)),
+                        true
+                    )
+                case "or":
+                    return children.reduce<TCoreTrivalentValue>(
+                        (acc, child) => kleeneOr(acc, resolveValue(child.id)),
+                        false
+                    )
+                case "implies": {
+                    return kleeneImplies(
+                        resolveValue(children[0].id),
+                        resolveValue(children[1].id)
+                    )
+                }
+                case "iff": {
+                    return kleeneIff(
+                        resolveValue(children[0].id),
+                        resolveValue(children[1].id)
+                    )
+                }
+            }
+        }
+
+        /**
+         * Unwrap formula wrappers to find the leaf variable expression.
+         * Returns the variableId if the leaf is a variable, otherwise null.
+         */
+        const resolveLeafVariableId = (
+            expr: TCorePropositionalExpression
+        ): string | null => {
+            if (expr.type === "variable") {
+                return (expr as TCorePropositionalExpression<"variable">).variableId
+            }
+            if (expr.type === "formula") {
+                const children = childrenOf.get(expr.id) ?? []
+                if (children.length > 0) {
+                    return resolveLeafVariableId(children[0] as TCorePropositionalExpression)
+                }
+            }
+            return null
+        }
+
+        /**
+         * Try to set a child expression's variable to a value.
+         * Only sets if the child resolves to a variable leaf and
+         * that variable is currently null (unknown).
+         * Returns true if a new value was assigned.
+         */
+        const trySetChild = (
+            child: TCorePropositionalExpression,
+            value: boolean
+        ): boolean => {
+            const varId = resolveLeafVariableId(child)
+            if (varId != null && vars[varId] === null) {
+                vars[varId] = value
+                return true
+            }
+            return false
+        }
+
+        // Fixed-point loop
+        let changed = true
+        while (changed) {
+            changed = false
+
+            for (const [exprId, expr] of exprById) {
+                if (expr.type !== "operator") continue
+                if (opAssignments[exprId] !== "accepted") continue
+
+                const op = (expr as TCorePropositionalExpression<"operator">).operator as TCoreLogicalOperatorType
+                const children = (childrenOf.get(exprId) ?? []) as TCorePropositionalExpression[]
+
+                switch (op) {
+                    case "not": {
+                        // ¬A accepted (= true) => child must be false
+                        if (children.length > 0) {
+                            if (trySetChild(children[0], false)) changed = true
+                        }
+                        break
+                    }
+                    case "and": {
+                        // A ∧ B accepted => all children must be true
+                        for (const child of children) {
+                            if (trySetChild(child, true)) changed = true
+                        }
+                        break
+                    }
+                    case "or": {
+                        // A ∨ B accepted: if all-but-one are false, remaining must be true
+                        const unknownChildren: TCorePropositionalExpression[] = []
+                        let allOthersAreFalse = true
+                        for (const child of children) {
+                            const childValue = resolveValue(child.id)
+                            if (childValue === null) {
+                                unknownChildren.push(child)
+                            } else if (childValue !== false) {
+                                allOthersAreFalse = false
+                            }
+                        }
+                        if (unknownChildren.length === 1 && allOthersAreFalse) {
+                            if (trySetChild(unknownChildren[0], true)) changed = true
+                        }
+                        break
+                    }
+                    case "implies": {
+                        // A → B accepted: if A=true => B=true; if B=false => A=false
+                        if (children.length >= 2) {
+                            const leftValue = resolveValue(children[0].id)
+                            const rightValue = resolveValue(children[1].id)
+                            if (leftValue === true) {
+                                if (trySetChild(children[1], true)) changed = true
+                            }
+                            if (rightValue === false) {
+                                if (trySetChild(children[0], false)) changed = true
+                            }
+                        }
+                        break
+                    }
+                    case "iff": {
+                        // A ↔ B accepted: if A known => B matches; if B known => A matches
+                        if (children.length >= 2) {
+                            const leftValue = resolveValue(children[0].id)
+                            const rightValue = resolveValue(children[1].id)
+                            if (leftValue !== null) {
+                                if (trySetChild(children[1], leftValue)) changed = true
+                            }
+                            if (rightValue !== null) {
+                                if (trySetChild(children[0], rightValue)) changed = true
+                            }
+                        }
+                        break
+                    }
+                }
+            }
+        }
+
+        return vars
+    }
+
     public evaluate(
         assignment: TCoreExpressionAssignment,
         options?: TCoreArgumentEvaluationOptions
@@ -2274,6 +2484,13 @@ export class ArgumentEngine<
             return false
         })
 
+        // Run operator constraint propagation
+        const propagatedVars = this.propagateOperatorConstraints(assignment)
+        const propagatedAssignment: TCoreExpressionAssignment = {
+            variables: propagatedVars,
+            operatorAssignments: assignment.operatorAssignments,
+        }
+
         try {
             // Build a resolver that lazily evaluates premise-bound variables
             // by evaluating their bound premise's expression tree under the
@@ -2290,7 +2507,7 @@ export class ArgumentEngine<
                     variable.boundArgumentId !== this.argument.id
                 ) {
                     // Claim-bound or externally-bound: read from assignment
-                    return assignment.variables[variableId] ?? null
+                    return propagatedAssignment.variables[variableId] ?? null
                 }
                 // Internal premise-bound: lazy resolution
                 const boundPremiseId = variable.boundPremiseId
@@ -2299,7 +2516,7 @@ export class ArgumentEngine<
                     resolverCache.set(variableId, null)
                     return null
                 }
-                const premiseResult = boundPremise.evaluate(assignment, {
+                const premiseResult = boundPremise.evaluate(propagatedAssignment, {
                     resolver,
                 })
                 const value = premiseResult?.rootValue ?? null
@@ -2313,14 +2530,14 @@ export class ArgumentEngine<
                 resolver,
             }
             const conclusionEvaluation = conclusion.evaluate(
-                assignment,
+                propagatedAssignment,
                 evalOpts
             )
             const supportingEvaluations = supportingPremises.map((pm) =>
-                pm.evaluate(assignment, evalOpts)
+                pm.evaluate(propagatedAssignment, evalOpts)
             )
             const constraintEvaluations = constraintPremises.map((pm) =>
-                pm.evaluate(assignment, evalOpts)
+                pm.evaluate(propagatedAssignment, evalOpts)
             )
 
             const isAdmissibleAssignment =
@@ -2358,8 +2575,10 @@ export class ArgumentEngine<
             return {
                 ok: true,
                 assignment: {
-                    variables: { ...assignment.variables },
-                    operatorAssignments: { ...assignment.operatorAssignments },
+                    variables: { ...propagatedAssignment.variables },
+                    operatorAssignments: {
+                        ...propagatedAssignment.operatorAssignments,
+                    },
                 },
                 referencedVariableIds,
                 conclusion: strip(conclusionEvaluation),
