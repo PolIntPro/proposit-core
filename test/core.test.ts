@@ -22792,3 +22792,66 @@ describe("generateId injection — ArgumentLibrary", () => {
         expect(newPm.getId()).toBe("restored-id-1")
     })
 })
+
+// ---------------------------------------------------------------------------
+// generateId injection — PropositCore
+// ---------------------------------------------------------------------------
+
+describe("generateId injection — PropositCore", () => {
+    it("threads generateId to ArgumentLibrary for engine creation", () => {
+        let counter = 0
+        const generateId = () => `pc-id-${++counter}`
+
+        const core = new PropositCore({ generateId })
+        const engine = core.arguments.create({ id: "arg-1", version: 0 })
+        const { result: pm } = engine.createPremise()
+
+        expect(pm.getId()).toBe("pc-id-1")
+    })
+
+    it("uses generateId in forkArgument for library-level entities", () => {
+        let counter = 0
+        const generateId = () => `pc-id-${++counter}`
+
+        const core = new PropositCore({ generateId })
+        const engine = core.arguments.create({
+            id: "pc-id-1",
+            version: 0,
+        })
+
+        // Add a claim-bound variable and a premise
+        const claim = core.claims.create({ id: "pc-id-2" })
+        engine.addVariable({
+            id: "pc-id-3",
+            argumentId: "pc-id-1",
+            argumentVersion: 0,
+            symbol: "P",
+            claimId: claim.id,
+            claimVersion: claim.version,
+        })
+        engine.createPremise()
+
+        // Fork — should use generateId for new claim, source, and fork IDs
+        const result = core.forkArgument("pc-id-1")
+
+        // All generated IDs should match our pattern
+        expect(result.engine.getArgument().id).toMatch(/^pc-id-/)
+        expect(result.claimRemap.size).toBeGreaterThanOrEqual(1)
+        for (const newClaimId of result.claimRemap.values()) {
+            expect(newClaimId).toMatch(/^pc-id-/)
+        }
+    })
+
+    it("falls back to default generateId", () => {
+        const core = new PropositCore()
+        const engine = core.arguments.create({
+            id: crypto.randomUUID(),
+            version: 0,
+        })
+        const { result: pm } = engine.createPremise()
+
+        expect(pm.getId()).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        )
+    })
+})
