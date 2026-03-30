@@ -94,7 +94,7 @@ Unchanged. Pure truth-table evaluation, ignores `operatorAssignments` entirely. 
 
 ### Modified commands
 
-- **`analysis create`** — initializes `operatorAssignments: {}` instead of `rejectedExpressionIds: []`.
+- **`analysis create`** — initializes `operatorAssignments: {}` instead of `rejectedExpressionIds: []`. When no filename argument is provided, auto-generates `analysis-1.json`, `analysis-2.json`, etc. by finding the next available number. The old default of `analysis.json` is removed.
 - **`analysis show`** — displays operator assignments (accepted/rejected) instead of "Rejected operators."
 - **`analysis operators`** — gains a column showing the current acceptance state from the analysis file (via `--file` option).
 - **`analysis evaluate`** — no changes needed; the engine handles propagation internally. Passes `operatorAssignments` instead of `rejectedExpressionIds`.
