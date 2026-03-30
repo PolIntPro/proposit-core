@@ -47,11 +47,11 @@ Runs unconditionally inside `ArgumentEngine.evaluate()` as a preprocessing step 
 
 1. Start with the user's variable assignments. Explicit values (true/false) are ground truth and are never overwritten.
 2. For each accepted operator across all premises, push constraints downward based on the operator type and known child values:
-   - `A → B` (accepted = true): if A = true → set B = true. If B = false → set A = false.
-   - `A ∧ B` (accepted = true): set both A and B to true.
-   - `A ∨ B` (accepted = true): if A = false → set B = true. If B = false → set A = true. Both unknown → no action.
-   - `¬A` (accepted = true): set A to false.
-   - `A ↔ B` (accepted = true): if A = true → set B = true. If A = false → set B = false. Vice versa.
+    - `A → B` (accepted = true): if A = true → set B = true. If B = false → set A = false.
+    - `A ∧ B` (accepted = true): set both A and B to true.
+    - `A ∨ B` (accepted = true): if A = false → set B = true. If B = false → set A = true. Both unknown → no action.
+    - `¬A` (accepted = true): set A to false.
+    - `A ↔ B` (accepted = true): if A = true → set B = true. If A = false → set B = false. Vice versa.
 3. "Set" means: if the variable is currently unknown (null), assign the derived value. If it already has a value (user-assigned or previously propagated), leave it unchanged.
 4. Repeat steps 2–3 until no new values are derived (fixed point).
 5. Feed the enriched assignment into the existing Kleene evaluator.

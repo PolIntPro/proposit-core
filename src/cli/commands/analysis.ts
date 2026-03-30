@@ -202,9 +202,7 @@ export function registerAnalysisCommands(
 
     analysis
         .command("set-operator <operator_expression_id> <state>")
-        .description(
-            "Set an operator's state (accepted, rejected, or unset)"
-        )
+        .description("Set an operator's state (accepted, rejected, or unset)")
         .option(
             "--file <filename>",
             "Analysis filename (default: analysis.json)"

@@ -8,7 +8,6 @@ import {
     type TCoreArgument,
     type TCoreClaim,
     type TCoreClaimSourceAssociation,
-    type TCoreLogicalOperatorType,
     type TCorePremise,
     type TCorePropositionalExpression,
     type TCorePropositionalVariable,
@@ -2232,14 +2231,19 @@ export class ArgumentEngine<
 
         for (const pm of this.listPremises()) {
             for (const expr of pm.getExpressions()) {
-                exprById.set(expr.id, expr as TCorePropositionalExpression & { premiseId: string })
+                exprById.set(
+                    expr.id,
+                    expr as TCorePropositionalExpression & { premiseId: string }
+                )
             }
             // Build children map using getChildExpressions for each operator/formula
             for (const expr of pm.getExpressions()) {
                 if (expr.type === "operator" || expr.type === "formula") {
                     childrenOf.set(
                         expr.id,
-                        pm.getChildExpressions(expr.id) as TCorePropositionalExpression[]
+                        pm.getChildExpressions(
+                            expr.id
+                        ) as TCorePropositionalExpression[]
                     )
                 }
             }
@@ -2250,14 +2254,17 @@ export class ArgumentEngine<
          * given the current variable assignments. Does not force-accept
          * nested operators — evaluates them normally via Kleene logic.
          */
-        const resolveValue = (
-            exprId: string
-        ): TCoreTrivalentValue => {
+        const resolveValue = (exprId: string): TCoreTrivalentValue => {
             const expr = exprById.get(exprId)
             if (!expr) return null
 
             if (expr.type === "variable") {
-                return vars[(expr as TCorePropositionalExpression<"variable">).variableId] ?? null
+                return (
+                    vars[
+                        (expr as TCorePropositionalExpression<"variable">)
+                            .variableId
+                    ] ?? null
+                )
             }
 
             if (expr.type === "formula") {
@@ -2266,7 +2273,8 @@ export class ArgumentEngine<
             }
 
             // operator
-            const op = (expr as TCorePropositionalExpression<"operator">).operator
+            const op = (expr as TCorePropositionalExpression<"operator">)
+                .operator
             const children = childrenOf.get(expr.id) ?? []
 
             switch (op) {
@@ -2305,12 +2313,12 @@ export class ArgumentEngine<
             expr: TCorePropositionalExpression
         ): string | null => {
             if (expr.type === "variable") {
-                return (expr as TCorePropositionalExpression<"variable">).variableId
+                return expr.variableId
             }
             if (expr.type === "formula") {
                 const children = childrenOf.get(expr.id) ?? []
                 if (children.length > 0) {
-                    return resolveLeafVariableId(children[0] as TCorePropositionalExpression)
+                    return resolveLeafVariableId(children[0])
                 }
             }
             return null
@@ -2343,8 +2351,9 @@ export class ArgumentEngine<
                 if (expr.type !== "operator") continue
                 if (opAssignments[exprId] !== "accepted") continue
 
-                const op = (expr as TCorePropositionalExpression<"operator">).operator as TCoreLogicalOperatorType
-                const children = (childrenOf.get(exprId) ?? []) as TCorePropositionalExpression[]
+                const op = (expr as TCorePropositionalExpression<"operator">)
+                    .operator
+                const children = childrenOf.get(exprId) ?? []
 
                 switch (op) {
                     case "not": {
@@ -2363,7 +2372,8 @@ export class ArgumentEngine<
                     }
                     case "or": {
                         // A ∨ B accepted: if all-but-one are false, remaining must be true
-                        const unknownChildren: TCorePropositionalExpression[] = []
+                        const unknownChildren: TCorePropositionalExpression[] =
+                            []
                         let allOthersAreFalse = true
                         for (const child of children) {
                             const childValue = resolveValue(child.id)
@@ -2374,7 +2384,8 @@ export class ArgumentEngine<
                             }
                         }
                         if (unknownChildren.length === 1 && allOthersAreFalse) {
-                            if (trySetChild(unknownChildren[0], true)) changed = true
+                            if (trySetChild(unknownChildren[0], true))
+                                changed = true
                         }
                         break
                     }
@@ -2384,10 +2395,12 @@ export class ArgumentEngine<
                             const leftValue = resolveValue(children[0].id)
                             const rightValue = resolveValue(children[1].id)
                             if (leftValue === true) {
-                                if (trySetChild(children[1], true)) changed = true
+                                if (trySetChild(children[1], true))
+                                    changed = true
                             }
                             if (rightValue === false) {
-                                if (trySetChild(children[0], false)) changed = true
+                                if (trySetChild(children[0], false))
+                                    changed = true
                             }
                         }
                         break
@@ -2398,10 +2411,12 @@ export class ArgumentEngine<
                             const leftValue = resolveValue(children[0].id)
                             const rightValue = resolveValue(children[1].id)
                             if (leftValue !== null) {
-                                if (trySetChild(children[1], leftValue)) changed = true
+                                if (trySetChild(children[1], leftValue))
+                                    changed = true
                             }
                             if (rightValue !== null) {
-                                if (trySetChild(children[0], rightValue)) changed = true
+                                if (trySetChild(children[0], rightValue))
+                                    changed = true
                             }
                         }
                         break
@@ -2516,9 +2531,12 @@ export class ArgumentEngine<
                     resolverCache.set(variableId, null)
                     return null
                 }
-                const premiseResult = boundPremise.evaluate(propagatedAssignment, {
-                    resolver,
-                })
+                const premiseResult = boundPremise.evaluate(
+                    propagatedAssignment,
+                    {
+                        resolver,
+                    }
+                )
                 const value = premiseResult?.rootValue ?? null
                 resolverCache.set(variableId, value)
                 return value

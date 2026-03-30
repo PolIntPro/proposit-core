@@ -15,6 +15,7 @@
 ### Task 1: Update `TCoreExpressionAssignment` type and `CoreAnalysisFileSchema`
 
 **Files:**
+
 - Modify: `src/lib/types/evaluation.ts`
 - Modify: `src/lib/schemata/analysis.ts`
 
@@ -92,6 +93,7 @@ git commit -m "feat: replace rejectedExpressionIds with operatorAssignments type
 ### Task 2: Update `PremiseEngine.evaluate()` to use `operatorAssignments`
 
 **Files:**
+
 - Modify: `src/lib/core/premise-engine.ts`
 
 - [ ] **Step 1: Update the rejection check**
@@ -99,20 +101,20 @@ git commit -m "feat: replace rejectedExpressionIds with operatorAssignments type
 In `src/lib/core/premise-engine.ts`, in the `evaluate` method's inner `evaluateExpression` function, replace:
 
 ```typescript
-            if (assignment.rejectedExpressionIds.includes(expression.id)) {
-                expressionValues[expression.id] = false
-                return false
-            }
+if (assignment.rejectedExpressionIds.includes(expression.id)) {
+    expressionValues[expression.id] = false
+    return false
+}
 ```
 
 with:
 
 ```typescript
-            const operatorState = assignment.operatorAssignments[expression.id]
-            if (operatorState === "rejected") {
-                expressionValues[expression.id] = false
-                return false
-            }
+const operatorState = assignment.operatorAssignments[expression.id]
+if (operatorState === "rejected") {
+    expressionValues[expression.id] = false
+    return false
+}
 ```
 
 - [ ] **Step 2: Update the inference diagnostic guard**
@@ -120,13 +122,13 @@ with:
 In the same file, replace:
 
 ```typescript
-            !assignment.rejectedExpressionIds.includes(rootExpressionId)
+!assignment.rejectedExpressionIds.includes(rootExpressionId)
 ```
 
 with:
 
 ```typescript
-            assignment.operatorAssignments[rootExpressionId] !== "rejected"
+assignment.operatorAssignments[rootExpressionId] !== "rejected"
 ```
 
 - [ ] **Step 3: Run typecheck on premise-engine**
@@ -147,6 +149,7 @@ git commit -m "feat: update PremiseEngine.evaluate to use operatorAssignments"
 ### Task 3: Update `ArgumentEngine.evaluate()` and `checkValidity()`
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 
 - [ ] **Step 1: Update the assignment copy in `evaluate()` result**
@@ -176,19 +179,19 @@ with:
 In the `checkValidity` method, replace:
 
 ```typescript
-            const assignment: TCoreExpressionAssignment = {
-                variables: {},
-                rejectedExpressionIds: [],
-            }
+const assignment: TCoreExpressionAssignment = {
+    variables: {},
+    rejectedExpressionIds: [],
+}
 ```
 
 with:
 
 ```typescript
-            const assignment: TCoreExpressionAssignment = {
-                variables: {},
-                operatorAssignments: {},
-            }
+const assignment: TCoreExpressionAssignment = {
+    variables: {},
+    operatorAssignments: {},
+}
 ```
 
 - [ ] **Step 3: Run typecheck on argument-engine**
@@ -209,6 +212,7 @@ git commit -m "feat: update ArgumentEngine to use operatorAssignments"
 ### Task 4: Update all tests to use `operatorAssignments`
 
 **Files:**
+
 - Modify: `test/core.test.ts`
 - Modify: `test/examples.test.ts`
 
@@ -229,13 +233,13 @@ Then handle the 4 instances with non-empty rejected IDs. Search for `rejectedExp
 Replace:
 
 ```typescript
-    return { variables, rejectedExpressionIds: [] }
+return { variables, rejectedExpressionIds: [] }
 ```
 
 with:
 
 ```typescript
-    return { variables, operatorAssignments: {} }
+return { variables, operatorAssignments: {} }
 ```
 
 - [ ] **Step 3: Run tests**
@@ -256,6 +260,7 @@ git commit -m "test: update all tests to use operatorAssignments"
 ### Task 5: Write propagation tests
 
 **Files:**
+
 - Modify: `test/core.test.ts`
 
 These tests exercise the propagation algorithm that will be implemented in Task 6. Each test builds a minimal argument with one or two premises, sets operator acceptance states, and verifies that the evaluation result reflects propagated variable values.
@@ -275,26 +280,53 @@ describe("operator constraint propagation", () => {
             new SourceLibrary(),
             new ClaimSourceLibrary()
         )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
+        const pm = eng.addPremise({
+            id: "p1",
+            argumentId: "arg1",
+            argumentVersion: 0,
+        })
         const vA = eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
+            id: "vA",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            symbol: "A",
+            claimId: "c1",
+            claimVersion: 0,
         })
         const vB = eng.addVariable({
-            id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B",
-            claimId: "c2", claimVersion: 0,
+            id: "vB",
+            argumentId: "arg1",
+            argumentVersion: 0,
+            symbol: "B",
+            claimId: "c2",
+            claimVersion: 0,
         })
         const imp = pm.addExpression({
-            id: "imp", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "implies", parentId: null, position: 0,
+            id: "imp",
+            premiseId: "p1",
+            argumentVersion: 0,
+            type: "operator",
+            operator: "implies",
+            parentId: null,
+            position: 0,
         })
         pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "imp", position: 0,
+            id: "eA",
+            premiseId: "p1",
+            argumentVersion: 0,
+            type: "variable",
+            variableId: "vA",
+            parentId: "imp",
+            position: 0,
         })
         pm.addExpression({
-            id: "eB", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vB", parentId: "imp", position: 1,
+            id: "eB",
+            premiseId: "p1",
+            argumentVersion: 0,
+            type: "variable",
+            variableId: "vB",
+            parentId: "imp",
+            position: 1,
         })
         eng.setRoleState({ conclusionPremiseId: "p1" })
 
@@ -315,350 +347,679 @@ describe("operator constraint propagation", () => {
 - [ ] **Step 3: Write test — implies accepted, consequent false, antecedent derived false**
 
 ```typescript
-    it("propagates antecedent false from accepted implies when consequent is false", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
-        })
-        eng.addVariable({
-            id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B",
-            claimId: "c2", claimVersion: 0,
-        })
-        const imp = pm.addExpression({
-            id: "imp", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "implies", parentId: null, position: 0,
-        })
-        pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "imp", position: 0,
-        })
-        pm.addExpression({
-            id: "eB", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vB", parentId: "imp", position: 1,
-        })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: null, vB: false },
-            operatorAssignments: { imp: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vA).toBe(false)
+it("propagates antecedent false from accepted implies when consequent is false", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+    const imp = pm.addExpression({
+        id: "imp",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "implies",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "imp",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "imp",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: null, vB: false },
+        operatorAssignments: { imp: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vA).toBe(false)
+})
 ```
 
 - [ ] **Step 4: Write test — and accepted, both children derived true**
 
 ```typescript
-    it("propagates both children true from accepted and", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
-        })
-        eng.addVariable({
-            id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B",
-            claimId: "c2", claimVersion: 0,
-        })
-        const andOp = pm.addExpression({
-            id: "and1", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "and", parentId: null, position: 0,
-        })
-        pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "and1", position: 0,
-        })
-        pm.addExpression({
-            id: "eB", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vB", parentId: "and1", position: 1,
-        })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: null, vB: null },
-            operatorAssignments: { and1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vA).toBe(true)
-        expect(result.assignment!.variables.vB).toBe(true)
+it("propagates both children true from accepted and", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+    const andOp = pm.addExpression({
+        id: "and1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "and",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "and1",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "and1",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: null, vB: null },
+        operatorAssignments: { and1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vA).toBe(true)
+    expect(result.assignment!.variables.vB).toBe(true)
+})
 ```
 
 - [ ] **Step 5: Write test — or accepted, one child false, other derived true**
 
 ```typescript
-    it("propagates remaining child true from accepted or when one child is false", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
-        })
-        eng.addVariable({
-            id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B",
-            claimId: "c2", claimVersion: 0,
-        })
-        const orOp = pm.addExpression({
-            id: "or1", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "or", parentId: null, position: 0,
-        })
-        pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "or1", position: 0,
-        })
-        pm.addExpression({
-            id: "eB", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vB", parentId: "or1", position: 1,
-        })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: false, vB: null },
-            operatorAssignments: { or1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vB).toBe(true)
+it("propagates remaining child true from accepted or when one child is false", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+    const orOp = pm.addExpression({
+        id: "or1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "or",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "or1",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "or1",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: false, vB: null },
+        operatorAssignments: { or1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vB).toBe(true)
+})
 ```
 
 - [ ] **Step 6: Write test — not accepted, child derived false**
 
 ```typescript
-    it("propagates child false from accepted not", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
-        })
-        const notOp = pm.addExpression({
-            id: "not1", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "not", parentId: null, position: 0,
-        })
-        pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "not1", position: 0,
-        })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: null },
-            operatorAssignments: { not1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vA).toBe(false)
+it("propagates child false from accepted not", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    const notOp = pm.addExpression({
+        id: "not1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "not",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "not1",
+        position: 0,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: null },
+        operatorAssignments: { not1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vA).toBe(false)
+})
 ```
 
 - [ ] **Step 7: Write test — iff accepted, bidirectional propagation**
 
 ```typescript
-    it("propagates bidirectionally from accepted iff", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({
-            id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A",
-            claimId: "c1", claimVersion: 0,
-        })
-        eng.addVariable({
-            id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B",
-            claimId: "c2", claimVersion: 0,
-        })
-        const iffOp = pm.addExpression({
-            id: "iff1", premiseId: "p1", argumentVersion: 0,
-            type: "operator", operator: "iff", parentId: null, position: 0,
-        })
-        pm.addExpression({
-            id: "eA", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vA", parentId: "iff1", position: 0,
-        })
-        pm.addExpression({
-            id: "eB", premiseId: "p1", argumentVersion: 0,
-            type: "variable", variableId: "vB", parentId: "iff1", position: 1,
-        })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: true, vB: null },
-            operatorAssignments: { iff1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vB).toBe(true)
+it("propagates bidirectionally from accepted iff", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+    const iffOp = pm.addExpression({
+        id: "iff1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "iff",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "iff1",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "iff1",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: true, vB: null },
+        operatorAssignments: { iff1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vB).toBe(true)
+})
 ```
 
 - [ ] **Step 8: Write test — cross-premise fixed-point propagation**
 
 ```typescript
-    it("propagates across premises to fixed point", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        // Premise 1: A → B (supporting)
-        const pm1 = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        // Premise 2: B → C (conclusion)
-        const pm2 = eng.addPremise({ id: "p2", argumentId: "arg1", argumentVersion: 0 })
-
-        eng.addVariable({ id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A", claimId: "c1", claimVersion: 0 })
-        eng.addVariable({ id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B", claimId: "c2", claimVersion: 0 })
-        eng.addVariable({ id: "vC", argumentId: "arg1", argumentVersion: 0, symbol: "C", claimId: "c3", claimVersion: 0 })
-
-        const imp1 = pm1.addExpression({ id: "imp1", premiseId: "p1", argumentVersion: 0, type: "operator", operator: "implies", parentId: null, position: 0 })
-        pm1.addExpression({ id: "e1A", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vA", parentId: "imp1", position: 0 })
-        pm1.addExpression({ id: "e1B", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vB", parentId: "imp1", position: 1 })
-
-        const imp2 = pm2.addExpression({ id: "imp2", premiseId: "p2", argumentVersion: 0, type: "operator", operator: "implies", parentId: null, position: 0 })
-        pm2.addExpression({ id: "e2B", premiseId: "p2", argumentVersion: 0, type: "variable", variableId: "vB", parentId: "imp2", position: 0 })
-        pm2.addExpression({ id: "e2C", premiseId: "p2", argumentVersion: 0, type: "variable", variableId: "vC", parentId: "imp2", position: 1 })
-
-        eng.setRoleState({ conclusionPremiseId: "p2" })
-
-        // A = true, both implies accepted. Should derive B = true, then C = true.
-        const result = eng.evaluate({
-            variables: { vA: true, vB: null, vC: null },
-            operatorAssignments: { imp1: "accepted", imp2: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        expect(result.assignment!.variables.vB).toBe(true)
-        expect(result.assignment!.variables.vC).toBe(true)
-        expect(result.conclusionTrue).toBe(true)
+it("propagates across premises to fixed point", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    // Premise 1: A → B (supporting)
+    const pm1 = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    // Premise 2: B → C (conclusion)
+    const pm2 = eng.addPremise({
+        id: "p2",
+        argumentId: "arg1",
+        argumentVersion: 0,
+    })
+
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vC",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "C",
+        claimId: "c3",
+        claimVersion: 0,
+    })
+
+    const imp1 = pm1.addExpression({
+        id: "imp1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "implies",
+        parentId: null,
+        position: 0,
+    })
+    pm1.addExpression({
+        id: "e1A",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "imp1",
+        position: 0,
+    })
+    pm1.addExpression({
+        id: "e1B",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "imp1",
+        position: 1,
+    })
+
+    const imp2 = pm2.addExpression({
+        id: "imp2",
+        premiseId: "p2",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "implies",
+        parentId: null,
+        position: 0,
+    })
+    pm2.addExpression({
+        id: "e2B",
+        premiseId: "p2",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "imp2",
+        position: 0,
+    })
+    pm2.addExpression({
+        id: "e2C",
+        premiseId: "p2",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vC",
+        parentId: "imp2",
+        position: 1,
+    })
+
+    eng.setRoleState({ conclusionPremiseId: "p2" })
+
+    // A = true, both implies accepted. Should derive B = true, then C = true.
+    const result = eng.evaluate({
+        variables: { vA: true, vB: null, vC: null },
+        operatorAssignments: { imp1: "accepted", imp2: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.assignment!.variables.vB).toBe(true)
+    expect(result.assignment!.variables.vC).toBe(true)
+    expect(result.conclusionTrue).toBe(true)
+})
 ```
 
 - [ ] **Step 9: Write test — user assignment wins over propagation**
 
 ```typescript
-    it("does not override user-assigned variables during propagation", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({ id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A", claimId: "c1", claimVersion: 0 })
-        eng.addVariable({ id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B", claimId: "c2", claimVersion: 0 })
-
-        const andOp = pm.addExpression({ id: "and1", premiseId: "p1", argumentVersion: 0, type: "operator", operator: "and", parentId: null, position: 0 })
-        pm.addExpression({ id: "eA", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vA", parentId: "and1", position: 0 })
-        pm.addExpression({ id: "eB", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vB", parentId: "and1", position: 1 })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        // AND accepted but user explicitly set A = false — contradiction
-        const result = eng.evaluate({
-            variables: { vA: false, vB: null },
-            operatorAssignments: { and1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        // A stays false (user wins)
-        expect(result.assignment!.variables.vA).toBe(false)
-        // B gets propagated to true (AND accepted = both true)
-        expect(result.assignment!.variables.vB).toBe(true)
-        // But the AND evaluates to false (contradiction: false AND true)
-        expect(result.conclusionTrue).toBe(false)
+it("does not override user-assigned variables during propagation", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+
+    const andOp = pm.addExpression({
+        id: "and1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "and",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "and1",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "and1",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    // AND accepted but user explicitly set A = false — contradiction
+    const result = eng.evaluate({
+        variables: { vA: false, vB: null },
+        operatorAssignments: { and1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    // A stays false (user wins)
+    expect(result.assignment!.variables.vA).toBe(false)
+    // B gets propagated to true (AND accepted = both true)
+    expect(result.assignment!.variables.vB).toBe(true)
+    // But the AND evaluates to false (contradiction: false AND true)
+    expect(result.conclusionTrue).toBe(false)
+})
 ```
 
 - [ ] **Step 10: Write test — no propagation for unset operators**
 
 ```typescript
-    it("does not propagate through unset operators", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({ id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A", claimId: "c1", claimVersion: 0 })
-        eng.addVariable({ id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B", claimId: "c2", claimVersion: 0 })
-
-        const imp = pm.addExpression({ id: "imp", premiseId: "p1", argumentVersion: 0, type: "operator", operator: "implies", parentId: null, position: 0 })
-        pm.addExpression({ id: "eA", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vA", parentId: "imp", position: 0 })
-        pm.addExpression({ id: "eB", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vB", parentId: "imp", position: 1 })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        // No operator assignment — should NOT propagate
-        const result = eng.evaluate({
-            variables: { vA: true, vB: null },
-            operatorAssignments: {},
-        })
-
-        expect(result.ok).toBe(true)
-        // vB stays null — no propagation through unset operator
-        expect(result.assignment!.variables.vB).toBeNull()
-        // implies evaluates to null (true → null = null)
-        expect(result.conclusionTrue).toBeNull()
+it("does not propagate through unset operators", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+
+    const imp = pm.addExpression({
+        id: "imp",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "implies",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "imp",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "imp",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    // No operator assignment — should NOT propagate
+    const result = eng.evaluate({
+        variables: { vA: true, vB: null },
+        operatorAssignments: {},
+    })
+
+    expect(result.ok).toBe(true)
+    // vB stays null — no propagation through unset operator
+    expect(result.assignment!.variables.vB).toBeNull()
+    // implies evaluates to null (true → null = null)
+    expect(result.conclusionTrue).toBeNull()
+})
 ```
 
 - [ ] **Step 11: Write test — or accepted, both unknown, no propagation**
 
 ```typescript
-    it("does not propagate or when both children are unknown", () => {
-        const eng = new ArgumentEngine(
-            { id: "arg1", version: 0 },
-            new ClaimLibrary(),
-            new SourceLibrary(),
-            new ClaimSourceLibrary()
-        )
-        const pm = eng.addPremise({ id: "p1", argumentId: "arg1", argumentVersion: 0 })
-        eng.addVariable({ id: "vA", argumentId: "arg1", argumentVersion: 0, symbol: "A", claimId: "c1", claimVersion: 0 })
-        eng.addVariable({ id: "vB", argumentId: "arg1", argumentVersion: 0, symbol: "B", claimId: "c2", claimVersion: 0 })
-
-        const orOp = pm.addExpression({ id: "or1", premiseId: "p1", argumentVersion: 0, type: "operator", operator: "or", parentId: null, position: 0 })
-        pm.addExpression({ id: "eA", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vA", parentId: "or1", position: 0 })
-        pm.addExpression({ id: "eB", premiseId: "p1", argumentVersion: 0, type: "variable", variableId: "vB", parentId: "or1", position: 1 })
-        eng.setRoleState({ conclusionPremiseId: "p1" })
-
-        const result = eng.evaluate({
-            variables: { vA: null, vB: null },
-            operatorAssignments: { or1: "accepted" },
-        })
-
-        expect(result.ok).toBe(true)
-        // Can't determine either child from OR alone
-        expect(result.assignment!.variables.vA).toBeNull()
-        expect(result.assignment!.variables.vB).toBeNull()
+it("does not propagate or when both children are unknown", () => {
+    const eng = new ArgumentEngine(
+        { id: "arg1", version: 0 },
+        new ClaimLibrary(),
+        new SourceLibrary(),
+        new ClaimSourceLibrary()
+    )
+    const pm = eng.addPremise({
+        id: "p1",
+        argumentId: "arg1",
+        argumentVersion: 0,
     })
+    eng.addVariable({
+        id: "vA",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "A",
+        claimId: "c1",
+        claimVersion: 0,
+    })
+    eng.addVariable({
+        id: "vB",
+        argumentId: "arg1",
+        argumentVersion: 0,
+        symbol: "B",
+        claimId: "c2",
+        claimVersion: 0,
+    })
+
+    const orOp = pm.addExpression({
+        id: "or1",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "operator",
+        operator: "or",
+        parentId: null,
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eA",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vA",
+        parentId: "or1",
+        position: 0,
+    })
+    pm.addExpression({
+        id: "eB",
+        premiseId: "p1",
+        argumentVersion: 0,
+        type: "variable",
+        variableId: "vB",
+        parentId: "or1",
+        position: 1,
+    })
+    eng.setRoleState({ conclusionPremiseId: "p1" })
+
+    const result = eng.evaluate({
+        variables: { vA: null, vB: null },
+        operatorAssignments: { or1: "accepted" },
+    })
+
+    expect(result.ok).toBe(true)
+    // Can't determine either child from OR alone
+    expect(result.assignment!.variables.vA).toBeNull()
+    expect(result.assignment!.variables.vB).toBeNull()
+})
 ```
 
 - [ ] **Step 12: Run tests to verify they fail**
@@ -679,6 +1040,7 @@ git commit -m "test: add operator constraint propagation tests"
 ### Task 6: Implement propagation in `ArgumentEngine.evaluate()`
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 
 - [ ] **Step 1: Write the propagation function**
@@ -888,7 +1250,10 @@ Add the following private method to `ArgumentEngine`, before the `evaluate()` me
 At the top of `src/lib/core/argument-engine.ts`, ensure these are imported (some may already be present — only add what's missing):
 
 ```typescript
-import type { TCoreLogicalOperatorType, TCorePropositionalExpression } from "../schemata/index.js"
+import type {
+    TCoreLogicalOperatorType,
+    TCorePropositionalExpression,
+} from "../schemata/index.js"
 import type { TCoreVariableAssignment } from "../types/evaluation.js"
 import {
     kleeneNot,
@@ -912,13 +1277,12 @@ In the `evaluate()` method, after validation succeeds and before the try/catch b
 Insert just before it:
 
 ```typescript
-        // Run operator constraint propagation to fill unknown variables
-        const propagatedVars = this.propagateOperatorConstraints(assignment)
-        const propagatedAssignment: TCoreExpressionAssignment = {
-            variables: propagatedVars,
-            operatorAssignments: assignment.operatorAssignments,
-        }
-
+// Run operator constraint propagation to fill unknown variables
+const propagatedVars = this.propagateOperatorConstraints(assignment)
+const propagatedAssignment: TCoreExpressionAssignment = {
+    variables: propagatedVars,
+    operatorAssignments: assignment.operatorAssignments,
+}
 ```
 
 Then in the per-premise evaluation calls that follow (conclusion, supporting, constraint evaluations), replace `assignment` with `propagatedAssignment`. There should be three calls to `.evaluate(assignment, evalOpts)` — change each to `.evaluate(propagatedAssignment, evalOpts)`.
@@ -926,6 +1290,7 @@ Then in the per-premise evaluation calls that follow (conclusion, supporting, co
 Also update the result's `assignment` field to return `propagatedAssignment` instead of manually copying:
 
 Replace:
+
 ```typescript
                 assignment: {
                     variables: { ...assignment.variables },
@@ -934,6 +1299,7 @@ Replace:
 ```
 
 with:
+
 ```typescript
                 assignment: {
                     variables: { ...propagatedVars },
@@ -965,6 +1331,7 @@ git commit -m "feat: implement operator constraint propagation in ArgumentEngine
 ### Task 7: Update CLI analysis commands
 
 **Files:**
+
 - Modify: `src/cli/commands/analysis.ts`
 - Modify: `src/cli/storage/analysis.ts`
 
@@ -1011,21 +1378,21 @@ In `src/cli/commands/analysis.ts`, update the `create` command. Change the actio
 Replace the filename resolution at the start of the create action:
 
 ```typescript
-                const filename = resolveAnalysisFilename(filenameArg)
-                if (await analysisFileExists(argumentId, version, filename)) {
-                    errorExit(`Analysis file "${filename}" already exists.`)
-                }
+const filename = resolveAnalysisFilename(filenameArg)
+if (await analysisFileExists(argumentId, version, filename)) {
+    errorExit(`Analysis file "${filename}" already exists.`)
+}
 ```
 
 with:
 
 ```typescript
-                const filename = filenameArg
-                    ? resolveAnalysisFilename(filenameArg)
-                    : await nextAnalysisFilename(argumentId, version)
-                if (await analysisFileExists(argumentId, version, filename)) {
-                    errorExit(`Analysis file "${filename}" already exists.`)
-                }
+const filename = filenameArg
+    ? resolveAnalysisFilename(filenameArg)
+    : await nextAnalysisFilename(argumentId, version)
+if (await analysisFileExists(argumentId, version, filename)) {
+    errorExit(`Analysis file "${filename}" already exists.`)
+}
 ```
 
 Update the imports to include `nextAnalysisFilename`:
@@ -1061,55 +1428,16 @@ with:
 Remove the `reject`, `accept`, `reject-all`, and `accept-all` command registrations entirely. Replace them with:
 
 ```typescript
-    analysis
-        .command("set-operator <operator_expression_id> <state>")
-        .description(
-            "Set an operator's state (accepted, rejected, or unset)"
-        )
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
-        .action(
-            async (
-                operatorExpressionId: string,
-                state: string,
-                opts: { file?: string }
-            ) => {
-                if (!["accepted", "rejected", "unset"].includes(state)) {
-                    errorExit(
-                        `State must be "accepted", "rejected", or "unset", got "${state}".`
-                    )
-                }
-                const filename = resolveAnalysisFilename(opts.file)
-                if (
-                    !(await analysisFileExists(argumentId, version, filename))
-                ) {
-                    errorExit(`Analysis file "${filename}" does not exist.`)
-                }
-                const data = await readAnalysis(argumentId, version, filename)
-                if (state === "unset") {
-                    delete data.operatorAssignments[operatorExpressionId]
-                } else {
-                    data.operatorAssignments[operatorExpressionId] = state as
-                        | "accepted"
-                        | "rejected"
-                }
-                await writeAnalysis(argumentId, version, filename, data)
-                printLine("success")
-            }
-        )
-
-    analysis
-        .command("set-all-operators <state>")
-        .description(
-            "Set all operator expressions to a state (accepted, rejected, or unset)"
-        )
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
-        .action(async (state: string, opts: { file?: string }) => {
+analysis
+    .command("set-operator <operator_expression_id> <state>")
+    .description("Set an operator's state (accepted, rejected, or unset)")
+    .option("--file <filename>", "Analysis filename (default: analysis.json)")
+    .action(
+        async (
+            operatorExpressionId: string,
+            state: string,
+            opts: { file?: string }
+        ) => {
             if (!["accepted", "rejected", "unset"].includes(state)) {
                 errorExit(
                     `State must be "accepted", "rejected", or "unset", got "${state}".`
@@ -1121,32 +1449,61 @@ Remove the `reject`, `accept`, `reject-all`, and `accept-all` command registrati
             }
             const data = await readAnalysis(argumentId, version, filename)
             if (state === "unset") {
-                data.operatorAssignments = {}
+                delete data.operatorAssignments[operatorExpressionId]
             } else {
-                const premiseIds = await listPremiseIds(argumentId, version)
-                for (const pid of premiseIds) {
-                    const premiseData = await readPremiseData(
-                        argumentId,
-                        version,
-                        pid
-                    )
-                    for (const expr of premiseData.expressions) {
-                        if (expr.type === "operator") {
-                            data.operatorAssignments[expr.id] = state as
-                                | "accepted"
-                                | "rejected"
-                        }
+                data.operatorAssignments[operatorExpressionId] = state as
+                    | "accepted"
+                    | "rejected"
+            }
+            await writeAnalysis(argumentId, version, filename, data)
+            printLine("success")
+        }
+    )
+
+analysis
+    .command("set-all-operators <state>")
+    .description(
+        "Set all operator expressions to a state (accepted, rejected, or unset)"
+    )
+    .option("--file <filename>", "Analysis filename (default: analysis.json)")
+    .action(async (state: string, opts: { file?: string }) => {
+        if (!["accepted", "rejected", "unset"].includes(state)) {
+            errorExit(
+                `State must be "accepted", "rejected", or "unset", got "${state}".`
+            )
+        }
+        const filename = resolveAnalysisFilename(opts.file)
+        if (!(await analysisFileExists(argumentId, version, filename))) {
+            errorExit(`Analysis file "${filename}" does not exist.`)
+        }
+        const data = await readAnalysis(argumentId, version, filename)
+        if (state === "unset") {
+            data.operatorAssignments = {}
+        } else {
+            const premiseIds = await listPremiseIds(argumentId, version)
+            for (const pid of premiseIds) {
+                const premiseData = await readPremiseData(
+                    argumentId,
+                    version,
+                    pid
+                )
+                for (const expr of premiseData.expressions) {
+                    if (expr.type === "operator") {
+                        data.operatorAssignments[expr.id] = state as
+                            | "accepted"
+                            | "rejected"
                     }
                 }
             }
-            await writeAnalysis(argumentId, version, filename, data)
-            const count = Object.keys(data.operatorAssignments).length
-            printLine(
-                state === "unset"
-                    ? "All operator assignments cleared"
-                    : `${count} operator(s) set to ${state}`
-            )
-        })
+        }
+        await writeAnalysis(argumentId, version, filename, data)
+        const count = Object.keys(data.operatorAssignments).length
+        printLine(
+            state === "unset"
+                ? "All operator assignments cleared"
+                : `${count} operator(s) set to ${state}`
+        )
+    })
 ```
 
 - [ ] **Step 5: Update `analysis show` output**
@@ -1154,28 +1511,28 @@ Remove the `reject`, `accept`, `reject-all`, and `accept-all` command registrati
 Replace the rejected expressions display block:
 
 ```typescript
-                if (data.rejectedExpressionIds.length > 0) {
-                    printLine("")
-                    printLine("Rejected operators:")
-                    for (const id of data.rejectedExpressionIds) {
-                        printLine(`  ${id}`)
-                    }
-                }
+if (data.rejectedExpressionIds.length > 0) {
+    printLine("")
+    printLine("Rejected operators:")
+    for (const id of data.rejectedExpressionIds) {
+        printLine(`  ${id}`)
+    }
+}
 ```
 
 with:
 
 ```typescript
-                const opEntries = Object.entries(data.operatorAssignments)
-                if (opEntries.length > 0) {
-                    printLine("")
-                    printLine("Operator assignments:")
-                    for (const [id, state] of opEntries.sort(([a], [b]) =>
-                        a.localeCompare(b)
-                    )) {
-                        printLine(`  ${id} = ${state}`)
-                    }
-                }
+const opEntries = Object.entries(data.operatorAssignments)
+if (opEntries.length > 0) {
+    printLine("")
+    printLine("Operator assignments:")
+    for (const [id, state] of opEntries.sort(([a], [b]) =>
+        a.localeCompare(b)
+    )) {
+        printLine(`  ${id} = ${state}`)
+    }
+}
 ```
 
 - [ ] **Step 6: Update `analysis validate-assignments`**
@@ -1270,41 +1627,35 @@ with:
 Then update the body to load operator assignments when `--file` is provided. After the `operators` array is built, before the JSON/text output, add:
 
 ```typescript
-            let opAssignments: Record<string, string> = {}
-            if (opts.file) {
-                const filename = resolveAnalysisFilename(opts.file)
-                if (
-                    await analysisFileExists(argumentId, version, filename)
-                ) {
-                    const analysisData = await readAnalysis(
-                        argumentId,
-                        version,
-                        filename
-                    )
-                    opAssignments = analysisData.operatorAssignments
-                }
-            }
+let opAssignments: Record<string, string> = {}
+if (opts.file) {
+    const filename = resolveAnalysisFilename(opts.file)
+    if (await analysisFileExists(argumentId, version, filename)) {
+        const analysisData = await readAnalysis(argumentId, version, filename)
+        opAssignments = analysisData.operatorAssignments
+    }
+}
 ```
 
 Update the JSON output to include state:
 
 ```typescript
-            if (opts.json) {
-                printJson(
-                    operators.map((op) => ({
-                        ...op,
-                        state: opAssignments[op.expressionId] ?? "unset",
-                    }))
-                )
-                return
-            }
+if (opts.json) {
+    printJson(
+        operators.map((op) => ({
+            ...op,
+            state: opAssignments[op.expressionId] ?? "unset",
+        }))
+    )
+    return
+}
 ```
 
 And update the text output line to include state:
 
 ```typescript
-                const state = opAssignments[op.expressionId] ?? "unset"
-                printLine(`  ${op.expressionId} | ${op.operator} | ${state}`)
+const state = opAssignments[op.expressionId] ?? "unset"
+printLine(`  ${op.expressionId} | ${op.operator} | ${state}`)
 ```
 
 - [ ] **Step 9: Remove `requireConfirmation` import if no longer used**
@@ -1329,6 +1680,7 @@ git commit -m "feat: replace reject/accept CLI commands with set-operator and se
 ### Task 8: Update graph command
 
 **Files:**
+
 - Modify: `src/cli/commands/graph.ts`
 
 - [ ] **Step 1: Update `TEvaluationOverlay` interface**
@@ -1336,13 +1688,13 @@ git commit -m "feat: replace reject/accept CLI commands with set-operator and se
 Replace:
 
 ```typescript
-    rejectedExpressionIds: Set<string>
+rejectedExpressionIds: Set<string>
 ```
 
 with:
 
 ```typescript
-    operatorAssignments: Record<string, "accepted" | "rejected">
+operatorAssignments: Record<string, "accepted" | "rejected">
 ```
 
 - [ ] **Step 2: Update the evaluation call**
@@ -1384,23 +1736,23 @@ with:
 Replace:
 
 ```typescript
-                if (overlay.rejectedExpressionIds.has(expr.id)) {
-                    attrs.push(`peripheries=2`)
-                    attrs.push(`color=red`)
-                }
+if (overlay.rejectedExpressionIds.has(expr.id)) {
+    attrs.push(`peripheries=2`)
+    attrs.push(`color=red`)
+}
 ```
 
 with:
 
 ```typescript
-                const opState = overlay.operatorAssignments[expr.id]
-                if (opState === "rejected") {
-                    attrs.push(`peripheries=2`)
-                    attrs.push(`color=red`)
-                } else if (opState === "accepted") {
-                    attrs.push(`peripheries=2`)
-                    attrs.push(`color=green`)
-                }
+const opState = overlay.operatorAssignments[expr.id]
+if (opState === "rejected") {
+    attrs.push(`peripheries=2`)
+    attrs.push(`color=red`)
+} else if (opState === "accepted") {
+    attrs.push(`peripheries=2`)
+    attrs.push(`color=green`)
+}
 ```
 
 - [ ] **Step 5: Run typecheck**
@@ -1421,6 +1773,7 @@ git commit -m "feat: update graph command to use operatorAssignments"
 ### Task 9: Update smoke test
 
 **Files:**
+
 - Modify: `scripts/smoke-test.sh`
 
 - [ ] **Step 1: Replace the reject/accept smoke test sections**
@@ -1541,6 +1894,7 @@ git commit -m "test: update smoke test for operatorAssignments and set-operator 
 ### Task 10: Update documentation
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `docs/api-reference.md`
 - Modify: `CLI_EXAMPLES.md`
@@ -1557,7 +1911,7 @@ Search for `rejectedExpressionIds` and update the method documentation to descri
 
 Replace the "Reject and accept expressions" section (around lines 390-404) with documentation for the new commands:
 
-```markdown
+````markdown
 ### Set operator states
 
 Set an operator expression to accepted (relationship holds), rejected (relationship doesn't hold), or unset (normal evaluation):
@@ -1576,7 +1930,9 @@ proposit-core <argument-id> latest analysis set-operator <operator-id> unset
 proposit-core <argument-id> latest analysis set-all-operators accepted
 proposit-core <argument-id> latest analysis set-all-operators unset
 ```
-```
+````
+
+````
 
 - [ ] **Step 4: Run lint and prettify**
 
@@ -1589,7 +1945,7 @@ Expected: No errors.
 ```bash
 git add README.md docs/api-reference.md CLI_EXAMPLES.md
 git commit -m "docs: update documentation for operatorAssignments and set-operator commands"
-```
+````
 
 ---
 
@@ -1618,6 +1974,7 @@ Expected: No matches in source or test files. (Docs/plans may still reference it
 - [ ] **Step 4: Update changelog**
 
 Add entry to `docs/changelogs/upcoming.md` and `docs/release-notes/upcoming.md` describing:
+
 - `rejectedExpressionIds` replaced by `operatorAssignments` (breaking schema change)
 - Operator constraint propagation (accepted operators derive unknown variable values)
 - New CLI commands: `set-operator`, `set-all-operators`

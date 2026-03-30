@@ -33,6 +33,9 @@ export async function requireConfirmation(prompt: string): Promise<void> {
     await new Promise<void>((resolve) => {
         rl.once("line", (line) => {
             rl.close()
+            if (input !== process.stdin && "destroy" in input) {
+                ;(input as fs.ReadStream).destroy()
+            }
             if (line.trim() !== "confirm") {
                 errorExit("Aborted.")
             }

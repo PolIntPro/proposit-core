@@ -424,12 +424,12 @@ flowchart LR
     style Validity fill:none,stroke:#888,stroke-dasharray: 5 5
 ```
 
-Assignments use `TCoreExpressionAssignment`, which carries both variable truth values (three-valued: `true`, `false`, or `null` for unknown) and a list of rejected expression IDs:
+Assignments use `TCoreExpressionAssignment`, which carries both variable truth values (three-valued: `true`, `false`, or `null` for unknown) and operator assignments (three-state: `"accepted"`, `"rejected"`, or absent for normal evaluation):
 
 ```typescript
 const result = eng.evaluate({
     variables: { "var-p": true, "var-q": true },
-    rejectedExpressionIds: [],
+    operatorAssignments: {},
 })
 if (result.ok) {
     console.log(result.conclusionTrue) // true
@@ -654,7 +654,7 @@ richArg.bindVariableToArgument(
 // External bindings are evaluator-assigned — provide truth values in the assignment
 const result = richArg.evaluate({
     variables: { "v-john-p2": true, "v-john-conclusion": false },
-    rejectedExpressionIds: [],
+    operatorAssignments: {},
 })
 ```
 

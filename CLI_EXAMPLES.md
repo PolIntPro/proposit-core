@@ -339,7 +339,7 @@ Overlay evaluation results from an analysis file:
 proposit-core <argument-id> latest graph --analysis analysis.json
 ```
 
-Expression nodes are colored by truth value (green/red/gray), rejected expressions get double borders, and the graph subtitle shows the evaluation summary.
+Expression nodes are colored by truth value (green/red/gray), operator-assigned expressions get double borders, and the graph subtitle shows the evaluation summary.
 
 ---
 
@@ -387,21 +387,23 @@ proposit-core <argument-id> latest analysis reset --value false
 proposit-core <argument-id> latest analysis validate-assignments
 ```
 
-### Reject and accept expressions
+### Set operator states
 
-Mark an expression as rejected (evaluates to `false`, children skipped) or restore it:
+Set an operator expression to accepted (relationship holds), rejected (relationship doesn't hold), or unset (normal evaluation):
 
 ```bash
-# Reject an expression (e.g. the root of premise 1)
-proposit-core <argument-id> latest analysis reject <root1-id>
-proposit-core <argument-id> latest analysis show
+# Accept an operator (propagates constraints to unknown variables)
+proposit-core <argument-id> latest analysis set-operator <operator-id> accepted
 
-# Accept it again (restore normal computation)
-proposit-core <argument-id> latest analysis accept <root1-id>
+# Reject an operator (evaluates to false, children skipped)
+proposit-core <argument-id> latest analysis set-operator <operator-id> rejected
 
-# Reject/accept on a specific analysis file
-proposit-core <argument-id> latest analysis reject <root1-id> --file scenario-b.json
-proposit-core <argument-id> latest analysis accept <root1-id> --file scenario-b.json
+# Clear an operator back to normal evaluation
+proposit-core <argument-id> latest analysis set-operator <operator-id> unset
+
+# Mass-set all operators
+proposit-core <argument-id> latest analysis set-all-operators accepted
+proposit-core <argument-id> latest analysis set-all-operators unset
 ```
 
 ### Evaluate a specific assignment

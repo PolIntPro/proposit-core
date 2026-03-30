@@ -26,7 +26,7 @@ export async function nextAnalysisFilename(
     const pattern = /^analysis-(\d+)\.json$/
     let max = 0
     for (const name of existing) {
-        const match = name.match(pattern)
+        const match = pattern.exec(name)
         if (match) {
             const n = parseInt(match[1], 10)
             if (n > max) max = n

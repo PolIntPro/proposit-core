@@ -219,7 +219,7 @@ Checks whether the argument is structurally ready to evaluate. Returns `{ ok, is
 
 ### `evaluate(assignment, options?)` → `TArgumentEvaluationResult`
 
-Evaluates all relevant premises under the given expression assignment (`TCoreExpressionAssignment`). The assignment contains `variables` (a `Record<string, boolean | null>`) and `rejectedExpressionIds` (expression IDs that evaluate to `false` with children skipped). Returns per-premise truth values, counterexample status, and an admissibility flag.
+Evaluates all relevant premises under the given expression assignment (`TCoreExpressionAssignment`). The assignment contains `variables` (a `Record<string, boolean | null>`) and `operatorAssignments` (a `Record<string, "accepted" | "rejected">` mapping operator expression IDs to their override state — `"accepted"` propagates constraints to unknown variables, `"rejected"` forces `false` with children skipped, absent means normal evaluation). Returns per-premise truth values, counterexample status, and an admissibility flag.
 
 Options:
 
