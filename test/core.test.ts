@@ -23148,3 +23148,382 @@ describe("DEFAULT_CHECKSUM_CONFIG excludes entity id", () => {
         ).toBe(false)
     })
 })
+
+// ---------------------------------------------------------------------------
+// Operator constraint propagation
+// ---------------------------------------------------------------------------
+
+describe("operator constraint propagation", () => {
+    it("implies accepted, antecedent true -> consequent derived true", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        // Single premise: A -> B (conclusion)
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("impl", "implies", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "impl",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "impl",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: true, vB: null },
+            operatorAssignments: { impl: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: implies accepted + A=true => B must be true
+        expect(result.assignment!.variables["vB"]).toBe(true)
+        expect(result.conclusionTrue).toBe(true)
+    })
+
+    it("implies accepted, consequent false -> antecedent derived false", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("impl", "implies", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "impl",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "impl",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: null, vB: false },
+            operatorAssignments: { impl: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: implies accepted + B=false => A must be false (modus tollens)
+        expect(result.assignment!.variables["vA"]).toBe(false)
+    })
+
+    it("and accepted -> both children derived true", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("conj", "and", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "conj",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "conj",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: null, vB: null },
+            operatorAssignments: { conj: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: and accepted => both children must be true
+        expect(result.assignment!.variables["vA"]).toBe(true)
+        expect(result.assignment!.variables["vB"]).toBe(true)
+    })
+
+    it("or accepted, one child false -> other derived true", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("disj", "or", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "disj",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "disj",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: false, vB: null },
+            operatorAssignments: { disj: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: or accepted + A=false => B must be true
+        expect(result.assignment!.variables["vB"]).toBe(true)
+    })
+
+    it("not accepted -> child derived false", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        eng.addVariable(vA)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("neg", "not", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "neg",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: null },
+            operatorAssignments: { neg: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: not accepted (= true) => child must be false
+        expect(result.assignment!.variables["vA"]).toBe(false)
+    })
+
+    it("iff accepted -> bidirectional propagation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("bic", "iff", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "bic",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "bic",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        const result = eng.evaluate({
+            variables: { vA: true, vB: null },
+            operatorAssignments: { bic: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation: iff accepted + A=true => B must be true
+        expect(result.assignment!.variables["vB"]).toBe(true)
+    })
+
+    it("cross-premise fixed-point propagation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        const vC = makeVar("vC", "C")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+        eng.addVariable(vC)
+
+        // Premise 1 (supporting): A -> B
+        const { result: pm1 } = eng.createPremiseWithId("p1")
+        pm1.addExpression(
+            makeOpExpr("impl1", "implies", { premiseId: "p1" })
+        )
+        pm1.addExpression(
+            makeVarExpr("e1-a", "vA", {
+                parentId: "impl1",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm1.addExpression(
+            makeVarExpr("e1-b", "vB", {
+                parentId: "impl1",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+
+        // Premise 2 (conclusion): B -> C
+        const { result: pm2 } = eng.createPremiseWithId("p2")
+        pm2.addExpression(
+            makeOpExpr("impl2", "implies", { premiseId: "p2" })
+        )
+        pm2.addExpression(
+            makeVarExpr("e2-b", "vB", {
+                parentId: "impl2",
+                position: 0,
+                premiseId: "p2",
+            })
+        )
+        pm2.addExpression(
+            makeVarExpr("e2-c", "vC", {
+                parentId: "impl2",
+                position: 1,
+                premiseId: "p2",
+            })
+        )
+
+        eng.setConclusionPremise("p2")
+
+        const result = eng.evaluate({
+            variables: { vA: true, vB: null, vC: null },
+            operatorAssignments: { impl1: "accepted", impl2: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Propagation across premises:
+        //   impl1 accepted + A=true => B=true
+        //   impl2 accepted + B=true => C=true
+        expect(result.assignment!.variables["vB"]).toBe(true)
+        expect(result.assignment!.variables["vC"]).toBe(true)
+        expect(result.conclusionTrue).toBe(true)
+    })
+
+    it("user assignment wins over propagation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("conj", "and", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "conj",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "conj",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        // User explicitly sets A=false; and is accepted, so B propagated to true
+        const result = eng.evaluate({
+            variables: { vA: false, vB: null },
+            operatorAssignments: { conj: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // User's explicit A=false must not be overridden
+        expect(result.assignment!.variables["vA"]).toBe(false)
+        // B is propagated to true from and-accepted
+        expect(result.assignment!.variables["vB"]).toBe(true)
+        // But the conjunction is false (false AND true = false)
+        expect(result.conclusionTrue).toBe(false)
+    })
+
+    it("no propagation for unset operators", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("impl", "implies", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "impl",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "impl",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        // No operator assignment — no propagation should occur
+        const result = eng.evaluate({
+            variables: { vA: true, vB: null },
+            operatorAssignments: {},
+        })
+        expect(result.ok).toBe(true)
+        // B should remain null — no propagation without operator assignment
+        expect(result.assignment!.variables["vB"]).toBeNull()
+        expect(result.conclusionTrue).toBeNull()
+    })
+
+    it("or accepted, both unknown -> no propagation", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const vA = makeVar("vA", "A")
+        const vB = makeVar("vB", "B")
+        eng.addVariable(vA)
+        eng.addVariable(vB)
+
+        const { result: pm } = eng.createPremiseWithId("p1")
+        pm.addExpression(makeOpExpr("disj", "or", { premiseId: "p1" }))
+        pm.addExpression(
+            makeVarExpr("e-a", "vA", {
+                parentId: "disj",
+                position: 0,
+                premiseId: "p1",
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", "vB", {
+                parentId: "disj",
+                position: 1,
+                premiseId: "p1",
+            })
+        )
+        eng.setConclusionPremise("p1")
+
+        // Or accepted but both children unknown — insufficient info to derive either
+        const result = eng.evaluate({
+            variables: { vA: null, vB: null },
+            operatorAssignments: { disj: "accepted" },
+        })
+        expect(result.ok).toBe(true)
+        // Cannot determine which disjunct is true — both remain null
+        expect(result.assignment!.variables["vA"]).toBeNull()
+        expect(result.assignment!.variables["vB"]).toBeNull()
+    })
+})
