@@ -68,7 +68,8 @@ function truthColor(value: TCoreTrivalentValue): string {
     return "gray70"
 }
 
-function truthFillColor(value: TCoreTrivalentValue): string {
+function truthFillColor(value: TCoreTrivalentValue, vacuous?: boolean): string {
+    if (value === true && vacuous) return '"#fff3cd"' // yellow for vacuous truth
     if (value === true) return '"#d4edda"'
     if (value === false) return '"#f8d7da"'
     return '"#e2e3e5"'
@@ -146,7 +147,15 @@ export function buildDotGraph(
         lines.push(`  subgraph ${clusterName} {`)
 
         if (overlay && premResult?.rootValue !== undefined) {
-            const borderColor = truthColor(premResult.rootValue)
+            // Detect vacuous truth: root is true but inference diagnostic
+            // shows the implication fired vacuously (antecedent false)
+            const isVacuous =
+                premResult.rootValue === true &&
+                premResult.inferenceDiagnostic?.kind === "implies" &&
+                premResult.inferenceDiagnostic.isVacuouslyTrue === true
+            const borderColor = isVacuous
+                ? "goldenrod"
+                : truthColor(premResult.rootValue)
             lines.push(`    label="${clusterLabel}";`)
             lines.push(`    style=bold;`)
             lines.push(`    color=${borderColor};`)
@@ -193,7 +202,19 @@ export function buildDotGraph(
 
             // Evaluation overlay: color nodes by truth value
             if (overlay && premResult) {
-                const exprValue = premResult.expressionValues[expr.id]
+                let exprValue: TCoreTrivalentValue | undefined =
+                    premResult.expressionValues[expr.id]
+                // For variable expressions without a direct value (e.g. under
+                // a rejected operator), inherit the variable's assignment value
+                if (
+                    exprValue === undefined &&
+                    expr.type === "variable" &&
+                    overlay.result.assignment
+                ) {
+                    const varVal =
+                        overlay.result.assignment.variables[expr.variableId]
+                    if (varVal !== undefined) exprValue = varVal
+                }
                 if (exprValue !== undefined) {
                     attrs.push(`style=filled`)
                     attrs.push(`fillcolor=${truthFillColor(exprValue)}`)
@@ -413,7 +434,7 @@ export function registerGraphCommand(
                     },
                     {
                         includeExpressionValues: true,
-                        includeDiagnostics: false,
+                        includeDiagnostics: true,
                         validateFirst: false,
                     }
                 )
