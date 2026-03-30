@@ -22633,7 +22633,9 @@ describe("PropositCore", () => {
             pe.changeOperator("op-and", "or", "v-p", "v-q")
 
             const allExprs = pe.getExpressions()
-            const generatedExprs = allExprs.filter((e) => e.id.startsWith("pe-id-"))
+            const generatedExprs = allExprs.filter((e) =>
+                e.id.startsWith("pe-id-")
+            )
             // Should have generated at least the sub-operator + formula buffer IDs
             expect(generatedExprs.length).toBeGreaterThanOrEqual(2)
         })
@@ -22905,9 +22907,7 @@ describe("generateId injection — ArgumentParser", () => {
         // Variable IDs (claim-bound)
         const vars = result.engine.getVariables()
         expect(vars.length).toBeGreaterThanOrEqual(1)
-        const claimBoundVars = vars.filter(
-            (v) => "claimId" in v
-        )
+        const claimBoundVars = vars.filter((v) => "claimId" in v)
         expect(claimBoundVars.length).toBe(1)
         expect(claimBoundVars[0].id).toMatch(/^parser-id-/)
 

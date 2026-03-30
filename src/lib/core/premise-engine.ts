@@ -45,7 +45,10 @@ import {
     PREMISE_VARIABLE_REF_NOT_FOUND,
 } from "../types/validation.js"
 import type { TCoreChecksumConfig } from "../types/checksum.js"
-import { defaultGenerateId, type TLogicEngineOptions } from "./argument-engine.js"
+import {
+    defaultGenerateId,
+    type TLogicEngineOptions,
+} from "./argument-engine.js"
 import type { TGrammarConfig } from "../types/grammar.js"
 import {
     DEFAULT_CHECKSUM_CONFIG,
