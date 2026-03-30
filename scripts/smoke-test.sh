@@ -330,38 +330,54 @@ $CLI "$ARG" latest analysis validate-argument
 $CLI "$ARG" latest analysis validate-argument --json
 
 section "9b. analysis — create and show"
-$CLI "$ARG" latest analysis create
-$CLI "$ARG" latest analysis show
-$CLI "$ARG" latest analysis show --json
+ANALYSIS_FILE=$($CLI "$ARG" latest analysis create)
+echo "ANALYSIS_FILE=$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE" --json
 
 section "9c. analysis — set variable assignments"
-$CLI "$ARG" latest analysis set R true
-$CLI "$ARG" latest analysis set W true
-$CLI "$ARG" latest analysis set S true
-$CLI "$ARG" latest analysis show
+$CLI "$ARG" latest analysis set R true --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis set W true --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis set S true --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
 
 section "9d. analysis — validate-assignments"
-$CLI "$ARG" latest analysis validate-assignments
-$CLI "$ARG" latest analysis validate-assignments --json
+$CLI "$ARG" latest analysis validate-assignments --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis validate-assignments --file "$ANALYSIS_FILE" --json
 
 section "9e. analysis — evaluate"
-$CLI "$ARG" latest analysis evaluate
-$CLI "$ARG" latest analysis evaluate --json
+$CLI "$ARG" latest analysis evaluate --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis evaluate --file "$ANALYSIS_FILE" --json
 
 section "9e2. graph — with evaluation overlay"
-$CLI "$ARG" latest graph --analysis analysis.json
-$CLI "$ARG" latest graph --analysis analysis.json --json
+$CLI "$ARG" latest graph --analysis "$ANALYSIS_FILE"
+$CLI "$ARG" latest graph --analysis "$ANALYSIS_FILE" --json
 
 section "9f. analysis — reset all to false and re-evaluate"
-$CLI "$ARG" latest analysis reset --value false
-$CLI "$ARG" latest analysis show
-$CLI "$ARG" latest analysis evaluate
+$CLI "$ARG" latest analysis reset --value false --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis evaluate --file "$ANALYSIS_FILE"
 
-section "9g. analysis — reject and accept an expression"
-$CLI "$ARG" latest analysis reject "$ROOT1"
-$CLI "$ARG" latest analysis show
-$CLI "$ARG" latest analysis evaluate
-$CLI "$ARG" latest analysis accept "$ROOT1"
+section "9g. analysis — set-operator (reject and accept)"
+$CLI "$ARG" latest analysis set-operator "$ROOT1" rejected --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis evaluate --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis set-operator "$ROOT1" unset --file "$ANALYSIS_FILE"
+
+section "9g2. analysis — operators (with state)"
+$CLI "$ARG" latest analysis operators
+$CLI "$ARG" latest analysis operators --json
+$CLI "$ARG" latest analysis set-operator "$ROOT1" accepted --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis operators --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis operators --file "$ANALYSIS_FILE" --json
+$CLI "$ARG" latest analysis set-operator "$ROOT1" unset --file "$ANALYSIS_FILE"
+
+section "9g3. analysis — set-all-operators"
+$CLI "$ARG" latest analysis set-all-operators accepted --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis evaluate --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis set-all-operators unset --file "$ANALYSIS_FILE"
+$CLI "$ARG" latest analysis show --file "$ANALYSIS_FILE"
 
 section "9h. analysis — check-validity (first-counterexample)"
 $CLI "$ARG" latest analysis check-validity
@@ -382,12 +398,12 @@ $CLI "$ARG" latest analysis list
 $CLI "$ARG" latest analysis list --json
 
 section "9k. analysis — refs and export"
-$CLI "$ARG" latest analysis refs
 $CLI "$ARG" latest analysis refs --json
 $CLI "$ARG" latest analysis export
 
 section "9l. analysis — delete"
 $CLI "$ARG" latest analysis delete --file scenario-b.json --confirm
+$CLI "$ARG" latest analysis delete --file "$ANALYSIS_FILE" --confirm
 $CLI "$ARG" latest analysis list
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -566,18 +582,19 @@ $CLI "$ARG4" latest render
 $CLI "$ARG4" latest analysis validate-argument
 
 # Evaluate with an assignment
-$CLI "$ARG4" latest analysis create --default false
-$CLI "$ARG4" latest analysis set Rain true
-$CLI "$ARG4" latest analysis set Wind true
-$CLI "$ARG4" latest analysis set Storm false
-$CLI "$ARG4" latest analysis set WetRoads true
-$CLI "$ARG4" latest analysis set HeavyTraffic true
-$CLI "$ARG4" latest analysis set Construction false
-$CLI "$ARG4" latest analysis set Danger true
-$CLI "$ARG4" latest analysis set Daylight true
-$CLI "$ARG4" latest analysis set LowVisibility false
-$CLI "$ARG4" latest analysis set SlowTraffic false
-$CLI "$ARG4" latest analysis evaluate
+ARG4_ANALYSIS=$($CLI "$ARG4" latest analysis create --default false)
+echo "ARG4_ANALYSIS=$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Rain true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Wind true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Storm false --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set WetRoads true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set HeavyTraffic true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Construction false --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Danger true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set Daylight true --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set LowVisibility false --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis set SlowTraffic false --file "$ARG4_ANALYSIS"
+$CLI "$ARG4" latest analysis evaluate --file "$ARG4_ANALYSIS"
 $CLI "$ARG4" latest analysis check-validity
 
 # ─────────────────────────────────────────────────────────────────────────────

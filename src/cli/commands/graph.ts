@@ -198,9 +198,13 @@ export function buildDotGraph(
                     attrs.push(`style=filled`)
                     attrs.push(`fillcolor=${truthFillColor(exprValue)}`)
                 }
-                if (overlay.operatorAssignments[expr.id] === "rejected") {
+                const opState = overlay.operatorAssignments[expr.id]
+                if (opState === "rejected") {
                     attrs.push(`peripheries=2`)
                     attrs.push(`color=red`)
+                } else if (opState === "accepted") {
+                    attrs.push(`peripheries=2`)
+                    attrs.push(`color=green`)
                 }
             }
 

@@ -18,6 +18,23 @@ export function resolveAnalysisFilename(filename?: string): string {
     return filename ?? "analysis.json"
 }
 
+export async function nextAnalysisFilename(
+    argumentId: string,
+    version: number
+): Promise<string> {
+    const existing = await listAnalysisFiles(argumentId, version)
+    const pattern = /^analysis-(\d+)\.json$/
+    let max = 0
+    for (const name of existing) {
+        const match = name.match(pattern)
+        if (match) {
+            const n = parseInt(match[1], 10)
+            if (n > max) max = n
+        }
+    }
+    return `analysis-${max + 1}.json`
+}
+
 function analysisPath(
     argumentId: string,
     version: number,

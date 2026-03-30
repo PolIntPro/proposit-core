@@ -10,6 +10,7 @@ import {
     analysisFileExists,
     deleteAnalysisFile,
     listAnalysisFiles,
+    nextAnalysisFilename,
     readAnalysis,
     resolveAnalysisFilename,
     writeAnalysis,
@@ -41,7 +42,9 @@ export function registerAnalysisCommands(
                 filenameArg: string | undefined,
                 opts: { default: string }
             ) => {
-                const filename = resolveAnalysisFilename(filenameArg)
+                const filename = filenameArg
+                    ? resolveAnalysisFilename(filenameArg)
+                    : await nextAnalysisFilename(argumentId, version)
                 if (await analysisFileExists(argumentId, version, filename)) {
                     errorExit(`Analysis file "${filename}" already exists.`)
                 }
@@ -198,93 +201,90 @@ export function registerAnalysisCommands(
         })
 
     analysis
-        .command("reject <expression_id>")
-        .description("Reject an operator (it will evaluate to false)")
+        .command("set-operator <operator_expression_id> <state>")
+        .description(
+            "Set an operator's state (accepted, rejected, or unset)"
+        )
         .option(
             "--file <filename>",
             "Analysis filename (default: analysis.json)"
         )
-        .action(async (expressionId: string, opts: { file?: string }) => {
-            const filename = resolveAnalysisFilename(opts.file)
-            if (!(await analysisFileExists(argumentId, version, filename))) {
-                errorExit(`Analysis file "${filename}" does not exist.`)
+        .action(
+            async (
+                operatorExpressionId: string,
+                state: string,
+                opts: { file?: string }
+            ) => {
+                if (!["accepted", "rejected", "unset"].includes(state)) {
+                    errorExit(
+                        `State must be "accepted", "rejected", or "unset", got "${state}".`
+                    )
+                }
+                const filename = resolveAnalysisFilename(opts.file)
+                if (
+                    !(await analysisFileExists(argumentId, version, filename))
+                ) {
+                    errorExit(`Analysis file "${filename}" does not exist.`)
+                }
+                const data = await readAnalysis(argumentId, version, filename)
+                if (state === "unset") {
+                    delete data.operatorAssignments[operatorExpressionId]
+                } else {
+                    data.operatorAssignments[operatorExpressionId] = state as
+                        | "accepted"
+                        | "rejected"
+                }
+                await writeAnalysis(argumentId, version, filename, data)
+                printLine("success")
             }
-            const data = await readAnalysis(argumentId, version, filename)
-            data.operatorAssignments[expressionId] = "rejected"
-            await writeAnalysis(argumentId, version, filename, data)
-            printLine("success")
-        })
+        )
 
     analysis
-        .command("accept <expression_id>")
-        .description("Accept an operator (restore normal computation)")
+        .command("set-all-operators <state>")
+        .description(
+            "Set all operator expressions to a state (accepted, rejected, or unset)"
+        )
         .option(
             "--file <filename>",
             "Analysis filename (default: analysis.json)"
         )
-        .action(async (expressionId: string, opts: { file?: string }) => {
-            const filename = resolveAnalysisFilename(opts.file)
-            if (!(await analysisFileExists(argumentId, version, filename))) {
-                errorExit(`Analysis file "${filename}" does not exist.`)
-            }
-            const data = await readAnalysis(argumentId, version, filename)
-            delete data.operatorAssignments[expressionId]
-            await writeAnalysis(argumentId, version, filename, data)
-            printLine("success")
-        })
-
-    analysis
-        .command("reject-all")
-        .description("Reject all operator expressions across all premises")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
-        .action(async (opts: { file?: string }) => {
-            const filename = resolveAnalysisFilename(opts.file)
-            if (!(await analysisFileExists(argumentId, version, filename))) {
-                errorExit(`Analysis file "${filename}" does not exist.`)
-            }
-            const premiseIds = await listPremiseIds(argumentId, version)
-            const allExpressionIds: string[] = []
-            for (const pid of premiseIds) {
-                const premiseData = await readPremiseData(
-                    argumentId,
-                    version,
-                    pid
+        .action(async (state: string, opts: { file?: string }) => {
+            if (!["accepted", "rejected", "unset"].includes(state)) {
+                errorExit(
+                    `State must be "accepted", "rejected", or "unset", got "${state}".`
                 )
-                for (const expr of premiseData.expressions) {
-                    if (expr.type === "operator") {
-                        allExpressionIds.push(expr.id)
+            }
+            const filename = resolveAnalysisFilename(opts.file)
+            if (!(await analysisFileExists(argumentId, version, filename))) {
+                errorExit(`Analysis file "${filename}" does not exist.`)
+            }
+            const data = await readAnalysis(argumentId, version, filename)
+            if (state === "unset") {
+                data.operatorAssignments = {}
+            } else {
+                const premiseIds = await listPremiseIds(argumentId, version)
+                for (const pid of premiseIds) {
+                    const premiseData = await readPremiseData(
+                        argumentId,
+                        version,
+                        pid
+                    )
+                    for (const expr of premiseData.expressions) {
+                        if (expr.type === "operator") {
+                            data.operatorAssignments[expr.id] = state as
+                                | "accepted"
+                                | "rejected"
+                        }
                     }
                 }
             }
-            const data = await readAnalysis(argumentId, version, filename)
-            data.operatorAssignments = {}
-            for (const id of allExpressionIds) {
-                data.operatorAssignments[id] = "rejected"
-            }
             await writeAnalysis(argumentId, version, filename, data)
-            printLine(`${allExpressionIds.length} operator(s) rejected`)
-        })
-
-    analysis
-        .command("accept-all")
-        .description("Accept all operators (clear all rejections)")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
-        .action(async (opts: { file?: string }) => {
-            const filename = resolveAnalysisFilename(opts.file)
-            if (!(await analysisFileExists(argumentId, version, filename))) {
-                errorExit(`Analysis file "${filename}" does not exist.`)
-            }
-            const data = await readAnalysis(argumentId, version, filename)
             const count = Object.keys(data.operatorAssignments).length
-            data.operatorAssignments = {}
-            await writeAnalysis(argumentId, version, filename, data)
-            printLine(`${count} operator(s) accepted`)
+            printLine(
+                state === "unset"
+                    ? "All operator assignments cleared"
+                    : `${count} operator(s) set to ${state}`
+            )
         })
 
     analysis
@@ -631,7 +631,11 @@ export function registerAnalysisCommands(
         .command("operators")
         .description("List all operator expressions across all premises")
         .option("--json", "Output as JSON")
-        .action(async (opts: { json?: boolean }) => {
+        .option(
+            "--file <filename>",
+            "Show operator states from an analysis file"
+        )
+        .action(async (opts: { json?: boolean; file?: string }) => {
             const engine = await hydrateEngine(argumentId, version)
             const premises = engine.listPremises()
             const operators: {
@@ -658,8 +662,26 @@ export function registerAnalysisCommands(
                 }
             }
 
+            let opAssignments: Record<string, string> = {}
+            if (opts.file) {
+                const filename = resolveAnalysisFilename(opts.file)
+                if (await analysisFileExists(argumentId, version, filename)) {
+                    const analysisData = await readAnalysis(
+                        argumentId,
+                        version,
+                        filename
+                    )
+                    opAssignments = analysisData.operatorAssignments
+                }
+            }
+
             if (opts.json) {
-                printJson(operators)
+                printJson(
+                    operators.map((op) => ({
+                        ...op,
+                        state: opAssignments[op.expressionId] ?? "unset",
+                    }))
+                )
                 return
             }
 
@@ -675,7 +697,8 @@ export function registerAnalysisCommands(
                     currentPremise = op.premiseId
                     printLine(`Premise ${op.premiseId}:  ${op.formula}`)
                 }
-                printLine(`  ${op.expressionId} | ${op.operator}`)
+                const state = opAssignments[op.expressionId] ?? "unset"
+                printLine(`  ${op.expressionId} | ${op.operator} | ${state}`)
             }
         })
 
