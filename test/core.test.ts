@@ -22855,3 +22855,73 @@ describe("generateId injection — PropositCore", () => {
         )
     })
 })
+
+// ---------------------------------------------------------------------------
+// generateId injection — ArgumentParser
+// ---------------------------------------------------------------------------
+
+describe("generateId injection — ArgumentParser", () => {
+    it("uses injected generateId for all entity IDs", () => {
+        let counter = 0
+        const generateId = () => `parser-id-${++counter}`
+
+        const parser = new ArgumentParser()
+
+        const response: TParsedArgumentResponse = {
+            argument: {
+                claims: [
+                    {
+                        miniId: "C1",
+                        role: "premise",
+                        sourceMiniIds: [],
+                    },
+                ],
+                variables: [
+                    {
+                        miniId: "V1",
+                        symbol: "P",
+                        claimMiniId: "C1",
+                    },
+                ],
+                sources: [],
+                premises: [
+                    {
+                        miniId: "P1",
+                        formula: "P",
+                    },
+                ],
+                conclusionPremiseMiniId: "P1",
+            },
+            uncategorizedText: null,
+            selectionRationale: null,
+            failureText: null,
+        }
+
+        const result = parser.build(response, { generateId })
+
+        // Argument ID
+        expect(result.engine.getArgument().id).toMatch(/^parser-id-/)
+
+        // Variable IDs (claim-bound)
+        const vars = result.engine.getVariables()
+        expect(vars.length).toBeGreaterThanOrEqual(1)
+        const claimBoundVars = vars.filter(
+            (v) => "claimId" in v
+        )
+        expect(claimBoundVars.length).toBe(1)
+        expect(claimBoundVars[0].id).toMatch(/^parser-id-/)
+
+        // Claim IDs
+        const claims = result.claimLibrary.getAll()
+        expect(claims.length).toBe(1)
+        expect(claims[0].id).toMatch(/^parser-id-/)
+
+        // Expression IDs
+        const premises = result.engine.listPremises()
+        expect(premises.length).toBe(1)
+        const exprs = premises[0].getExpressions()
+        for (const expr of exprs) {
+            expect(expr.id).toMatch(/^parser-id-/)
+        }
+    })
+})
