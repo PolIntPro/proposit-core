@@ -2359,9 +2359,7 @@ export class ArgumentEngine<
                 ok: true,
                 assignment: {
                     variables: { ...assignment.variables },
-                    rejectedExpressionIds: [
-                        ...assignment.rejectedExpressionIds,
-                    ],
+                    operatorAssignments: { ...assignment.operatorAssignments },
                 },
                 referencedVariableIds,
                 conclusion: strip(conclusionEvaluation),
@@ -2492,7 +2490,7 @@ export class ArgumentEngine<
 
             const assignment: TCoreExpressionAssignment = {
                 variables: {},
-                rejectedExpressionIds: [],
+                operatorAssignments: {},
             }
             for (let i = 0; i < checkedVariableIds.length; i++) {
                 assignment.variables[checkedVariableIds[i]] = Boolean(
