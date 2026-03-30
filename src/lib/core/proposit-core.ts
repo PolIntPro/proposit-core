@@ -596,7 +596,8 @@ export class PropositCore<
             this.sources,
             this.claimSources,
             snap.config?.grammarConfig,
-            "ignore"
+            "ignore",
+            this.generateId
         )
 
         // Step 8: Register engine

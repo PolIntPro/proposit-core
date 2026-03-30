@@ -1234,7 +1234,8 @@ export class ArgumentEngine<
                 snapshot.argument,
                 engine.variables,
                 engine.expressionIndex,
-                grammarConfig
+                grammarConfig,
+                generateId
             )
             engine.premises.set(pe.getId(), pe)
             engine.wireCircularityCheck(pe)

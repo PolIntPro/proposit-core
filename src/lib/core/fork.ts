@@ -213,7 +213,8 @@ export function forkArgumentEngine<
         libraries.sourceLibrary,
         libraries.claimSourceLibrary,
         grammarConfig,
-        "ignore"
+        "ignore",
+        generateId
     )
 
     return { engine: forkedEngine, remapTable }

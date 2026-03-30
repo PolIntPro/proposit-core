@@ -22793,6 +22793,71 @@ describe("generateId injection — ArgumentLibrary", () => {
         const { result: newPm } = restoredEngine.createPremise()
         expect(newPm.getId()).toBe("restored-id-1")
     })
+
+    it("threads generateId to restored PremiseEngines for post-restoration mutations", () => {
+        let counter = 0
+        const generateId = () => `orig-id-${++counter}`
+
+        const claimLib = aLib()
+        const lib = new ArgumentLibrary(
+            {
+                claimLibrary: claimLib,
+                sourceLibrary: sLib(),
+                claimSourceLibrary: csLib(),
+            },
+            { generateId }
+        )
+        const engine = lib.create({ id: "arg-1", version: 0 })
+        engine.addVariable({
+            id: "var-p",
+            argumentId: "arg-1",
+            argumentVersion: 0,
+            symbol: "P",
+            claimId: "claim-default",
+            claimVersion: 0,
+        })
+        const { result: pm } = engine.createPremise()
+        const premiseId = pm.getId()
+
+        // Add a variable expression so toggleNegation has something to wrap
+        pm.addExpression({
+            id: "v-p",
+            argumentId: "arg-1",
+            argumentVersion: 0,
+            premiseId,
+            type: "variable",
+            variableId: "var-p",
+            parentId: null,
+            position: 0,
+        })
+
+        // Snapshot, restore with a new generateId
+        const snap = lib.snapshot()
+        let restoreCounter = 0
+        const restoreGenerateId = () => `snap-id-${++restoreCounter}`
+
+        const restoredLib = ArgumentLibrary.fromSnapshot(
+            snap,
+            {
+                claimLibrary: claimLib,
+                sourceLibrary: sLib(),
+                claimSourceLibrary: csLib(),
+            },
+            { generateId: restoreGenerateId }
+        )
+
+        // toggleNegation on a restored PremiseEngine should use the new generateId
+        const restoredEngine = restoredLib.get("arg-1")!
+        const restoredPm = restoredEngine.getPremise(premiseId)!
+        restoredPm.toggleNegation("v-p")
+
+        const allExprs = restoredPm.getExpressions()
+        const notExpr = allExprs.find(
+            (e) => e.type === "operator" && e.operator === "not"
+        )
+        expect(notExpr).toBeDefined()
+        expect(notExpr!.id).toMatch(/^snap-id-/)
+    })
 })
 
 // ---------------------------------------------------------------------------

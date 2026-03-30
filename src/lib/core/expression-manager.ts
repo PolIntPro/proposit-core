@@ -2158,7 +2158,8 @@ export class ExpressionManager<
             TCorePropositionalExpression,
     >(
         snapshot: TExpressionManagerSnapshot<TExpr>,
-        grammarConfig?: TGrammarConfig
+        grammarConfig?: TGrammarConfig,
+        generateId?: () => string
     ): ExpressionManager<TExpr> {
         // Normalize checksumConfig in case the snapshot went through a JSON
         // round-trip that converted Sets to arrays or empty objects.
@@ -2176,12 +2177,14 @@ export class ExpressionManager<
         const loadingConfig: TLogicEngineOptions = {
             ...normalizedConfig,
             grammarConfig: grammarConfig ?? normalizedConfig?.grammarConfig,
+            generateId: generateId ?? normalizedConfig?.generateId,
         }
         const em = new ExpressionManager<TExpr>(loadingConfig)
         em.loadInitialExpressions(
             snapshot.expressions as unknown as TExpressionInput<TExpr>[]
         )
         // After loading: restore the normalized config for ongoing mutations
+        // (generateId is preserved via the em.generateId field set in constructor)
         em.config = normalizedConfig
         return em
     }

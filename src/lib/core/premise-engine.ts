@@ -1957,7 +1957,8 @@ export class PremiseEngine<
         argument: TOptionalChecksum<TArg>,
         variables: VariableManager<TVar>,
         expressionIndex?: Map<string, string>,
-        grammarConfig?: TGrammarConfig
+        grammarConfig?: TGrammarConfig,
+        generateId?: () => string
     ): PremiseEngine<TArg, TPremise, TExpr, TVar> {
         // Normalize checksumConfig in case the snapshot went through a JSON
         // round-trip that converted Sets to arrays or empty objects.
@@ -1968,8 +1969,11 @@ export class PremiseEngine<
                       checksumConfig: normalizeChecksumConfig(
                           snapshot.config.checksumConfig
                       ),
+                      generateId: generateId ?? snapshot.config.generateId,
                   }
-                : snapshot.config
+                : generateId
+                  ? { generateId }
+                  : snapshot.config
         const pe = new PremiseEngine<TArg, TPremise, TExpr, TVar>(
             snapshot.premise,
             { argument, variables, expressionIndex },
@@ -1978,7 +1982,8 @@ export class PremiseEngine<
         // Restore expressions from the snapshot
         pe.expressions = ExpressionManager.fromSnapshot<TExpr>(
             snapshot.expressions,
-            grammarConfig
+            grammarConfig,
+            generateId
         )
         // Restore rootExpressionId from snapshot
         pe.rootExpressionId = snapshot.rootExpressionId
