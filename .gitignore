@@ -8,4 +8,5 @@ coverage/
 .worktrees/
 .release_notes.md
 .untracked/
-.env.*.DS_Store
+.env.*
+.DS_Store

@@ -18,13 +18,13 @@
 </g>
 <g id="clust2" class="cluster">
 <title>cluster_5c5a9c0d</title>
-<polygon fill="none" stroke="goldenrod" stroke-width="2" points="1538,-325.75 1538,-734.11 2198,-734.11 2198,-325.75 1538,-325.75"/>
+<polygon fill="none" stroke="#00cd00" stroke-width="2" points="1538,-325.75 1538,-734.11 2198,-734.11 2198,-325.75 1538,-325.75"/>
 <text xml:space="preserve" text-anchor="middle" x="1868" y="-714.91" font-family="Times,serif" font-size="16.00">States must license and recognize same&#45;sex marriag</text>
 <text xml:space="preserve" text-anchor="middle" x="1868" y="-696.16" font-family="Times,serif" font-size="16.00">(((SS_Couples_May_Marry ∧ No_Basis_Deny_Recognition)) → States_Must_License_Recognize)</text>
 </g>
 <g id="clust3" class="cluster">
 <title>cluster_b2df5124</title>
-<polygon fill="none" stroke="red" stroke-width="2" points="1125,-325.75 1125,-511.14 1530,-511.14 1530,-325.75 1125,-325.75"/>
+<polygon fill="none" stroke="#00cd00" stroke-width="2" points="1125,-325.75 1125,-511.14 1530,-511.14 1530,-325.75 1125,-325.75"/>
 <text xml:space="preserve" text-anchor="middle" x="1327.5" y="-491.94" font-family="Times,serif" font-size="16.00">Marriage right defeats recognition bans</text>
 <text xml:space="preserve" text-anchor="middle" x="1327.5" y="-473.19" font-family="Times,serif" font-size="16.00">(SS_Couples_May_Marry → No_Basis_Deny_Recognition)</text>
 </g>
@@ -35,11 +35,11 @@
 <g id="node1" class="node">
 <title>eval_summary</title>
 <polygon fill="white" stroke="none" points="557.75,-1003.4 557.75,-1147.9 696.25,-1147.9 696.25,-1003.4 557.75,-1003.4"/>
-<text xml:space="preserve" text-anchor="start" x="601.12" y="-1128.6" font-family="Times,serif" font-weight="bold" font-size="14.00" fill="#dc3545">Unsound</text>
+<text xml:space="preserve" text-anchor="start" x="608.62" y="-1128.6" font-family="Times,serif" font-weight="bold" font-size="14.00" fill="#28a745">Sound</text>
 <text xml:space="preserve" text-anchor="start" x="564.75" y="-1099.65" font-family="Times,serif" font-size="14.00">admissible</text>
 <text xml:space="preserve" text-anchor="start" x="668.25" y="-1099.65" font-family="Times,serif" font-size="14.00">true</text>
 <text xml:space="preserve" text-anchor="start" x="564.75" y="-1071.15" font-family="Times,serif" font-size="14.00">all supporting</text>
-<text xml:space="preserve" text-anchor="start" x="663.75" y="-1071.15" font-family="Times,serif" font-size="14.00">false</text>
+<text xml:space="preserve" text-anchor="start" x="668.25" y="-1071.15" font-family="Times,serif" font-size="14.00">true</text>
 <text xml:space="preserve" text-anchor="start" x="564.75" y="-1042.65" font-family="Times,serif" font-size="14.00">conclusion true</text>
 <text xml:space="preserve" text-anchor="start" x="668.25" y="-1042.65" font-family="Times,serif" font-size="14.00">true</text>
 <text xml:space="preserve" text-anchor="start" x="564.75" y="-1014.15" font-family="Times,serif" font-size="14.00">counterexample</text>
@@ -207,13 +207,13 @@
 <!-- 01f553c9 -->
 <g id="node12" class="node">
 <title>01f553c9</title>
-<ellipse fill="#f8d7da" stroke="black" cx="1861" cy="-574.14" rx="27" ry="18"/>
+<ellipse fill="#d4edda" stroke="black" cx="1861" cy="-574.14" rx="27" ry="18"/>
 <text xml:space="preserve" text-anchor="middle" x="1861" y="-568.34" font-family="Times,serif" font-size="14.00">ⓕ</text>
 </g>
 <!-- 2fece549 -->
 <g id="node13" class="node">
 <title>2fece549</title>
-<polygon fill="#f8d7da" stroke="green" points="1808,-453.5 1764.33,-435.5 1808,-417.5 1851.67,-435.5 1808,-453.5"/>
+<polygon fill="#d4edda" stroke="green" points="1808,-453.5 1764.33,-435.5 1808,-417.5 1851.67,-435.5 1808,-453.5"/>
 <polygon fill="none" stroke="green" points="1808,-457.83 1753.83,-435.5 1808,-413.17 1862.17,-435.5 1808,-457.83"/>
 <text xml:space="preserve" text-anchor="middle" x="1808" y="-430.45" font-family="Times,serif" font-size="14.00">AND</text>
 </g>
@@ -226,7 +226,7 @@
 <!-- 35d1774b -->
 <g id="node14" class="node">
 <title>35d1774b</title>
-<polygon fill="#f8d7da" stroke="black" points="1896.62,-369.75 1719.38,-369.75 1719.38,-333.75 1896.62,-333.75 1896.62,-369.75"/>
+<polygon fill="#d4edda" stroke="black" points="1896.62,-369.75 1719.38,-369.75 1719.38,-333.75 1896.62,-333.75 1896.62,-369.75"/>
 <text xml:space="preserve" text-anchor="middle" x="1808" y="-346.7" font-family="Times,serif" font-size="14.00">No_Basis_Deny_Recognition</text>
 </g>
 <!-- 2fece549&#45;&gt;35d1774b -->
@@ -250,10 +250,10 @@
 <!-- var_ebc3249b -->
 <g id="node31" class="node">
 <title>var_ebc3249b</title>
-<polygon fill="#f8d7da" stroke="black" points="1822.88,-296.75 1593.12,-296.75 1593.12,-239.25 1822.88,-239.25 1822.88,-296.75"/>
+<polygon fill="#d4edda" stroke="black" points="1822.88,-296.75 1593.12,-296.75 1593.12,-239.25 1822.88,-239.25 1822.88,-296.75"/>
 <text xml:space="preserve" text-anchor="middle" x="1708" y="-279.45" font-family="Times,serif" font-size="14.00">No_Basis_Deny_Recognition</text>
 <text xml:space="preserve" text-anchor="middle" x="1708" y="-262.95" font-family="Times,serif" font-size="14.00">(claim: Recognition lacks lawful basis)</text>
-<text xml:space="preserve" text-anchor="middle" x="1708" y="-246.45" font-family="Times,serif" font-size="14.00">= false</text>
+<text xml:space="preserve" text-anchor="middle" x="1708" y="-246.45" font-family="Times,serif" font-size="14.00">= true</text>
 </g>
 <!-- 35d1774b&#45;&gt;var_ebc3249b -->
 <g id="edge20" class="edge">
@@ -276,7 +276,7 @@
 <!-- b28fad68 -->
 <g id="node17" class="node">
 <title>b28fad68</title>
-<polygon fill="#e2e3e5" stroke="black" points="2172,-592.14 1976,-592.14 1976,-556.14 2172,-556.14 2172,-592.14"/>
+<polygon fill="#d4edda" stroke="black" points="2172,-592.14 1976,-592.14 1976,-556.14 2172,-556.14 2172,-592.14"/>
 <text xml:space="preserve" text-anchor="middle" x="2074" y="-569.09" font-family="Times,serif" font-size="14.00">States_Must_License_Recognize</text>
 </g>
 <!-- 4c2a15fe&#45;&gt;b28fad68 -->
@@ -293,10 +293,10 @@
 <!-- var_9138c85e -->
 <g id="node27" class="node">
 <title>var_9138c85e</title>
-<polygon fill="#e2e3e5" stroke="black" points="2453.5,-464.25 2206.5,-464.25 2206.5,-406.75 2453.5,-406.75 2453.5,-464.25"/>
+<polygon fill="#d4edda" stroke="black" points="2453.5,-464.25 2206.5,-464.25 2206.5,-406.75 2453.5,-406.75 2453.5,-464.25"/>
 <text xml:space="preserve" text-anchor="middle" x="2330" y="-446.95" font-family="Times,serif" font-size="14.00">States_Must_License_Recognize</text>
 <text xml:space="preserve" text-anchor="middle" x="2330" y="-430.45" font-family="Times,serif" font-size="14.00">(claim: States must license and recognize)</text>
-<text xml:space="preserve" text-anchor="middle" x="2330" y="-413.95" font-family="Times,serif" font-size="14.00">= unknown</text>
+<text xml:space="preserve" text-anchor="middle" x="2330" y="-413.95" font-family="Times,serif" font-size="14.00">= true</text>
 </g>
 <!-- b28fad68&#45;&gt;var_9138c85e -->
 <g id="edge22" class="edge">
@@ -307,7 +307,7 @@
 <!-- 0dd0baa8 -->
 <g id="node19" class="node">
 <title>0dd0baa8</title>
-<polygon fill="#f8d7da" stroke="black" points="1521.62,-369.75 1344.38,-369.75 1344.38,-333.75 1521.62,-333.75 1521.62,-369.75"/>
+<polygon fill="#d4edda" stroke="black" points="1521.62,-369.75 1344.38,-369.75 1344.38,-333.75 1521.62,-333.75 1521.62,-369.75"/>
 <text xml:space="preserve" text-anchor="middle" x="1433" y="-346.7" font-family="Times,serif" font-size="14.00">No_Basis_Deny_Recognition</text>
 </g>
 <!-- 0dd0baa8&#45;&gt;var_ebc3249b -->
@@ -329,8 +329,8 @@
 <!-- 720e4235 -->
 <g id="node21" class="node">
 <title>720e4235</title>
-<polygon fill="#f8d7da" stroke="red" points="1297,-453.5 1230.17,-435.5 1297,-417.5 1363.83,-435.5 1297,-453.5"/>
-<polygon fill="none" stroke="red" points="1297,-457.64 1214.79,-435.5 1297,-413.36 1379.21,-435.5 1297,-457.64"/>
+<polygon fill="#d4edda" stroke="green" points="1297,-453.5 1230.17,-435.5 1297,-417.5 1363.83,-435.5 1297,-453.5"/>
+<polygon fill="none" stroke="green" points="1297,-457.64 1214.79,-435.5 1297,-413.36 1379.21,-435.5 1297,-457.64"/>
 <text xml:space="preserve" text-anchor="middle" x="1297" y="-430.45" font-family="Times,serif" font-size="14.00">IMPLIES</text>
 </g>
 <!-- 720e4235&#45;&gt;0dd0baa8 -->
