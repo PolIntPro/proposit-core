@@ -43,7 +43,11 @@ export function registerAnalysisCommands(
                 opts: { default: string }
             ) => {
                 const filename = filenameArg
-                    ? resolveAnalysisFilename(filenameArg)
+                    ? await resolveAnalysisFilename(
+                          filenameArg,
+                          argumentId,
+                          version
+                      )
                     : await nextAnalysisFilename(argumentId, version)
                 if (await analysisFileExists(argumentId, version, filename)) {
                     errorExit(`Analysis file "${filename}" already exists.`)
@@ -92,13 +96,14 @@ export function registerAnalysisCommands(
     analysis
         .command("show")
         .description("Show variable assignments in an analysis file")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .option("--json", "Output as JSON")
         .action(async (opts: { file?: string; json?: boolean }) => {
-            const filename = resolveAnalysisFilename(opts.file)
+            const filename = await resolveAnalysisFilename(
+                opts.file,
+                argumentId,
+                version
+            )
             const data = await readAnalysis(argumentId, version, filename)
             if (opts.json) {
                 printJson(data)
@@ -125,17 +130,18 @@ export function registerAnalysisCommands(
         .description(
             "Update a single variable assignment (value: true, false, or unset)"
         )
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .action(
             async (
                 symbol: string,
                 valueArg: string,
                 opts: { file?: string }
             ) => {
-                const filename = resolveAnalysisFilename(opts.file)
+                const filename = await resolveAnalysisFilename(
+                    opts.file,
+                    argumentId,
+                    version
+                )
                 if (
                     !(await analysisFileExists(argumentId, version, filename))
                 ) {
@@ -170,17 +176,18 @@ export function registerAnalysisCommands(
     analysis
         .command("reset")
         .description("Reset all assignments in an analysis file to one value")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .option(
             "--value <value>",
             "Value to reset to (default: unset)",
             "unset"
         )
         .action(async (opts: { file?: string; value: string }) => {
-            const filename = resolveAnalysisFilename(opts.file)
+            const filename = await resolveAnalysisFilename(
+                opts.file,
+                argumentId,
+                version
+            )
             if (!["true", "false", "unset"].includes(opts.value)) {
                 errorExit(
                     `Value must be "true", "false", or "unset", got "${opts.value}".`
@@ -203,10 +210,7 @@ export function registerAnalysisCommands(
     analysis
         .command("set-operator <operator_expression_id> <state>")
         .description("Set an operator's state (accepted, rejected, or unset)")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .action(
             async (
                 operatorExpressionId: string,
@@ -218,7 +222,11 @@ export function registerAnalysisCommands(
                         `State must be "accepted", "rejected", or "unset", got "${state}".`
                     )
                 }
-                const filename = resolveAnalysisFilename(opts.file)
+                const filename = await resolveAnalysisFilename(
+                    opts.file,
+                    argumentId,
+                    version
+                )
                 if (
                     !(await analysisFileExists(argumentId, version, filename))
                 ) {
@@ -242,17 +250,18 @@ export function registerAnalysisCommands(
         .description(
             "Set all operator expressions to a state (accepted, rejected, or unset)"
         )
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .action(async (state: string, opts: { file?: string }) => {
             if (!["accepted", "rejected", "unset"].includes(state)) {
                 errorExit(
                     `State must be "accepted", "rejected", or "unset", got "${state}".`
                 )
             }
-            const filename = resolveAnalysisFilename(opts.file)
+            const filename = await resolveAnalysisFilename(
+                opts.file,
+                argumentId,
+                version
+            )
             if (!(await analysisFileExists(argumentId, version, filename))) {
                 errorExit(`Analysis file "${filename}" does not exist.`)
             }
@@ -288,13 +297,14 @@ export function registerAnalysisCommands(
     analysis
         .command("validate-assignments")
         .description("Validate an analysis file against the argument version")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .option("--json", "Output as JSON")
         .action(async (opts: { file?: string; json?: boolean }) => {
-            const filename = resolveAnalysisFilename(opts.file)
+            const filename = await resolveAnalysisFilename(
+                opts.file,
+                argumentId,
+                version
+            )
             const [data, variables] = await Promise.all([
                 readAnalysis(argumentId, version, filename),
                 readVariables(argumentId, version),
@@ -369,13 +379,14 @@ export function registerAnalysisCommands(
     analysis
         .command("delete")
         .description("Delete an analysis file")
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .option("--confirm", "Skip confirmation prompt")
         .action(async (opts: { file?: string; confirm?: boolean }) => {
-            const filename = resolveAnalysisFilename(opts.file)
+            const filename = await resolveAnalysisFilename(
+                opts.file,
+                argumentId,
+                version
+            )
             if (!(await analysisFileExists(argumentId, version, filename))) {
                 errorExit(`Analysis file "${filename}" does not exist.`)
             }
@@ -391,10 +402,7 @@ export function registerAnalysisCommands(
         .description(
             "Evaluate the argument using assignments from an analysis file"
         )
-        .option(
-            "--file <filename>",
-            "Analysis filename (default: analysis.json)"
-        )
+        .option("--file <filename>", "Analysis filename (default: latest)")
         .option(
             "--strict-unknown-assignment-keys",
             "Reject extra assignment keys"
@@ -417,7 +425,11 @@ export function registerAnalysisCommands(
                 skipAnalysisFileValidation?: boolean
                 json?: boolean
             }) => {
-                const filename = resolveAnalysisFilename(opts.file)
+                const filename = await resolveAnalysisFilename(
+                    opts.file,
+                    argumentId,
+                    version
+                )
                 const [analysisData, variables] = await Promise.all([
                     readAnalysis(argumentId, version, filename),
                     readVariables(argumentId, version),
@@ -662,7 +674,11 @@ export function registerAnalysisCommands(
 
             let opAssignments: Record<string, string> = {}
             if (opts.file) {
-                const filename = resolveAnalysisFilename(opts.file)
+                const filename = await resolveAnalysisFilename(
+                    opts.file,
+                    argumentId,
+                    version
+                )
                 if (await analysisFileExists(argumentId, version, filename)) {
                     const analysisData = await readAnalysis(
                         argumentId,

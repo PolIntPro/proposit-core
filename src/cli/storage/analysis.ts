@@ -14,8 +14,37 @@ const RESERVED_FILENAMES = new Set([
     "roles.json",
 ])
 
-export function resolveAnalysisFilename(filename?: string): string {
-    return filename ?? "analysis.json"
+export async function resolveAnalysisFilename(
+    filename: string | undefined,
+    argumentId: string,
+    version: number
+): Promise<string> {
+    if (filename) return filename
+    return await latestAnalysisFilename(argumentId, version)
+}
+
+async function latestAnalysisFilename(
+    argumentId: string,
+    version: number
+): Promise<string> {
+    const existing = await listAnalysisFiles(argumentId, version)
+    const pattern = /^analysis-(\d+)\.json$/
+    let best: string | undefined
+    let max = 0
+    for (const name of existing) {
+        const match = pattern.exec(name)
+        if (match) {
+            const n = parseInt(match[1], 10)
+            if (n > max) {
+                max = n
+                best = name
+            }
+        }
+    }
+    if (best) return best
+    // Fall back to first analysis file found, or error
+    if (existing.length > 0) return existing[existing.length - 1]
+    errorExit("No analysis files found. Run 'analysis create' first.")
 }
 
 export async function nextAnalysisFilename(

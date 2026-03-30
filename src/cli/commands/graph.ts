@@ -377,7 +377,11 @@ export function registerGraphCommand(
             let overlay: TEvaluationOverlay | undefined
 
             if (opts.analysis) {
-                const filename = resolveAnalysisFilename(opts.analysis)
+                const filename = await resolveAnalysisFilename(
+                    opts.analysis,
+                    argumentId,
+                    version
+                )
                 if (
                     !(await analysisFileExists(argumentId, version, filename))
                 ) {
