@@ -269,6 +269,7 @@ export default defineConfig([
     },
     globalIgnores([
         "dist/",
+        "docs/api/",
         "node_modules/",
         ".untracked/",
         ".worktrees/",
