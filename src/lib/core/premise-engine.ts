@@ -946,28 +946,32 @@ export class PremiseEngine<
             this.expressions.setCollector(collector)
             try {
                 if (childCount <= 2) {
-                    // Check for merge condition: parent is same type as newOperator
+                    // Check for merge condition: parent is same type as newOperator.
+                    // Only merge when childCount < 2 (degenerate operator). With
+                    // exactly 2 children the operator is well-formed — just change
+                    // the type in place.
                     const parent = target.parentId
                         ? this.expressions.getExpression(target.parentId)
                         : undefined
-
-                    // Look through formula buffer: if parent is formula, check grandparent
                     let mergeTarget: TExpr | undefined
-                    if (parent?.type === "formula" && parent.parentId) {
-                        const grandparent = this.expressions.getExpression(
-                            parent.parentId
-                        )
-                        if (
-                            grandparent?.type === "operator" &&
-                            grandparent.operator === newOperator
+                    if (childCount < 2) {
+                        // Look through formula buffer: if parent is formula, check grandparent
+                        if (parent?.type === "formula" && parent.parentId) {
+                            const grandparent = this.expressions.getExpression(
+                                parent.parentId
+                            )
+                            if (
+                                grandparent?.type === "operator" &&
+                                grandparent.operator === newOperator
+                            ) {
+                                mergeTarget = grandparent
+                            }
+                        } else if (
+                            parent?.type === "operator" &&
+                            parent.operator === newOperator
                         ) {
-                            mergeTarget = grandparent
+                            mergeTarget = parent
                         }
-                    } else if (
-                        parent?.type === "operator" &&
-                        parent.operator === newOperator
-                    ) {
-                        mergeTarget = parent
                     }
 
                     if (mergeTarget) {

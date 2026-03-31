@@ -17584,11 +17584,11 @@ describe("changeOperator", () => {
         expect(modifiedOr.descendantChecksum).toBe(flushedOr.descendantChecksum)
     })
 
-    // --- Merge ---
+    // --- Merge (no longer triggers for 2-child operators) ---
 
-    it("merge: OR(AND(P, Q), R) → OR(P, Q, R)", () => {
+    it("no merge: OR(formula(AND(P, Q)), R) → change AND to OR yields OR(formula(OR(P, Q)), R)", () => {
         const pm = premiseWithVars()
-        // Build: OR( AND(P, Q), R )
+        // Build: OR( formula(AND(P, Q)), R )
         pm.addExpression(makeOpExpr("op-or", "or"))
         pm.addExpression(
             makeFormulaExpr("formula-1", {
@@ -17621,20 +17621,26 @@ describe("changeOperator", () => {
             })
         )
 
-        const { result, changes } = pm.changeOperator("op-and", "or")
+        const { result } = pm.changeOperator("op-and", "or")
 
-        // AND dissolved
-        expect(result).toBeNull()
-        expect(
-            changes.expressions!.removed.some((e) => e.id === "op-and")
-        ).toBe(true)
+        // Simple type change, no merge
+        expect(result).not.toBeNull()
+        expect(result!.id).toBe("op-and")
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("or")
+        }
 
-        // P and Q are now direct children of OR (or under formula children of OR)
-        const orChildren = pm.getChildExpressions("op-or")
-        expect(orChildren.length).toBeGreaterThanOrEqual(3)
+        // Formula buffer preserved
+        expect(pm.getExpression("formula-1")).toBeDefined()
+
+        // Structure unchanged: outer OR has 2 children, inner operator has 2 children
+        const outerChildren = pm.getChildExpressions("op-or")
+        expect(outerChildren).toHaveLength(2)
+        const innerChildren = pm.getChildExpressions("op-and")
+        expect(innerChildren).toHaveLength(2)
     })
 
-    it("merge: dissolves formula buffer when no longer needed", () => {
+    it("no merge: formula buffer preserved when inner operator changes to match parent", () => {
         const pm = premiseWithVars()
         // Build: OR( formula(AND(P, Q)), R )
         pm.addExpression(makeOpExpr("op-or", "or"))
@@ -17671,8 +17677,8 @@ describe("changeOperator", () => {
 
         pm.changeOperator("op-and", "or")
 
-        // Formula should be dissolved (it was a buffer for the now-dissolved AND)
-        expect(pm.getExpression("formula-1")).toBeUndefined()
+        // Formula still exists — no dissolution
+        expect(pm.getExpression("formula-1")).toBeDefined()
     })
 
     // --- Split ---
@@ -17860,6 +17866,118 @@ describe("changeOperator", () => {
         for (const expr of changes.expressions!.added) {
             expect((expr as Record<string, unknown>).creatorId).toBe("user-42")
         }
+    })
+
+    // --- No-merge for 2-child operators ---
+
+    it("no merge: AND(formula(OR(P, Q)), R) → change OR to AND yields AND(formula(AND(P, Q)), R)", () => {
+        const pm = premiseWithVars()
+        // Build: AND( formula(OR(P, Q)), R )
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-or",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-or",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+
+        const { result } = pm.changeOperator("op-or", "and")
+
+        // Inner operator should now be AND, not merged
+        expect(result).not.toBeNull()
+        expect(result!.id).toBe("op-or")
+        expect(result!.type).toBe("operator")
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("and")
+        }
+
+        // Formula buffer still exists
+        expect(pm.getExpression("formula-1")).toBeDefined()
+
+        // Inner operator still has exactly 2 children (P, Q)
+        const innerChildren = pm.getChildExpressions("op-or")
+        expect(innerChildren).toHaveLength(2)
+
+        // Outer AND still has exactly 2 children (formula-1, R)
+        const outerChildren = pm.getChildExpressions("op-and")
+        expect(outerChildren).toHaveLength(2)
+    })
+
+    it("no merge: OR(formula(OR(P, Q)), R) → change inner OR to AND yields OR(formula(AND(P, Q)), R)", () => {
+        const pm = premiseWithVars()
+        // Build: OR( formula(OR(P, Q)), R )
+        pm.addExpression(makeOpExpr("op-or-outer", "or"))
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-or-outer",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or-inner", "or", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-or-inner",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-or-inner",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-or-outer",
+                position: 1,
+            })
+        )
+
+        const { result } = pm.changeOperator("op-or-inner", "and")
+
+        // Should be a simple change, not a merge
+        expect(result).not.toBeNull()
+        expect(result!.id).toBe("op-or-inner")
+        if (result!.type === "operator") {
+            expect(result!.operator).toBe("and")
+        }
+
+        // Structure preserved: outer OR still has 2 children
+        const outerChildren = pm.getChildExpressions("op-or-outer")
+        expect(outerChildren).toHaveLength(2)
+
+        // Inner operator still has 2 children
+        const innerChildren = pm.getChildExpressions("op-or-inner")
+        expect(innerChildren).toHaveLength(2)
     })
 
     // --- Error cases ---
