@@ -297,6 +297,16 @@ export class ArgumentEngine<
         }
     }
 
+    private finalizeChanges(
+        collector: ChangeCollector<TExpr, TVar, TPremise, TArg>
+    ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
+        this.markDirty()
+        const changes = collector.toChangeset()
+        this.markReactiveDirty(changes)
+        this.notifySubscribers()
+        return changes
+    }
+
     private static readonly skipValidationResult: TInvariantValidationResult = {
         ok: true,
         violations: [],
@@ -624,9 +634,7 @@ export class ArgumentEngine<
                 this.markAllPremisesDirty()
             }
 
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: pm,
                 changes,
@@ -667,10 +675,7 @@ export class ArgumentEngine<
                     }
                 }
             }
-            this.markDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: data,
                 changes,
@@ -741,11 +746,8 @@ export class ArgumentEngine<
             this.variables.addVariable(withChecksum)
             const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
             collector.addedVariable(withChecksum)
-            this.markDirty()
             this.markAllPremisesDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: withChecksum,
                 changes,
@@ -784,11 +786,8 @@ export class ArgumentEngine<
             this.variables.addVariable(withChecksum)
             const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
             collector.addedVariable(withChecksum)
-            this.markDirty()
             this.markAllPremisesDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: withChecksum,
                 changes,
@@ -832,11 +831,8 @@ export class ArgumentEngine<
             this.variables.addVariable(withChecksum)
             const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
             collector.addedVariable(withChecksum)
-            this.markDirty()
             this.markAllPremisesDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: withChecksum,
                 changes,
@@ -941,11 +937,8 @@ export class ArgumentEngine<
                 this.variables.removeVariable(variableId)
                 this.variables.addVariable(withChecksum)
                 collector.modifiedVariable(withChecksum)
-                this.markDirty()
                 this.markAllPremisesDirty()
-                const changes = collector.toChangeset()
-                this.markReactiveDirty(changes)
-                this.notifySubscribers()
+                const changes = this.finalizeChanges(collector)
                 return {
                     result: withChecksum,
                     changes,
@@ -980,11 +973,8 @@ export class ArgumentEngine<
 
         this.variables.removeVariable(variableId)
         collector.removedVariable(variable)
-        this.markDirty()
         this.markAllPremisesDirty()
-        const changes = collector.toChangeset()
-        this.markReactiveDirty(changes)
-        this.notifySubscribers()
+        const changes = this.finalizeChanges(collector)
         return {
             result: variable,
             changes,
@@ -1112,10 +1102,7 @@ export class ArgumentEngine<
             const roles = this.getRoleState()
             const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
             collector.setRoles(roles)
-            this.markDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: roles,
                 changes,
@@ -1135,10 +1122,7 @@ export class ArgumentEngine<
             const roles = this.getRoleState()
             const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
             collector.setRoles(roles)
-            this.markDirty()
-            const changes = collector.toChangeset()
-            this.markReactiveDirty(changes)
-            this.notifySubscribers()
+            const changes = this.finalizeChanges(collector)
             return {
                 result: roles,
                 changes,

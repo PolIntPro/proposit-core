@@ -10,14 +10,14 @@ Mechanical extraction of 5 high-impact redundancy patterns identified in the `sr
 
 Abstract members subclasses supply:
 
-| Member | Type | Purpose |
-|--------|------|---------|
-| `entityLabel` | `string` | For error messages ("Claim" / "Source") |
-| `schema` | `TSchema` | For `Value.Check` in `validate()` |
-| `checksumFieldsKey` | `keyof TChecksumConfig` | Selects `claimFields` vs `sourceFields` |
-| `schemaInvalidCode` | `string` | Error code for schema violations |
-| `frozenSuccessorCode` | `string` | Error code for frozen-successor violations |
-| `snapshotKey` | `string` | Property name in snapshot objects |
+| Member                | Type                    | Purpose                                    |
+| --------------------- | ----------------------- | ------------------------------------------ |
+| `entityLabel`         | `string`                | For error messages ("Claim" / "Source")    |
+| `schema`              | `TSchema`               | For `Value.Check` in `validate()`          |
+| `checksumFieldsKey`   | `keyof TChecksumConfig` | Selects `claimFields` vs `sourceFields`    |
+| `schemaInvalidCode`   | `string`                | Error code for schema violations           |
+| `frozenSuccessorCode` | `string`                | Error code for frozen-successor violations |
+| `snapshotKey`         | `string`                | Property name in snapshot objects          |
 
 Concrete methods in the base: `create`, `update`, `freeze`, `get`, `getCurrent`, `getAll`, `getVersions`, `snapshot`, `validate`, `withValidation`, `restoreFromSnapshot`, `maxVersion`, `computeChecksum`.
 

@@ -13,6 +13,7 @@
 ### Task 1: Extract VersionedLibrary base class
 
 **Files:**
+
 - Create: `src/lib/core/versioned-library.ts`
 - Modify: `src/lib/core/claim-library.ts`
 - Modify: `src/lib/core/source-library.ts`
@@ -46,9 +47,7 @@ type TVersionedEntity = {
     checksum: string
 }
 
-export abstract class VersionedLibrary<
-    TEntity extends TVersionedEntity,
-> {
+export abstract class VersionedLibrary<TEntity extends TVersionedEntity> {
     protected entities: Map<string, Map<number, TEntity>>
     protected checksumConfig?: TCoreChecksumConfig
 
@@ -126,9 +125,7 @@ export abstract class VersionedLibrary<
         return this.withValidation(() => {
             const versions = this.entities.get(id)
             if (!versions) {
-                throw new Error(
-                    `${this.entityLabel} "${id}" does not exist.`
-                )
+                throw new Error(`${this.entityLabel} "${id}" does not exist.`)
             }
             const maxVersion = this.maxVersion(versions)
             const current = versions.get(maxVersion)!
@@ -155,9 +152,7 @@ export abstract class VersionedLibrary<
         return this.withValidation(() => {
             const versions = this.entities.get(id)
             if (!versions) {
-                throw new Error(
-                    `${this.entityLabel} "${id}" does not exist.`
-                )
+                throw new Error(`${this.entityLabel} "${id}" does not exist.`)
             }
             const maxVersion = this.maxVersion(versions)
             const current = versions.get(maxVersion)!
@@ -379,6 +374,7 @@ git commit -m "refactor: extract VersionedLibrary base class from ClaimLibrary a
 ### Task 2: Extract ExpressionManager.registerFormulaBuffer
 
 **Files:**
+
 - Modify: `src/lib/core/expression-manager.ts`
 
 - [ ] **Step 1: Run tests to confirm green baseline**
@@ -507,7 +503,10 @@ this.reparent(existingNodeId, existingFormulaId, 0)
 **Site 3 (sibling formula buffer):** Replace with:
 
 ```typescript
-const childPosition = (this.expressions.get(newSibling.id as string) ?? newSibling as unknown as TExpr).position
+const childPosition = (
+    this.expressions.get(newSibling.id as string) ??
+    (newSibling as unknown as TExpr)
+).position
 this.reparent(newSibling.id as string, null, 0)
 const siblingFormulaId = this.registerFormulaBuffer(
     operator as unknown as TExpr,
@@ -534,6 +533,7 @@ git commit -m "refactor: extract registerFormulaBuffer in ExpressionManager"
 ### Task 3: Extract ExpressionManager.detachExpression
 
 **Files:**
+
 - Modify: `src/lib/core/expression-manager.ts`
 
 - [ ] **Step 1: Add the `detachExpression` private method**
@@ -601,6 +601,7 @@ git commit -m "refactor: extract detachExpression in ExpressionManager"
 ### Task 4: Extract PremiseEngine.assertVariableExpressionValid
 
 **Files:**
+
 - Modify: `src/lib/core/premise-engine.ts`
 
 - [ ] **Step 1: Add the `assertVariableExpressionValid` private method**
@@ -682,6 +683,7 @@ git commit -m "refactor: extract assertVariableExpressionValid in PremiseEngine"
 ### Task 5: Extract PremiseEngine.finalizeExpressionMutation
 
 **Files:**
+
 - Modify: `src/lib/core/premise-engine.ts`
 
 - [ ] **Step 1: Add the `finalizeExpressionMutation` private method**
@@ -796,6 +798,7 @@ git commit -m "refactor: extract finalizeExpressionMutation in PremiseEngine"
 ### Task 6: Extract ArgumentEngine.finalizeChanges
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts`
 
 - [ ] **Step 1: Add the `finalizeChanges` private method**
