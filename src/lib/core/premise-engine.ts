@@ -336,10 +336,7 @@ export class PremiseEngine<
                         .add(expression.id)
                 }
 
-                this.markDirty()
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: this.expressions.getExpression(expression.id)!,
                     changes,
@@ -380,19 +377,13 @@ export class PremiseEngine<
             try {
                 this.expressions.appendExpression(parentId, expression)
 
-                if (parentId === null) {
-                    this.syncRootExpressionId()
-                }
                 if (expression.type === "variable") {
                     this.expressionsByVariableId
                         .get(expression.variableId)
                         .add(expression.id)
                 }
 
-                this.markDirty()
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: this.expressions.getExpression(expression.id)!,
                     changes,
@@ -436,10 +427,7 @@ export class PremiseEngine<
                         .add(expression.id)
                 }
 
-                this.markDirty()
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: this.expressions.getExpression(expression.id)!,
                     changes,
@@ -558,12 +546,7 @@ export class PremiseEngine<
                     this.expressions.removeExpression(expressionId, false)
                 }
 
-                this.syncRootExpressionId()
-                this.markDirty()
-
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: snapshot,
                     changes,
@@ -601,12 +584,7 @@ export class PremiseEngine<
                         .add(expression.id)
                 }
 
-                this.syncRootExpressionId()
-                this.markDirty()
-
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: this.expressions.getExpression(expression.id)!,
                     changes,
@@ -650,12 +628,7 @@ export class PremiseEngine<
                         .add(newSibling.id)
                 }
 
-                this.syncRootExpressionId()
-                this.markDirty()
-
-                const changes = this.flushAndBuildChangeset(collector)
-                this.syncExpressionIndex(changes)
-                this.onMutate?.()
+                const changes = this.finalizeExpressionMutation(collector)
                 return {
                     result: this.expressions.getExpression(operator.id)!,
                     changes,
@@ -715,12 +688,7 @@ export class PremiseEngine<
                         this.expressions.removeExpression(parent.id, false)
                     }
 
-                    this.syncRootExpressionId()
-                    this.markDirty()
-
-                    const changes = this.flushAndBuildChangeset(collector)
-                    this.syncExpressionIndex(changes)
-                    this.onMutate?.()
+                    const changes = this.finalizeExpressionMutation(collector)
                     return { result: null, changes }
                 } else {
                     // When the target is a non-not operator, insert a formula
@@ -782,12 +750,7 @@ export class PremiseEngine<
                         notExprId = notExpr.id
                     }
 
-                    this.syncRootExpressionId()
-                    this.markDirty()
-
-                    const changes = this.flushAndBuildChangeset(collector)
-                    this.syncExpressionIndex(changes)
-                    this.onMutate?.()
+                    const changes = this.finalizeExpressionMutation(collector)
                     return {
                         result: this.expressions.getExpression(notExprId)!,
                         changes,
@@ -926,12 +889,8 @@ export class PremiseEngine<
                             )
                         }
 
-                        this.syncRootExpressionId()
-                        this.markDirty()
-
-                        const changes = this.flushAndBuildChangeset(collector)
-                        this.syncExpressionIndex(changes)
-                        this.onMutate?.()
+                        const changes =
+                            this.finalizeExpressionMutation(collector)
                         return { result: null, changes }
                     } else {
                         // --- SIMPLE CHANGE ---
@@ -940,12 +899,8 @@ export class PremiseEngine<
                             newOperator
                         )
 
-                        this.syncRootExpressionId()
-                        this.markDirty()
-
-                        const changes = this.flushAndBuildChangeset(collector)
-                        this.syncExpressionIndex(changes)
-                        this.onMutate?.()
+                        const changes =
+                            this.finalizeExpressionMutation(collector)
                         return {
                             result: this.expressions.getExpression(
                                 expressionId
@@ -1054,12 +1009,7 @@ export class PremiseEngine<
                         midpoint(POSITION_INITIAL, POSITION_MAX)
                     )
 
-                    this.syncRootExpressionId()
-                    this.markDirty()
-
-                    const changes = this.flushAndBuildChangeset(collector)
-                    this.syncExpressionIndex(changes)
-                    this.onMutate?.()
+                    const changes = this.finalizeExpressionMutation(collector)
                     return {
                         result: this.expressions.getExpression(newOpId)!,
                         changes,
@@ -1925,6 +1875,17 @@ export class PremiseEngine<
      * and `combinedChecksum` values (rather than the stale ones captured
      * at mutation time by the ChangeCollector).
      */
+    private finalizeExpressionMutation(
+        collector: ChangeCollector<TExpr, TVar, TPremise, TArg>
+    ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
+        this.syncRootExpressionId()
+        this.markDirty()
+        const changes = this.flushAndBuildChangeset(collector)
+        this.syncExpressionIndex(changes)
+        this.onMutate?.()
+        return changes
+    }
+
     private flushAndBuildChangeset(
         collector: ChangeCollector<TExpr, TVar, TPremise, TArg>
     ): TCoreChangeset<TExpr, TVar, TPremise, TArg> {
