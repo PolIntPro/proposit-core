@@ -10,7 +10,7 @@ import type {
 } from "../types/validation.js"
 import { InvariantViolationError } from "./invariant-violation-error.js"
 
-type TVersionedEntity = {
+export type TVersionedEntity = {
     id: string
     version: number
     frozen: boolean
@@ -213,7 +213,7 @@ export abstract class VersionedLibrary<TEntity extends TVersionedEntity> {
         return { ok: violations.length === 0, violations }
     }
 
-    protected maxVersion(versions: Map<number, TEntity>): number {
+    private maxVersion(versions: Map<number, TEntity>): number {
         let max = -1
         for (const v of versions.keys()) {
             if (v > max) max = v
@@ -221,7 +221,7 @@ export abstract class VersionedLibrary<TEntity extends TVersionedEntity> {
         return max
     }
 
-    protected computeChecksum(entity: TEntity): string {
+    private computeChecksum(entity: TEntity): string {
         const fields =
             this.checksumConfig?.[this.checksumFieldsKey] ??
             DEFAULT_CHECKSUM_CONFIG[this.checksumFieldsKey]!
