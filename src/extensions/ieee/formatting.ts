@@ -1,7 +1,7 @@
 // IEEE Citation Formatting — structured segment output
 // Follows IEEE Reference Guide patterns for all 33 reference types.
 
-import type { TIEEEReference, TReferenceType } from "./references.js"
+import type { TAuthor, TIEEEReference, TReferenceType } from "./references.js"
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -50,18 +50,31 @@ export interface TCitationFormatResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Format an array of author names into IEEE citation style.
- * "First Last" becomes "F. Last"; multiple names are joined with commas
- * and a final "and".
+ * Format a single structured author into IEEE citation style.
+ * Given names are abbreviated to initials with periods: "Jane Marie" → "J. M."
+ * Suffix is appended without comma: "W. P. Pratt Jr."
  */
-export function formatNamesInCitation(names: string[]): string {
-    if (names.length === 0) return ""
-    const formatted = names.map((name) => {
-        const parts = name.trim().split(/\s+/)
-        if (parts.length === 1) return parts[0]
-        const [first, ...rest] = parts
-        return `${first.charAt(0)}. ${rest.join(" ")}`
-    })
+export function formatSingleAuthor(author: TAuthor): string {
+    const initials = author.givenNames
+        .split(/\s+/)
+        .map((name) => `${name.charAt(0)}.`)
+        .join(" ")
+    const name = `${initials} ${author.familyName}`
+    return author.suffix ? `${name} ${author.suffix}` : name
+}
+
+/**
+ * Format an array of structured author names into IEEE citation style.
+ * 7+ authors → first author + " et al."
+ * 2 authors → "A and B"
+ * 3–6 authors → "A, B, C, and D"
+ */
+export function formatNamesInCitation(authors: TAuthor[]): string {
+    if (authors.length === 0) return ""
+    if (authors.length > 6) {
+        return `${formatSingleAuthor(authors[0])} et al.`
+    }
+    const formatted = authors.map(formatSingleAuthor)
     if (formatted.length === 1) return formatted[0]
     if (formatted.length === 2) return `${formatted[0]} and ${formatted[1]}`
     return `${formatted.slice(0, -1).join(", ")}, and ${formatted[formatted.length - 1]}`
@@ -90,12 +103,26 @@ function sep(text: string): TCitationSegment {
     return { text, role: "separator" }
 }
 
+const IEEE_MONTHS = [
+    "Jan.",
+    "Feb.",
+    "Mar.",
+    "Apr.",
+    "May",
+    "Jun.",
+    "Jul.",
+    "Aug.",
+    "Sep.",
+    "Oct.",
+    "Nov.",
+    "Dec.",
+]
+
 function formatDate(d: Date): string {
-    return d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    })
+    const month = IEEE_MONTHS[d.getMonth()]
+    const day = d.getDate()
+    const year = d.getFullYear()
+    return `${month} ${day}, ${year}`
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +134,7 @@ type TSegmentBuilder = (ref: Record<string, unknown>) => TCitationSegment[]
 function bookSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
@@ -137,7 +164,7 @@ function bookSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function websiteSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
@@ -168,7 +195,7 @@ function websiteSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function bookChapterSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
@@ -185,7 +212,7 @@ function bookChapterSegments(ref: Record<string, unknown>): TCitationSegment[] {
         style: "italic",
     })
     if (ref.editors !== undefined) {
-        const editors = ref.editors as string[]
+        const editors = ref.editors as TAuthor[]
         if (editors.length > 0) {
             segs.push(sep(", "))
             segs.push({
@@ -199,6 +226,8 @@ function bookChapterSegments(ref: Record<string, unknown>): TCitationSegment[] {
     segs.push({ text: ref.location as string, role: "location" })
     segs.push(sep(": "))
     segs.push({ text: ref.publisher as string, role: "publisher" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.pages !== undefined) {
         segs.push(sep(", "))
         segs.push({ text: "pp. ", role: "prefix" })
@@ -215,19 +244,21 @@ function bookChapterSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function handbookSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
-        role: "authors",
-        style: "plain",
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
     })
-    segs.push(sep(". "))
     if (ref.edition !== undefined) {
+        segs.push(sep(", "))
         segs.push({ text: ref.edition as string, role: "edition" })
         segs.push({ text: " ed.", role: "suffix" })
-        segs.push(sep(" "))
     }
+    segs.push(sep(". "))
     segs.push({ text: ref.location as string, role: "location" })
     segs.push(sep(": "))
     segs.push({ text: ref.publisher as string, role: "publisher" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     if (ref.isbn !== undefined) {
         segs.push(sep(" "))
@@ -241,9 +272,15 @@ function technicalReportSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
     })
     segs.push(sep(", "))
     segs.push({ text: ref.institution as string, role: "institution" })
@@ -252,6 +289,8 @@ function technicalReportSegments(
     segs.push(sep(", "))
     segs.push({ text: "Rep. ", role: "prefix" })
     segs.push({ text: ref.reportNumber as string, role: "reportNumber" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -282,9 +321,15 @@ function standardSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function thesisSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
     })
     segs.push(sep(", "))
     segs.push({ text: ref.degree as string, role: "degree" })
@@ -293,6 +338,8 @@ function thesisSegments(ref: Record<string, unknown>): TCitationSegment[] {
     segs.push({ text: ref.institution as string, role: "institution" })
     segs.push(sep(", "))
     segs.push({ text: ref.location as string, role: "location" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -300,9 +347,15 @@ function thesisSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function patentSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.inventors as string[]),
+        text: formatNamesInCitation(ref.inventors as TAuthor[]),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
     })
     segs.push(sep(", "))
     segs.push({ text: ref.country as string, role: "country" })
@@ -319,12 +372,20 @@ function patentSegments(ref: Record<string, unknown>): TCitationSegment[] {
 
 function dictionarySegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(". "))
     segs.push({ text: ref.publisher as string, role: "publisher" })
     if (ref.edition !== undefined) {
         segs.push(sep(", "))
         segs.push({ text: ref.edition as string, role: "edition" })
         segs.push({ text: " ed.", role: "suffix" })
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -333,12 +394,20 @@ function encyclopediaSegments(
     ref: Record<string, unknown>
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(". "))
     segs.push({ text: ref.publisher as string, role: "publisher" })
     if (ref.edition !== undefined) {
         segs.push(sep(", "))
         segs.push({ text: ref.edition as string, role: "edition" })
         segs.push({ text: " ed.", role: "suffix" })
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -348,14 +417,20 @@ function journalArticleSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
     segs.push(sep(", "))
     segs.push({
-        text: ref.journalTitle as string,
+        text: ref.title as string,
         role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.journalTitle as string,
+        role: "misc",
         style: "italic",
     })
     if (ref.volume !== undefined) {
@@ -370,6 +445,8 @@ function journalArticleSegments(
         segs.push(sep(", pp. "))
         segs.push({ text: ref.pages as string, role: "pages" })
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.doi !== undefined) {
         segs.push(sep(", doi: "))
         segs.push({ text: ref.doi as string, role: "doi" })
@@ -383,14 +460,20 @@ function magazineArticleSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
     segs.push(sep(", "))
     segs.push({
-        text: ref.magazineTitle as string,
+        text: ref.title as string,
         role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.magazineTitle as string,
+        role: "misc",
         style: "italic",
     })
     if (ref.volume !== undefined) {
@@ -405,6 +488,8 @@ function magazineArticleSegments(
         segs.push(sep(", pp. "))
         segs.push({ text: ref.pages as string, role: "pages" })
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -414,14 +499,20 @@ function newspaperArticleSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
     segs.push(sep(", "))
     segs.push({
-        text: ref.newspaperTitle as string,
+        text: ref.title as string,
         role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.newspaperTitle as string,
+        role: "misc",
         style: "italic",
     })
     segs.push(sep(", "))
@@ -442,15 +533,21 @@ function conferencePaperSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
     })
     segs.push(sep(", "))
     segs.push({ text: "presented at ", role: "prefix" })
     segs.push({
         text: ref.conferenceName as string,
-        role: "title",
+        role: "misc",
         style: "italic",
     })
     segs.push(sep(", "))
@@ -477,7 +574,7 @@ function conferenceProceedingsSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.editors !== undefined) {
-        const editors = ref.editors as string[]
+        const editors = ref.editors as TAuthor[]
         if (editors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(editors),
@@ -513,7 +610,7 @@ function conferenceProceedingsSegments(
 function datasetSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -523,12 +620,20 @@ function datasetSegments(ref: Record<string, unknown>): TCitationSegment[] {
             segs.push(sep(", "))
         }
     }
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
     segs.push({ text: ref.repository as string, role: "misc" })
     if (ref.version !== undefined) {
         segs.push(sep(", "))
         segs.push({ text: "ver. ", role: "prefix" })
         segs.push({ text: ref.version as string, role: "misc" })
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.doi !== undefined) {
         segs.push(sep(", doi: "))
         segs.push({ text: ref.doi as string, role: "doi" })
@@ -542,7 +647,7 @@ function datasetSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function softwareSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -552,20 +657,28 @@ function softwareSegments(ref: Record<string, unknown>): TCitationSegment[] {
             segs.push(sep(", "))
         }
     }
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
     if (ref.version !== undefined) {
+        segs.push(sep(", "))
         segs.push({ text: "ver. ", role: "prefix" })
         segs.push({ text: ref.version as string, role: "misc" })
-        segs.push(sep(". "))
     }
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.publisher !== undefined) {
-        segs.push({ text: ref.publisher as string, role: "publisher" })
         segs.push(sep(". "))
+        segs.push({ text: ref.publisher as string, role: "publisher" })
     }
     if (ref.doi !== undefined) {
+        segs.push(sep(". "))
         segs.push({ text: "doi: ", role: "prefix" })
         segs.push({ text: ref.doi as string, role: "doi" })
-        segs.push(sep(". "))
     }
+    segs.push(sep(". "))
     segs.push({ text: "[Online]. Available: ", role: "prefix" })
     segs.push({ text: ref.url as string, role: "url", style: "link" })
     return segs
@@ -576,7 +689,7 @@ function onlineDocumentSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -610,15 +723,26 @@ function onlineDocumentSegments(
 function blogSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.author as string,
+        text: formatSingleAuthor(ref.author as TAuthor),
         role: "authors",
         style: "plain",
     })
-    segs.push(sep(". "))
+    segs.push(sep(", "))
     segs.push({
-        text: ref.blogTitle as string,
+        text: ref.postTitle as string,
         role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.blogName as string,
+        role: "misc",
         style: "italic",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: formatDate(ref.date as Date),
+        role: "date",
     })
     segs.push(sep(". "))
     segs.push({ text: "Accessed: ", role: "prefix" })
@@ -635,7 +759,7 @@ function blogSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function socialMediaSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.author as string,
+        text: formatSingleAuthor(ref.author as TAuthor),
         role: "authors",
         style: "plain",
     })
@@ -655,12 +779,20 @@ function socialMediaSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function preprintSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: formatNamesInCitation(ref.authors as string[]),
+        text: formatNamesInCitation(ref.authors as TAuthor[]),
         role: "authors",
         style: "plain",
     })
     segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
+    })
+    segs.push(sep(", "))
     segs.push({ text: ref.server as string, role: "misc", style: "italic" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.doi !== undefined) {
         segs.push(sep(", doi: "))
         segs.push({ text: ref.doi as string, role: "doi" })
@@ -674,7 +806,7 @@ function preprintSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function videoSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -684,7 +816,20 @@ function videoSegments(ref: Record<string, unknown>): TCitationSegment[] {
             segs.push(sep(". "))
         }
     }
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(". "))
     segs.push({ text: ref.platform as string, role: "platform" })
+    if (ref.releaseDate !== undefined) {
+        segs.push(sep(". "))
+        segs.push({
+            text: formatDate(ref.releaseDate as Date),
+            role: "date",
+        })
+    }
     segs.push(sep(". "))
     segs.push({ text: "Accessed: ", role: "prefix" })
     segs.push({
@@ -700,7 +845,7 @@ function videoSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function podcastSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -738,9 +883,15 @@ function podcastSegments(ref: Record<string, unknown>): TCitationSegment[] {
 function courseSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.instructor as string,
+        text: formatSingleAuthor(ref.instructor as TAuthor),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
     })
     segs.push(sep(", "))
     segs.push({ text: ref.institution as string, role: "institution" })
@@ -750,6 +901,8 @@ function courseSegments(ref: Record<string, unknown>): TCitationSegment[] {
     }
     segs.push(sep(", "))
     segs.push({ text: ref.term as string, role: "misc" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep("."))
     return segs
 }
@@ -759,15 +912,21 @@ function presentationSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.presenter as string,
+        text: formatSingleAuthor(ref.presenter as TAuthor),
         role: "authors",
         style: "plain",
+    })
+    segs.push(sep(", "))
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "quoted",
     })
     segs.push(sep(", "))
     segs.push({ text: "presented at ", role: "prefix" })
     segs.push({
         text: ref.eventTitle as string,
-        role: "title",
+        role: "misc",
         style: "italic",
     })
     segs.push(sep(", "))
@@ -784,14 +943,17 @@ function presentationSegments(
 function interviewSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.interviewee as string,
+        text: formatSingleAuthor(ref.interviewee as TAuthor),
         role: "authors",
         style: "plain",
     })
     if (ref.interviewer !== undefined) {
         segs.push(sep(", "))
         segs.push({ text: "interviewed by ", role: "prefix" })
-        segs.push({ text: ref.interviewer as string, role: "misc" })
+        segs.push({
+            text: formatSingleAuthor(ref.interviewer as TAuthor),
+            role: "misc",
+        })
     }
     segs.push(sep(", "))
     segs.push({
@@ -807,7 +969,7 @@ function personalCommunicationSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.person as string,
+        text: formatSingleAuthor(ref.person as TAuthor),
         role: "authors",
         style: "plain",
     })
@@ -825,13 +987,16 @@ function personalCommunicationSegments(
 function emailSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     segs.push({
-        text: ref.sender as string,
+        text: formatSingleAuthor(ref.sender as TAuthor),
         role: "authors",
         style: "plain",
     })
     segs.push(sep(", "))
     segs.push({ text: "email to ", role: "prefix" })
-    segs.push({ text: ref.recipient as string, role: "misc" })
+    segs.push({
+        text: formatSingleAuthor(ref.recipient as TAuthor),
+        role: "misc",
+    })
     segs.push(sep(", "))
     segs.push({
         text: formatDate(ref.date as Date),
@@ -886,7 +1051,7 @@ function governmentPublicationSegments(
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     if (ref.authors !== undefined) {
-        const authors = ref.authors as string[]
+        const authors = ref.authors as TAuthor[]
         if (authors.length > 0) {
             segs.push({
                 text: formatNamesInCitation(authors),
@@ -896,6 +1061,12 @@ function governmentPublicationSegments(
             segs.push(sep(", "))
         }
     }
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(", "))
     segs.push({ text: ref.agency as string, role: "organization" })
     segs.push(sep(", "))
     segs.push({ text: ref.location as string, role: "location" })
@@ -904,15 +1075,28 @@ function governmentPublicationSegments(
         segs.push({ text: "Rep. ", role: "prefix" })
         segs.push({ text: ref.reportNumber as string, role: "reportNumber" })
     }
+    segs.push(sep(", "))
+    segs.push({
+        text: formatDate(ref.date as Date),
+        role: "date",
+    })
     segs.push(sep("."))
     return segs
 }
 
 function datasheetSegments(ref: Record<string, unknown>): TCitationSegment[] {
     const segs: TCitationSegment[] = []
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(", "))
     segs.push({ text: ref.manufacturer as string, role: "publisher" })
     segs.push(sep(", "))
     segs.push({ text: ref.partNumber as string, role: "misc" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     segs.push(sep(". "))
     segs.push({ text: "[Online]. Available: ", role: "prefix" })
     segs.push({ text: ref.url as string, role: "url", style: "link" })
@@ -923,9 +1107,17 @@ function productManualSegments(
     ref: Record<string, unknown>
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
+    segs.push({
+        text: ref.title as string,
+        role: "title",
+        style: "italic",
+    })
+    segs.push(sep(", "))
     segs.push({ text: ref.manufacturer as string, role: "publisher" })
     segs.push(sep(", "))
     segs.push({ text: ref.model as string, role: "misc" })
+    segs.push(sep(", "))
+    segs.push({ text: ref.year as string, role: "year" })
     if (ref.url !== undefined) {
         segs.push(sep(". "))
         segs.push({ text: "[Online]. Available: ", role: "prefix" })
