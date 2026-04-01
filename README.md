@@ -4,6 +4,8 @@ Core engine for building, evaluating, and checking the logical validity of propo
 
 Also ships a **CLI** (`proposit-core`) for managing arguments, premises, variables, expressions, and analyses stored on disk.
 
+Full documentation is available at <https://www.polintpro.com/proposit-core/>.
+
 ## Visual Overview
 
 ```mermaid
