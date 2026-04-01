@@ -17,17 +17,29 @@ import {
     IEEEReferenceSchemaRelaxed,
     IEEEReferenceSchemaMapRelaxed,
     type TReferenceType,
+    type TAuthor,
     formatNamesInCitation,
+    formatSingleAuthor,
     formatCitationParts,
     type TIEEEReference,
 } from "../../src/extensions/ieee"
+
+// ---------------------------------------------------------------------------
+// Fixture helpers
+// ---------------------------------------------------------------------------
+
+function author(given: string, family: string, suffix?: string): TAuthor {
+    return suffix
+        ? { givenNames: given, familyName: family, suffix }
+        : { givenNames: given, familyName: family }
+}
 
 function validBook() {
     return {
         type: "Book" as const,
         title: "Artificial Intelligence",
         year: "2024",
-        authors: ["Jane Smith"],
+        authors: [author("Jane", "Smith")],
         publisher: "MIT Press",
     }
 }
@@ -35,7 +47,7 @@ function validBook() {
 function validWebsite() {
     return {
         type: "Website" as const,
-        authors: ["John Doe"],
+        authors: [author("John", "Doe")],
         pageTitle: "Understanding AI",
         websiteTitle: "Tech Blog",
         accessedDate: new Date("2024-06-15"),
@@ -46,8 +58,10 @@ function validWebsite() {
 function validJournalArticle() {
     return {
         type: "JournalArticle" as const,
-        authors: ["Alice Johnson"],
+        authors: [author("Alice", "Johnson")],
+        title: "Quantum computing advances",
         journalTitle: "Nature",
+        year: "2024",
         doi: "10.1038/s41586-024-00001-1",
     }
 }
@@ -55,7 +69,8 @@ function validJournalArticle() {
 function validPatent() {
     return {
         type: "Patent" as const,
-        inventors: ["Bob Wilson"],
+        title: "Nonlinear resonant circuit devices",
+        inventors: [author("Bob", "Wilson")],
         country: "US",
         patentNumber: "US1234567",
         date: new Date("2024-01-15"),
@@ -65,21 +80,29 @@ function validPatent() {
 function validBlog() {
     return {
         type: "Blog" as const,
-        author: "Carol White",
-        blogTitle: "My Tech Blog",
+        author: author("Carol", "White"),
+        postTitle: "My Latest Discovery",
+        blogName: "My Tech Blog",
+        date: new Date("2024-03-01"),
         url: "https://blog.example.com/post",
-        accessedDate: new Date("2024-03-01"),
+        accessedDate: new Date("2024-03-15"),
     }
 }
 
 function validDataset() {
     return {
         type: "Dataset" as const,
+        title: "Climate Data 2024",
         repository: "Zenodo",
+        year: "2024",
         url: "https://zenodo.org/record/12345",
         doi: "10.5281/zenodo.12345",
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe("IEEE extension", () => {
     describe("schema validation — valid objects", () => {
@@ -177,11 +200,11 @@ describe("IEEE extension", () => {
             ).toBe(false)
         })
 
-        it("rejects a Book with empty string in authors array", () => {
+        it("rejects a Book with empty string in author givenNames", () => {
             expect(
                 Value.Check(BookReferenceSchema, {
                     ...validBook(),
-                    authors: [""],
+                    authors: [{ givenNames: "", familyName: "Smith" }],
                 })
             ).toBe(false)
         })
@@ -366,37 +389,115 @@ describe("IEEE extension", () => {
         })
     })
 
+    describe("formatSingleAuthor", () => {
+        it("abbreviates given name to initial", () => {
+            expect(
+                formatSingleAuthor({ givenNames: "Jane", familyName: "Smith" })
+            ).toBe("J. Smith")
+        })
+
+        it("abbreviates multiple given names to initials", () => {
+            expect(
+                formatSingleAuthor({
+                    givenNames: "Jane Marie",
+                    familyName: "Smith",
+                })
+            ).toBe("J. M. Smith")
+        })
+
+        it("appends suffix without comma", () => {
+            expect(
+                formatSingleAuthor({
+                    givenNames: "Ray",
+                    familyName: "Barnett",
+                    suffix: "Sr.",
+                })
+            ).toBe("R. Barnett Sr.")
+        })
+
+        it("handles a single-character given name", () => {
+            expect(
+                formatSingleAuthor({
+                    givenNames: "A",
+                    familyName: "Mononym",
+                })
+            ).toBe("A. Mononym")
+        })
+    })
+
     describe("formatNamesInCitation", () => {
         it("returns empty string for empty array", () => {
             expect(formatNamesInCitation([])).toBe("")
         })
-        it("passes through a single-part name unchanged", () => {
-            expect(formatNamesInCitation(["Aristotle"])).toBe("Aristotle")
-        })
-        it("abbreviates first name for a two-part name", () => {
-            expect(formatNamesInCitation(["Jane Smith"])).toBe("J. Smith")
-        })
-        it("abbreviates first name and preserves multi-part last name", () => {
-            expect(formatNamesInCitation(["Jean Paul Sartre"])).toBe(
-                "J. Paul Sartre"
+
+        it("formats a single author", () => {
+            expect(formatNamesInCitation([author("Jane", "Smith")])).toBe(
+                "J. Smith"
             )
         })
-        it("joins two names with and", () => {
-            expect(formatNamesInCitation(["Jane Smith", "Bob Wilson"])).toBe(
-                "J. Smith and B. Wilson"
+
+        it("abbreviates multi-part given names", () => {
+            expect(formatNamesInCitation([author("Jane Marie", "Smith")])).toBe(
+                "J. M. Smith"
             )
         })
-        it("joins three or more names with commas and and", () => {
+
+        it("includes suffix", () => {
+            expect(
+                formatNamesInCitation([author("William", "Pratt", "Jr.")])
+            ).toBe("W. Pratt Jr.")
+        })
+
+        it("joins two authors with and", () => {
             expect(
                 formatNamesInCitation([
-                    "Jane Smith",
-                    "Bob Wilson",
-                    "Carol White",
+                    author("Jane", "Smith"),
+                    author("Bob", "Wilson"),
+                ])
+            ).toBe("J. Smith and B. Wilson")
+        })
+
+        it("joins three authors with Oxford comma and and", () => {
+            expect(
+                formatNamesInCitation([
+                    author("Jane", "Smith"),
+                    author("Bob", "Wilson"),
+                    author("Carol", "White"),
                 ])
             ).toBe("J. Smith, B. Wilson, and C. White")
         })
-        it("handles single-element array", () => {
-            expect(formatNamesInCitation(["Jane Smith"])).toBe("J. Smith")
+
+        it("uses et al. for seven or more authors", () => {
+            const authors = [
+                author("A", "One"),
+                author("B", "Two"),
+                author("C", "Three"),
+                author("D", "Four"),
+                author("E", "Five"),
+                author("F", "Six"),
+                author("G", "Seven"),
+            ]
+            expect(formatNamesInCitation(authors)).toBe("A. One et al.")
+        })
+
+        it("lists all six authors when exactly six", () => {
+            const authors = [
+                author("A", "One"),
+                author("B", "Two"),
+                author("C", "Three"),
+                author("D", "Four"),
+                author("E", "Five"),
+                author("F", "Six"),
+            ]
+            const result = formatNamesInCitation(authors)
+            expect(result).toContain("and F. Six")
+            expect(result).not.toContain("et al.")
+        })
+
+        it("formats a single-character given name", () => {
+            expect(formatNamesInCitation([author("A", "Mononym")])).toBe(
+                "A. Mononym"
+            )
         })
     })
 
@@ -406,7 +507,7 @@ describe("IEEE extension", () => {
                 type: "Book",
                 title: "AI Fundamentals",
                 year: "2024",
-                authors: ["Jane Smith", "Bob Wilson"],
+                authors: [author("Jane", "Smith"), author("Bob", "Wilson")],
                 edition: "3rd",
                 publisher: "MIT Press",
                 location: "Cambridge, MA",
@@ -467,12 +568,15 @@ describe("IEEE extension", () => {
             expect(result.type).toBe("Patent")
             const roles = result.segments.map((s) => s.role)
             expect(roles).toContain("authors")
+            expect(roles).toContain("title")
             expect(roles).toContain("patentNumber")
             expect(roles).toContain("country")
             expect(roles).toContain("date")
+            const titleSeg = result.segments.find((s) => s.role === "title")!
+            expect(titleSeg.style).toBe("quoted")
         })
 
-        it("formats a JournalArticle citation", () => {
+        it("formats a JournalArticle citation with volume/issue/pages", () => {
             const result = formatCitationParts({
                 ...validJournalArticle(),
                 volume: "586",
@@ -486,29 +590,67 @@ describe("IEEE extension", () => {
             expect(roles).toContain("volume")
             expect(roles).toContain("issue")
             expect(roles).toContain("pages")
+            // title (quoted) should appear before journalTitle (italic)
+            const titleIdx = result.segments.findIndex(
+                (s) => s.role === "title"
+            )
+            const journalIdx = result.segments.findIndex(
+                (s) => s.role === "misc" && s.style === "italic"
+            )
+            expect(titleIdx).toBeLessThan(journalIdx)
+            const titleSeg = result.segments[titleIdx]
+            expect(titleSeg.style).toBe("quoted")
+        })
+
+        it("formats a June date with period (Jun.)", () => {
+            const result = formatCitationParts({
+                ...validWebsite(),
+                accessedDate: new Date("2024-06-15"),
+            })
+            const dateSeg = result.segments.find(
+                (s) => s.role === "accessedDate"
+            )!
+            expect(dateSeg.text).toContain("Jun.")
+        })
+
+        it("formats a May date without period (May)", () => {
+            const result = formatCitationParts({
+                ...validWebsite(),
+                accessedDate: new Date("2024-05-15"),
+            })
+            const dateSeg = result.segments.find(
+                (s) => s.role === "accessedDate"
+            )!
+            expect(dateSeg.text).toContain("May")
+            expect(dateSeg.text).not.toContain("May.")
         })
 
         it("handles all 33 reference types without throwing", () => {
-            const refs = [
+            const a = author("Alex", "Brown")
+            const refs: TIEEEReference[] = [
                 validBook(),
                 validWebsite(),
                 {
                     type: "BookChapter" as const,
                     chapterTitle: "Ch 1",
-                    authors: ["A B"],
+                    year: "2024",
+                    authors: [a],
                     bookTitle: "Book",
                     publisher: "Pub",
                     location: "NYC",
                 },
                 {
                     type: "Handbook" as const,
-                    authors: ["A B"],
+                    title: "Engineering Handbook",
+                    year: "2024",
                     publisher: "Pub",
                     location: "NYC",
                 },
                 {
                     type: "TechnicalReport" as const,
-                    authors: ["A B"],
+                    title: "Report on Systems",
+                    year: "2024",
+                    authors: [a],
                     reportNumber: "TR-1",
                     institution: "MIT",
                     location: "Cambridge",
@@ -522,29 +664,45 @@ describe("IEEE extension", () => {
                 },
                 {
                     type: "Thesis" as const,
-                    authors: ["A B"],
+                    title: "On Computation",
+                    year: "2024",
+                    authors: [a],
                     degree: "Ph.D.",
                     institution: "MIT",
                     location: "Cambridge",
                 },
                 validPatent(),
-                { type: "Dictionary" as const, publisher: "OUP" },
-                { type: "Encyclopedia" as const, publisher: "Britannica" },
+                {
+                    type: "Dictionary" as const,
+                    title: "English Dictionary",
+                    year: "2024",
+                    publisher: "OUP",
+                },
+                {
+                    type: "Encyclopedia" as const,
+                    title: "World Encyclopedia",
+                    year: "2024",
+                    publisher: "Britannica",
+                },
                 validJournalArticle(),
                 {
                     type: "MagazineArticle" as const,
-                    authors: ["A B"],
+                    title: "Tech Trends",
+                    year: "2024",
+                    authors: [a],
                     magazineTitle: "Mag",
                 },
                 {
                     type: "NewspaperArticle" as const,
-                    authors: ["A B"],
+                    title: "Breaking News",
+                    authors: [a],
                     newspaperTitle: "Times",
                     date: new Date(),
                 },
                 {
                     type: "ConferencePaper" as const,
-                    authors: ["A B"],
+                    title: "New Algorithms",
+                    authors: [a],
                     conferenceName: "Conf",
                     location: "NYC",
                     date: new Date(),
@@ -559,6 +717,8 @@ describe("IEEE extension", () => {
                 validDataset(),
                 {
                     type: "Software" as const,
+                    title: "MyApp",
+                    year: "2024",
                     url: "https://example.com",
                 },
                 {
@@ -570,19 +730,22 @@ describe("IEEE extension", () => {
                 validBlog(),
                 {
                     type: "SocialMedia" as const,
-                    author: "A",
+                    author: a,
                     platform: "Twitter",
                     postDate: new Date(),
                     url: "https://twitter.com",
                 },
                 {
                     type: "Preprint" as const,
-                    authors: ["A B"],
+                    title: "Early Results",
+                    year: "2024",
+                    authors: [a],
                     server: "arXiv",
                     url: "https://arxiv.org",
                 },
                 {
                     type: "Video" as const,
+                    title: "Tutorial Video",
                     platform: "YouTube",
                     url: "https://youtube.com",
                     accessedDate: new Date(),
@@ -597,31 +760,34 @@ describe("IEEE extension", () => {
                 },
                 {
                     type: "Course" as const,
-                    instructor: "A B",
+                    title: "Intro to CS",
+                    year: "2024",
+                    instructor: a,
                     institution: "MIT",
                     term: "Fall 2024",
                 },
                 {
                     type: "Presentation" as const,
-                    presenter: "A B",
+                    title: "Keynote Talk",
+                    presenter: a,
                     eventTitle: "Event",
                     location: "NYC",
                     date: new Date(),
                 },
                 {
                     type: "Interview" as const,
-                    interviewee: "A B",
+                    interviewee: a,
                     date: new Date(),
                 },
                 {
                     type: "PersonalCommunication" as const,
-                    person: "A B",
+                    person: a,
                     date: new Date(),
                 },
                 {
                     type: "Email" as const,
-                    sender: "A",
-                    recipient: "B",
+                    sender: a,
+                    recipient: author("Zara", "Lee"),
                     date: new Date(),
                 },
                 {
@@ -638,23 +804,30 @@ describe("IEEE extension", () => {
                 },
                 {
                     type: "GovernmentPublication" as const,
+                    title: "Annual Report",
+                    date: new Date(),
                     agency: "EPA",
                     location: "DC",
                 },
                 {
                     type: "Datasheet" as const,
+                    title: "Processor Specs",
+                    year: "2024",
                     manufacturer: "Intel",
                     partNumber: "i7-12700K",
                     url: "https://intel.com",
                 },
                 {
                     type: "ProductManual" as const,
+                    title: "User Guide",
+                    year: "2024",
                     manufacturer: "Dell",
                     model: "XPS 15",
                 },
             ]
+            expect(refs).toHaveLength(33)
             for (const ref of refs) {
-                const result = formatCitationParts(ref as TIEEEReference)
+                const result = formatCitationParts(ref)
                 expect(result.type).toBe(ref.type)
                 expect(result.segments.length).toBeGreaterThan(0)
                 for (const seg of result.segments) {
