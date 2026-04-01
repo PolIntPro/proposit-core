@@ -55,9 +55,17 @@ const BaseReferenceSchema = Type.Object({
 // Structured author name
 // ---------------------------------------------------------------------------
 export const AuthorSchema = Type.Object({
-    givenNames: Type.String({ minLength: 1, description: "Full given/first names (e.g. Jane Marie)" }),
+    givenNames: Type.String({
+        minLength: 1,
+        description: "Full given/first names (e.g. Jane Marie)",
+    }),
     familyName: Type.String({ minLength: 1, description: "Family/last name" }),
-    suffix: Type.Optional(Type.String({ minLength: 1, description: "Name suffix (Jr., Sr., III, etc.)" })),
+    suffix: Type.Optional(
+        Type.String({
+            minLength: 1,
+            description: "Name suffix (Jr., Sr., III, etc.)",
+        })
+    ),
 })
 export type TAuthor = Static<typeof AuthorSchema>
 
