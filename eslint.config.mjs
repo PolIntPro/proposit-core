@@ -1,4 +1,3 @@
-import { defineConfig, globalIgnores } from "eslint/config"
 import tseslint from "typescript-eslint"
 import globals from "globals"
 import checkFile from "eslint-plugin-check-file"
@@ -63,7 +62,7 @@ const nodeBuiltinModules = [
     "zlib",
 ]
 
-export default defineConfig([
+export default tseslint.config(
     ...tseslint.configs.recommendedTypeChecked,
     ...tseslint.configs.stylisticTypeChecked,
     {
@@ -267,13 +266,15 @@ export default defineConfig([
             },
         },
     },
-    globalIgnores([
-        "dist/",
-        "docs/api/",
-        "node_modules/",
-        ".untracked/",
-        ".worktrees/",
-        ".claude/",
-        "src/lib/core/parser/formula-gen.js",
-    ]),
-])
+    {
+        ignores: [
+            "dist/",
+            "docs/api/",
+            "node_modules/",
+            ".untracked/",
+            ".worktrees/",
+            ".claude/",
+            "src/lib/core/parser/formula-gen.js",
+        ],
+    }
+)
