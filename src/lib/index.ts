@@ -30,6 +30,15 @@ export type {
     TCoreEvaluationGrade,
     TCoreEvaluationGrading,
 } from "./core/evaluation/grading.js"
+export {
+    evaluateArgument,
+    checkArgumentValidity,
+    propagateOperatorConstraints,
+} from "./core/evaluation/argument-evaluation.js"
+export type {
+    TArgumentEvaluationContext,
+    TEvaluablePremise,
+} from "./core/evaluation/argument-evaluation.js"
 export * from "./types/diff.js"
 export * from "./types/mutation.js"
 export { mergeChangesets, orderChangeset } from "./utils/changeset.js"

@@ -23641,3 +23641,11 @@ describe("operator constraint propagation", () => {
         expect(result.assignment!.variables.vB).toBeNull()
     })
 })
+
+describe("evaluateArgument (standalone)", () => {
+    it("is exported from the library", async () => {
+        const mod = await import("../src/lib/index.js")
+        expect(typeof mod.evaluateArgument).toBe("function")
+        expect(typeof mod.checkArgumentValidity).toBe("function")
+    })
+})
