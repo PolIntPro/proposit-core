@@ -82,6 +82,13 @@ import {
     kleeneIff,
 } from "../src/lib/core/evaluation/kleene"
 import {
+    propagateOperatorConstraints,
+    evaluateArgument,
+    checkArgumentValidity,
+    type TArgumentEvaluationContext,
+    type TEvaluablePremise,
+} from "../src/lib/core/evaluation/argument-evaluation"
+import {
     buildPremiseProfile,
     analyzePremiseRelationships,
 } from "../src/lib/core/relationships"
@@ -23647,5 +23654,319 @@ describe("evaluateArgument (standalone)", () => {
         const mod = await import("../src/lib/index.js")
         expect(typeof mod.evaluateArgument).toBe("function")
         expect(typeof mod.checkArgumentValidity).toBe("function")
+        expect(typeof mod.propagateOperatorConstraints).toBe("function")
+    })
+
+    /** Build an engine with P, Q variables and a P->Q supporting premise plus a Q conclusion. */
+    function buildModusPonensEngine() {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        eng.addVariable(VAR_P)
+        eng.addVariable(VAR_Q)
+        const { result: support } = eng.createPremise({ title: "P->Q" })
+        const { result: pPremise } = eng.createPremise({ title: "P" })
+        const { result: conclusion } = eng.createPremise({ title: "Q" })
+
+        // Build P->Q
+        const implId = `${support.getId()}-impl`
+        support.addExpression(makeOpExpr(implId, "implies"))
+        support.addExpression(
+            makeVarExpr(`${implId}-p`, VAR_P.id, {
+                parentId: implId,
+                position: 0,
+            })
+        )
+        support.addExpression(
+            makeVarExpr(`${implId}-q`, VAR_Q.id, {
+                parentId: implId,
+                position: 1,
+            })
+        )
+
+        // Build P (constraint)
+        pPremise.addExpression(makeVarExpr(`${pPremise.getId()}-p`, VAR_P.id))
+
+        // Build Q (conclusion)
+        conclusion.addExpression(
+            makeVarExpr(`${conclusion.getId()}-q`, VAR_Q.id)
+        )
+
+        eng.setConclusionPremise(conclusion.getId())
+        return eng
+    }
+
+    function ctxFrom(eng: ArgumentEngine): TArgumentEvaluationContext {
+        return {
+            argumentId: eng.getArgument().id,
+            conclusionPremiseId: eng.getRoleState().conclusionPremiseId,
+            getConclusionPremise: () =>
+                eng.getConclusionPremise() as TEvaluablePremise | undefined,
+            listSupportingPremises: () =>
+                eng.listSupportingPremises() as TEvaluablePremise[],
+            listPremises: () => eng.listPremises() as TEvaluablePremise[],
+            getVariable: (id) => eng.getVariable(id),
+            getPremise: (id) =>
+                eng.getPremise(id) as TEvaluablePremise | undefined,
+            validateEvaluability: () => eng.validateEvaluability(),
+        }
+    }
+
+    describe("propagateOperatorConstraints", () => {
+        it("propagates accepted AND: all children become true", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            eng.addVariable(VAR_Q)
+            const { result: pm } = eng.createPremise({ title: "P and Q" })
+            const andId = `${pm.getId()}-and`
+            pm.addExpression(makeOpExpr(andId, "and"))
+            pm.addExpression(
+                makeVarExpr(`${andId}-p`, VAR_P.id, {
+                    parentId: andId,
+                    position: 0,
+                })
+            )
+            pm.addExpression(
+                makeVarExpr(`${andId}-q`, VAR_Q.id, {
+                    parentId: andId,
+                    position: 1,
+                })
+            )
+            const ctx = ctxFrom(eng)
+            const result = propagateOperatorConstraints(ctx, {
+                variables: {},
+                operatorAssignments: { [andId]: "accepted" },
+            })
+            expect(result[VAR_P.id]).toBe(true)
+            expect(result[VAR_Q.id]).toBe(true)
+        })
+
+        it("propagates rejected OR: all children become false", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            eng.addVariable(VAR_Q)
+            const { result: pm } = eng.createPremise({ title: "P or Q" })
+            const orId = `${pm.getId()}-or`
+            pm.addExpression(makeOpExpr(orId, "or"))
+            pm.addExpression(
+                makeVarExpr(`${orId}-p`, VAR_P.id, {
+                    parentId: orId,
+                    position: 0,
+                })
+            )
+            pm.addExpression(
+                makeVarExpr(`${orId}-q`, VAR_Q.id, {
+                    parentId: orId,
+                    position: 1,
+                })
+            )
+            const ctx = ctxFrom(eng)
+            const result = propagateOperatorConstraints(ctx, {
+                variables: {},
+                operatorAssignments: { [orId]: "rejected" },
+            })
+            expect(result[VAR_P.id]).toBe(false)
+            expect(result[VAR_Q.id]).toBe(false)
+        })
+
+        it("never overwrites user-assigned values", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            eng.addVariable(VAR_Q)
+            const { result: pm } = eng.createPremise({ title: "P and Q" })
+            const andId = `${pm.getId()}-and`
+            pm.addExpression(makeOpExpr(andId, "and"))
+            pm.addExpression(
+                makeVarExpr(`${andId}-p`, VAR_P.id, {
+                    parentId: andId,
+                    position: 0,
+                })
+            )
+            pm.addExpression(
+                makeVarExpr(`${andId}-q`, VAR_Q.id, {
+                    parentId: andId,
+                    position: 1,
+                })
+            )
+            const ctx = ctxFrom(eng)
+            // User says P=false, accepted AND would want P=true but must not override
+            const result = propagateOperatorConstraints(ctx, {
+                variables: { [VAR_P.id]: false },
+                operatorAssignments: { [andId]: "accepted" },
+            })
+            expect(result[VAR_P.id]).toBe(false)
+            expect(result[VAR_Q.id]).toBe(true)
+        })
+
+        it("returns unchanged variables when no operator assignments given", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            const { result: pm } = eng.createPremise({ title: "P" })
+            pm.addExpression(makeVarExpr(`${pm.getId()}-p`, VAR_P.id))
+            const ctx = ctxFrom(eng)
+            const result = propagateOperatorConstraints(ctx, {
+                variables: { [VAR_P.id]: true },
+                operatorAssignments: {},
+            })
+            expect(result[VAR_P.id]).toBe(true)
+        })
+    })
+
+    describe("evaluateArgument", () => {
+        it("evaluates modus ponens with P=true, Q=true as non-counterexample", () => {
+            const eng = buildModusPonensEngine()
+            const ctx = ctxFrom(eng)
+            const result = evaluateArgument(ctx, {
+                variables: { [VAR_P.id]: true, [VAR_Q.id]: true },
+                operatorAssignments: {},
+            })
+            expect(result.ok).toBe(true)
+            expect(result.isCounterexample).toBe(false)
+            expect(result.preservesTruthUnderAssignment).toBe(true)
+        })
+
+        it("returns validation failure when no conclusion is set", () => {
+            // Build context manually with no conclusion premise
+            const ctx: TArgumentEvaluationContext = {
+                argumentId: "arg-1",
+                conclusionPremiseId: undefined,
+                getConclusionPremise: () => undefined,
+                listSupportingPremises: () => [],
+                listPremises: () => [],
+                getVariable: () => undefined,
+                getPremise: () => undefined,
+                validateEvaluability: () => ({ ok: true, issues: [] }),
+            }
+            const result = evaluateArgument(ctx, {
+                variables: {},
+                operatorAssignments: {},
+            })
+            expect(result.ok).toBe(false)
+            expect(result.validation!.issues[0].code).toBe(
+                "ARGUMENT_NO_CONCLUSION"
+            )
+        })
+
+        it("matches engine.evaluate() output exactly", () => {
+            const eng = buildModusPonensEngine()
+            const assignment = {
+                variables: { [VAR_P.id]: true, [VAR_Q.id]: false },
+                operatorAssignments: {},
+            }
+            const engineResult = eng.evaluate(assignment)
+            const ctx = ctxFrom(eng)
+            const standaloneResult = evaluateArgument(ctx, assignment)
+            expect(standaloneResult.ok).toBe(engineResult.ok)
+            expect(standaloneResult.isCounterexample).toBe(
+                engineResult.isCounterexample
+            )
+            expect(standaloneResult.conclusionTrue).toBe(
+                engineResult.conclusionTrue
+            )
+            expect(standaloneResult.allSupportingPremisesTrue).toBe(
+                engineResult.allSupportingPremisesTrue
+            )
+            expect(standaloneResult.preservesTruthUnderAssignment).toBe(
+                engineResult.preservesTruthUnderAssignment
+            )
+        })
+
+        it("runs validateEvaluability when validateFirst is true (default)", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            // Empty engine with no premises — validateEvaluability will fail
+            const ctx = ctxFrom(eng)
+            const result = evaluateArgument(ctx, {
+                variables: {},
+                operatorAssignments: {},
+            })
+            expect(result.ok).toBe(false)
+        })
+    })
+
+    describe("checkArgumentValidity", () => {
+        it("proves modus ponens valid", () => {
+            const eng = buildModusPonensEngine()
+            const ctx = ctxFrom(eng)
+            const result = checkArgumentValidity(ctx, {
+                mode: "exhaustive",
+            })
+            expect(result.ok).toBe(true)
+            expect(result.isValid).toBe(true)
+            expect(result.counterexamples).toEqual([])
+            expect(result.numAssignmentsChecked).toBe(4) // 2^2 = 4
+        })
+
+        it("finds a counterexample for an invalid argument", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            eng.addVariable(VAR_Q)
+            const { result: support } = eng.createPremise({ title: "P->Q" })
+            const { result: conclusion } = eng.createPremise({ title: "Q" })
+            const implId = `${support.getId()}-impl`
+            support.addExpression(makeOpExpr(implId, "implies"))
+            support.addExpression(
+                makeVarExpr(`${implId}-p`, VAR_P.id, {
+                    parentId: implId,
+                    position: 0,
+                })
+            )
+            support.addExpression(
+                makeVarExpr(`${implId}-q`, VAR_Q.id, {
+                    parentId: implId,
+                    position: 1,
+                })
+            )
+            conclusion.addExpression(
+                makeVarExpr(`${conclusion.getId()}-q`, VAR_Q.id)
+            )
+            eng.setConclusionPremise(conclusion.getId())
+            // Missing P constraint premise — affirming the consequent is invalid
+            const ctx = ctxFrom(eng)
+            const result = checkArgumentValidity(ctx, {
+                mode: "firstCounterexample",
+            })
+            expect(result.ok).toBe(true)
+            expect(result.isValid).toBe(false)
+            expect(result.counterexamples!.length).toBeGreaterThan(0)
+        })
+
+        it("matches engine.checkValidity() output", () => {
+            const eng = buildModusPonensEngine()
+            const engineResult = eng.checkValidity({ mode: "exhaustive" })
+            const ctx = ctxFrom(eng)
+            const standaloneResult = checkArgumentValidity(ctx, {
+                mode: "exhaustive",
+            })
+            expect(standaloneResult.ok).toBe(engineResult.ok)
+            expect(standaloneResult.isValid).toBe(engineResult.isValid)
+            expect(standaloneResult.numAssignmentsChecked).toBe(
+                engineResult.numAssignmentsChecked
+            )
+            expect(standaloneResult.numAdmissibleAssignments).toBe(
+                engineResult.numAdmissibleAssignments
+            )
+        })
+
+        it("respects maxVariables limit", () => {
+            const eng = buildModusPonensEngine()
+            const ctx = ctxFrom(eng)
+            const result = checkArgumentValidity(ctx, {
+                maxVariables: 1,
+            })
+            expect(result.ok).toBe(false)
+            expect(result.validation!.issues[0].code).toBe(
+                "ASSIGNMENT_UNKNOWN_VARIABLE"
+            )
+        })
+
+        it("respects maxAssignmentsChecked truncation", () => {
+            const eng = buildModusPonensEngine()
+            const ctx = ctxFrom(eng)
+            const result = checkArgumentValidity(ctx, {
+                mode: "exhaustive",
+                maxAssignmentsChecked: 2,
+            })
+            expect(result.ok).toBe(true)
+            expect(result.numAssignmentsChecked).toBe(2)
+            expect(result.truncated).toBe(true)
+        })
     })
 })
