@@ -89,6 +89,14 @@ import {
     type TEvaluablePremise,
 } from "../src/lib/core/evaluation/argument-evaluation"
 import {
+    validateArgument,
+    validateArgumentAfterPremiseMutation,
+    validateArgumentEvaluability,
+    collectArgumentReferencedVariables,
+    type TArgumentValidationContext,
+    type TValidatablePremise,
+} from "../src/lib/core/argument-validation"
+import {
     buildPremiseProfile,
     analyzePremiseRelationships,
 } from "../src/lib/core/relationships"
@@ -23967,6 +23975,222 @@ describe("evaluateArgument (standalone)", () => {
             expect(result.ok).toBe(true)
             expect(result.numAssignmentsChecked).toBe(2)
             expect(result.truncated).toBe(true)
+        })
+    })
+})
+
+describe("validateArgument (standalone)", () => {
+    it("is exported from the library", async () => {
+        const mod = await import("../src/lib/index.js")
+        expect(typeof mod.validateArgument).toBe("function")
+        expect(typeof mod.validateArgumentAfterPremiseMutation).toBe("function")
+        expect(typeof mod.validateArgumentEvaluability).toBe("function")
+        expect(typeof mod.collectArgumentReferencedVariables).toBe("function")
+    })
+
+    /** Helper to build a validation context from an ArgumentEngine. */
+    function validationCtxFrom(
+        eng: ArgumentEngine
+    ): TArgumentValidationContext {
+        return {
+            argumentId: eng.getArgument().id,
+            argumentVersion: eng.getArgument().version,
+            conclusionPremiseId: eng.getRoleState().conclusionPremiseId,
+            getArgument: () => eng.getArgument(),
+            getVariables: () => eng.getVariables(),
+            listPremises: () =>
+                eng.listPremises() as unknown as TValidatablePremise[],
+            hasPremise: (premiseId) => eng.getPremise(premiseId) !== undefined,
+            lookupClaim: (claimId, claimVersion) => {
+                // Access the claim library used by the engine — for tests
+                // we just use the engine's own validate() as the reference.
+                // But for rigged tests we override this.
+                void claimId
+                void claimVersion
+                return undefined
+            },
+            flushAndGetChecksumDeltas: () => {
+                // Force a flush by calling getArgument(), which calls
+                // flushChecksums() internally.
+                eng.getArgument()
+                return {
+                    savedMeta: undefined,
+                    savedDescendant: undefined,
+                    savedCombined: undefined,
+                    currentMeta: undefined,
+                    currentDescendant: undefined,
+                    currentCombined: undefined,
+                }
+            },
+            validateVariables: () => ({ ok: true, violations: [] }),
+            wouldCreateCycle: () => false,
+        }
+    }
+
+    describe("collectArgumentReferencedVariables", () => {
+        it("indexes variables by ID and symbol across premises", () => {
+            const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+            eng.addVariable(VAR_P)
+            eng.addVariable(VAR_Q)
+            const { result: pm1 } = eng.createPremise({ title: "pm1" })
+            const { result: pm2 } = eng.createPremise({ title: "pm2" })
+            pm1.addExpression(
+                makeVarExpr(`${pm1.getId()}-p`, VAR_P.id, {
+                    premiseId: pm1.getId(),
+                })
+            )
+            // pm2 gets an AND with P and Q as children
+            const andId = `${pm2.getId()}-and`
+            pm2.addExpression(
+                makeOpExpr(andId, "and", { premiseId: pm2.getId() })
+            )
+            pm2.addExpression(
+                makeVarExpr(`${pm2.getId()}-p`, VAR_P.id, {
+                    premiseId: pm2.getId(),
+                    parentId: andId,
+                    position: 0,
+                })
+            )
+            pm2.addExpression(
+                makeVarExpr(`${pm2.getId()}-q`, VAR_Q.id, {
+                    premiseId: pm2.getId(),
+                    parentId: andId,
+                    position: 1,
+                })
+            )
+
+            const ctx = validationCtxFrom(eng)
+            const result = collectArgumentReferencedVariables(ctx)
+
+            expect(result.variableIds).toEqual([VAR_P.id, VAR_Q.id].sort())
+            expect(result.byId[VAR_P.id].symbol).toBe("P")
+            expect(result.byId[VAR_P.id].premiseIds).toHaveLength(2)
+            expect(result.byId[VAR_Q.id].symbol).toBe("Q")
+            expect(result.byId[VAR_Q.id].premiseIds).toHaveLength(1)
+            expect(result.bySymbol.P.variableIds).toEqual([VAR_P.id])
+            expect(result.bySymbol.Q.variableIds).toEqual([VAR_Q.id])
+        })
+    })
+
+    describe("validateArgument", () => {
+        it("detects ownership mismatch via a rigged context", () => {
+            const ctx: TArgumentValidationContext = {
+                argumentId: "arg-A",
+                argumentVersion: 1,
+                conclusionPremiseId: undefined,
+                getArgument: () => ({
+                    id: "arg-A",
+                    version: 1,
+                    checksum: "x",
+                    descendantChecksum: null,
+                    combinedChecksum: "x",
+                }),
+                getVariables: () => [
+                    {
+                        id: "var-1",
+                        argumentId: "arg-WRONG",
+                        argumentVersion: 99,
+                        symbol: "X",
+                        claimId: "c",
+                        claimVersion: 0,
+                    } as TCorePropositionalVariable,
+                ],
+                listPremises: () => [],
+                hasPremise: () => false,
+                lookupClaim: () => ({ id: "c" }),
+                flushAndGetChecksumDeltas: () => ({
+                    savedMeta: undefined,
+                    savedDescendant: undefined,
+                    savedCombined: undefined,
+                    currentMeta: undefined,
+                    currentDescendant: undefined,
+                    currentCombined: undefined,
+                }),
+                validateVariables: () => ({ ok: true, violations: [] }),
+                wouldCreateCycle: () => false,
+            }
+
+            const result = validateArgument(ctx)
+            expect(result.ok).toBe(false)
+            expect(
+                result.violations.some((v) => v.code === ARG_OWNERSHIP_MISMATCH)
+            ).toBe(true)
+        })
+    })
+
+    describe("validateArgumentEvaluability", () => {
+        it("reports missing conclusion via a rigged context", () => {
+            const ctx: TArgumentValidationContext = {
+                argumentId: "arg-A",
+                argumentVersion: 1,
+                conclusionPremiseId: undefined,
+                getArgument: () => ({
+                    id: "arg-A",
+                    version: 1,
+                    checksum: "x",
+                    descendantChecksum: null,
+                    combinedChecksum: "x",
+                }),
+                getVariables: () => [],
+                listPremises: () => [],
+                hasPremise: () => false,
+                lookupClaim: () => undefined,
+                flushAndGetChecksumDeltas: () => ({
+                    savedMeta: undefined,
+                    savedDescendant: undefined,
+                    savedCombined: undefined,
+                    currentMeta: undefined,
+                    currentDescendant: undefined,
+                    currentCombined: undefined,
+                }),
+                validateVariables: () => ({ ok: true, violations: [] }),
+                wouldCreateCycle: () => false,
+            }
+
+            const result = validateArgumentEvaluability(ctx)
+            expect(result.ok).toBe(false)
+            expect(
+                result.issues.some((i) => i.code === "ARGUMENT_NO_CONCLUSION")
+            ).toBe(true)
+        })
+    })
+
+    describe("validateArgumentAfterPremiseMutation", () => {
+        it("reports missing conclusion premise via context", () => {
+            const ctx: TArgumentValidationContext = {
+                argumentId: "arg-A",
+                argumentVersion: 1,
+                conclusionPremiseId: "missing-premise",
+                getArgument: () => ({
+                    id: "arg-A",
+                    version: 1,
+                    checksum: "x",
+                    descendantChecksum: null,
+                    combinedChecksum: "x",
+                }),
+                getVariables: () => [],
+                listPremises: () => [],
+                hasPremise: () => false,
+                lookupClaim: () => undefined,
+                flushAndGetChecksumDeltas: () => ({
+                    savedMeta: undefined,
+                    savedDescendant: undefined,
+                    savedCombined: undefined,
+                    currentMeta: undefined,
+                    currentDescendant: undefined,
+                    currentCombined: undefined,
+                }),
+                validateVariables: () => ({ ok: true, violations: [] }),
+                wouldCreateCycle: () => false,
+            }
+
+            const result = validateArgumentAfterPremiseMutation(ctx)
+            expect(result.ok).toBe(false)
+            expect(
+                result.violations.some(
+                    (v) => v.code === "ARG_CONCLUSION_NOT_FOUND"
+                )
+            ).toBe(true)
         })
     })
 })

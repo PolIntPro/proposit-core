@@ -94,4 +94,14 @@ export * from "./types/fork.js"
 export { forkArgumentEngine } from "./core/fork.js"
 export * from "./parsing/index.js"
 export * from "./types/validation.js"
+export {
+    validateArgument,
+    validateArgumentAfterPremiseMutation,
+    validateArgumentEvaluability,
+    collectArgumentReferencedVariables,
+} from "./core/argument-validation.js"
+export type {
+    TArgumentValidationContext,
+    TValidatablePremise,
+} from "./core/argument-validation.js"
 export { InvariantViolationError } from "./core/invariant-violation-error.js"
