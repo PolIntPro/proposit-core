@@ -1,8 +1,5 @@
 import type { TCitationSegment } from "./formatting.js" // type-only — erased at runtime, no cycle
-import type {
-    TSegmentInstruction,
-    TSegmentTemplate,
-} from "./segment-templates.js"
+import type { TSegmentInstruction } from "./segment-templates.js"
 import type { TAuthor } from "./references.js"
 
 // ---------------------------------------------------------------------------
@@ -62,15 +59,15 @@ function resolveSource(
     const src = source.source
     switch (src.kind) {
         case "string":
-            return ref[src.field] as string
+            return ref[src.field!] as string
         case "date":
-            return formatDate(ref[src.field] as Date)
+            return formatDate(ref[src.field!] as Date)
         case "authors":
-            return formatNamesInCitation(ref[src.field] as TAuthor[])
+            return formatNamesInCitation(ref[src.field!] as TAuthor[])
         case "singleAuthor":
-            return formatSingleAuthor(ref[src.field] as TAuthor)
+            return formatSingleAuthor(ref[src.field!] as TAuthor)
         case "literal":
-            return src.text
+            return src.text!
     }
 }
 
@@ -111,7 +108,7 @@ function emitInstructions(
 
 export function buildSegments(
     ref: Record<string, unknown>,
-    template: TSegmentTemplate
+    template: TSegmentInstruction[]
 ): TCitationSegment[] {
     const segs: TCitationSegment[] = []
     emitInstructions(ref, template, segs)

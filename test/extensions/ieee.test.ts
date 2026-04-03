@@ -22,7 +22,41 @@ import {
     formatSingleAuthor,
     formatCitationParts,
     type TIEEEReference,
+    BOOK_TEMPLATE,
+    WEBSITE_TEMPLATE,
+    BOOK_CHAPTER_TEMPLATE,
+    HANDBOOK_TEMPLATE,
+    TECHNICAL_REPORT_TEMPLATE,
+    STANDARD_TEMPLATE,
+    THESIS_TEMPLATE,
+    PATENT_TEMPLATE,
+    DICTIONARY_TEMPLATE,
+    ENCYCLOPEDIA_TEMPLATE,
+    JOURNAL_ARTICLE_TEMPLATE,
+    MAGAZINE_ARTICLE_TEMPLATE,
+    NEWSPAPER_ARTICLE_TEMPLATE,
+    CONFERENCE_PAPER_TEMPLATE,
+    CONFERENCE_PROCEEDINGS_TEMPLATE,
+    DATASET_TEMPLATE,
+    SOFTWARE_TEMPLATE,
+    ONLINE_DOCUMENT_TEMPLATE,
+    BLOG_TEMPLATE,
+    SOCIAL_MEDIA_TEMPLATE,
+    PREPRINT_TEMPLATE,
+    VIDEO_TEMPLATE,
+    PODCAST_TEMPLATE,
+    COURSE_TEMPLATE,
+    PRESENTATION_TEMPLATE,
+    INTERVIEW_TEMPLATE,
+    PERSONAL_COMMUNICATION_TEMPLATE,
+    EMAIL_TEMPLATE,
+    LAW_TEMPLATE,
+    COURT_CASE_TEMPLATE,
+    GOVERNMENT_PUBLICATION_TEMPLATE,
+    DATASHEET_TEMPLATE,
+    PRODUCT_MANUAL_TEMPLATE,
 } from "../../src/extensions/ieee"
+import { buildSegments } from "../../src/extensions/ieee/segment-builder.js"
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -501,6 +535,802 @@ describe("IEEE extension", () => {
         })
     })
 
+    describe("buildSegments parity", () => {
+        // Each test verifies that buildSegments(ref, TEMPLATE) produces
+        // output identical to formatCitationParts(ref).segments.
+
+        const a = author("Alex", "Brown")
+        const a2 = author("Jane", "Smith")
+        const fixedDate = new Date("2024-06-15")
+
+        it("Book — required fields only", () => {
+            const ref = validBook()
+            expect(buildSegments(ref, BOOK_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Book — all optional fields", () => {
+            const ref = {
+                ...validBook(),
+                edition: "3rd",
+                location: "Cambridge, MA",
+                isbn: "9780262046824",
+            }
+            expect(buildSegments(ref, BOOK_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Website", () => {
+            const ref = validWebsite()
+            expect(buildSegments(ref, WEBSITE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("BookChapter — required fields only", () => {
+            const ref = {
+                type: "BookChapter" as const,
+                chapterTitle: "Ch 1",
+                year: "2024",
+                authors: [a],
+                bookTitle: "Book",
+                publisher: "Pub",
+                location: "NYC",
+            }
+            expect(buildSegments(ref, BOOK_CHAPTER_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("BookChapter — with editors, pages, isbn", () => {
+            const ref = {
+                type: "BookChapter" as const,
+                chapterTitle: "Ch 1",
+                year: "2024",
+                authors: [a],
+                bookTitle: "Book",
+                publisher: "Pub",
+                location: "NYC",
+                editors: [a2, author("Bob", "Wilson")],
+                pages: "10-20",
+                isbn: "9780262046824",
+            }
+            expect(buildSegments(ref, BOOK_CHAPTER_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("BookChapter — with empty editors array", () => {
+            const ref = {
+                type: "BookChapter" as const,
+                chapterTitle: "Ch 1",
+                year: "2024",
+                authors: [a],
+                bookTitle: "Book",
+                publisher: "Pub",
+                location: "NYC",
+                editors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, BOOK_CHAPTER_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Handbook — required fields only", () => {
+            const ref = {
+                type: "Handbook" as const,
+                title: "Engineering Handbook",
+                year: "2024",
+                publisher: "Pub",
+                location: "NYC",
+            }
+            expect(buildSegments(ref, HANDBOOK_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Handbook — with edition and isbn", () => {
+            const ref = {
+                type: "Handbook" as const,
+                title: "Engineering Handbook",
+                year: "2024",
+                publisher: "Pub",
+                location: "NYC",
+                edition: "5th",
+                isbn: "9780262046824",
+            }
+            expect(buildSegments(ref, HANDBOOK_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("TechnicalReport", () => {
+            const ref = {
+                type: "TechnicalReport" as const,
+                title: "Report on Systems",
+                year: "2024",
+                authors: [a],
+                reportNumber: "TR-1",
+                institution: "MIT",
+                location: "Cambridge",
+            }
+            expect(buildSegments(ref, TECHNICAL_REPORT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Standard", () => {
+            const ref = {
+                type: "Standard" as const,
+                organization: "IEEE",
+                standardNumber: "802.11",
+                title: "WiFi",
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, STANDARD_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Thesis", () => {
+            const ref = {
+                type: "Thesis" as const,
+                title: "On Computation",
+                year: "2024",
+                authors: [a],
+                degree: "Ph.D.",
+                institution: "MIT",
+                location: "Cambridge",
+            }
+            expect(buildSegments(ref, THESIS_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Patent", () => {
+            const ref = { ...validPatent(), date: fixedDate }
+            expect(buildSegments(ref, PATENT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Dictionary — required fields only", () => {
+            const ref = {
+                type: "Dictionary" as const,
+                title: "English Dictionary",
+                year: "2024",
+                publisher: "OUP",
+            }
+            expect(buildSegments(ref, DICTIONARY_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Dictionary — with edition", () => {
+            const ref = {
+                type: "Dictionary" as const,
+                title: "English Dictionary",
+                year: "2024",
+                publisher: "OUP",
+                edition: "12th",
+            }
+            expect(buildSegments(ref, DICTIONARY_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Encyclopedia — required fields only", () => {
+            const ref = {
+                type: "Encyclopedia" as const,
+                title: "World Encyclopedia",
+                year: "2024",
+                publisher: "Britannica",
+            }
+            expect(buildSegments(ref, ENCYCLOPEDIA_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Encyclopedia — with edition", () => {
+            const ref = {
+                type: "Encyclopedia" as const,
+                title: "World Encyclopedia",
+                year: "2024",
+                publisher: "Britannica",
+                edition: "2nd",
+            }
+            expect(buildSegments(ref, ENCYCLOPEDIA_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("JournalArticle — required fields only", () => {
+            const ref = validJournalArticle()
+            expect(buildSegments(ref, JOURNAL_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("JournalArticle — all optional fields", () => {
+            const ref = {
+                ...validJournalArticle(),
+                volume: "586",
+                issue: "7",
+                pages: "1-10",
+            }
+            expect(buildSegments(ref, JOURNAL_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("MagazineArticle — required fields only", () => {
+            const ref = {
+                type: "MagazineArticle" as const,
+                title: "Tech Trends",
+                year: "2024",
+                authors: [a],
+                magazineTitle: "Mag",
+            }
+            expect(buildSegments(ref, MAGAZINE_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("MagazineArticle — all optional fields", () => {
+            const ref = {
+                type: "MagazineArticle" as const,
+                title: "Tech Trends",
+                year: "2024",
+                authors: [a],
+                magazineTitle: "Mag",
+                volume: "10",
+                issue: "3",
+                pages: "45-50",
+            }
+            expect(buildSegments(ref, MAGAZINE_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("NewspaperArticle — required fields only", () => {
+            const ref = {
+                type: "NewspaperArticle" as const,
+                title: "Breaking News",
+                authors: [a],
+                newspaperTitle: "Times",
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, NEWSPAPER_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("NewspaperArticle — with pages", () => {
+            const ref = {
+                type: "NewspaperArticle" as const,
+                title: "Breaking News",
+                authors: [a],
+                newspaperTitle: "Times",
+                date: fixedDate,
+                pages: "A1-A3",
+            }
+            expect(buildSegments(ref, NEWSPAPER_ARTICLE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ConferencePaper — required fields only", () => {
+            const ref = {
+                type: "ConferencePaper" as const,
+                title: "New Algorithms",
+                authors: [a],
+                conferenceName: "Conf",
+                location: "NYC",
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, CONFERENCE_PAPER_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ConferencePaper — with pages and doi", () => {
+            const ref = {
+                type: "ConferencePaper" as const,
+                title: "New Algorithms",
+                authors: [a],
+                conferenceName: "Conf",
+                location: "NYC",
+                date: fixedDate,
+                pages: "100-110",
+                doi: "10.1109/conf.2024.001",
+            }
+            expect(buildSegments(ref, CONFERENCE_PAPER_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ConferenceProceedings — required fields only", () => {
+            const ref = {
+                type: "ConferenceProceedings" as const,
+                conferenceName: "Conf",
+                location: "NYC",
+                date: fixedDate,
+                publisher: "Pub",
+            }
+            expect(buildSegments(ref, CONFERENCE_PROCEEDINGS_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ConferenceProceedings — with editors and isbn", () => {
+            const ref = {
+                type: "ConferenceProceedings" as const,
+                conferenceName: "Conf",
+                location: "NYC",
+                date: fixedDate,
+                publisher: "Pub",
+                editors: [a, a2],
+                isbn: "9780262046824",
+            }
+            expect(buildSegments(ref, CONFERENCE_PROCEEDINGS_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ConferenceProceedings — with empty editors array", () => {
+            const ref = {
+                type: "ConferenceProceedings" as const,
+                conferenceName: "Conf",
+                location: "NYC",
+                date: fixedDate,
+                publisher: "Pub",
+                editors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, CONFERENCE_PROCEEDINGS_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Dataset — required fields only", () => {
+            const ref = validDataset()
+            expect(buildSegments(ref, DATASET_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Dataset — with authors and version", () => {
+            const ref = {
+                ...validDataset(),
+                authors: [a, a2],
+                version: "2.0",
+            }
+            expect(buildSegments(ref, DATASET_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Dataset — with empty authors array", () => {
+            const ref = {
+                ...validDataset(),
+                authors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, DATASET_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Software — required fields only", () => {
+            const ref = {
+                type: "Software" as const,
+                title: "MyApp",
+                year: "2024",
+                url: "https://example.com",
+            }
+            expect(buildSegments(ref, SOFTWARE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Software — all optional fields", () => {
+            const ref = {
+                type: "Software" as const,
+                title: "MyApp",
+                year: "2024",
+                url: "https://example.com",
+                authors: [a],
+                version: "3.1",
+                publisher: "Dev Corp",
+                doi: "10.5281/zenodo.99999",
+            }
+            expect(buildSegments(ref, SOFTWARE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Software — with empty authors array", () => {
+            const ref = {
+                type: "Software" as const,
+                title: "MyApp",
+                year: "2024",
+                url: "https://example.com",
+                authors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, SOFTWARE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("OnlineDocument — required fields only", () => {
+            const ref = {
+                type: "OnlineDocument" as const,
+                title: "Doc",
+                url: "https://example.com",
+                accessedDate: fixedDate,
+            }
+            expect(buildSegments(ref, ONLINE_DOCUMENT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("OnlineDocument — with authors and publisher", () => {
+            const ref = {
+                type: "OnlineDocument" as const,
+                title: "Doc",
+                url: "https://example.com",
+                accessedDate: fixedDate,
+                authors: [a],
+                publisher: "Pub",
+            }
+            expect(buildSegments(ref, ONLINE_DOCUMENT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("OnlineDocument — with empty authors array", () => {
+            const ref = {
+                type: "OnlineDocument" as const,
+                title: "Doc",
+                url: "https://example.com",
+                accessedDate: fixedDate,
+                authors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, ONLINE_DOCUMENT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Blog", () => {
+            const ref = validBlog()
+            expect(buildSegments(ref, BLOG_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("SocialMedia", () => {
+            const ref = {
+                type: "SocialMedia" as const,
+                author: a,
+                platform: "Twitter",
+                postDate: fixedDate,
+                url: "https://twitter.com",
+            }
+            expect(buildSegments(ref, SOCIAL_MEDIA_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Preprint — required fields only", () => {
+            const ref = {
+                type: "Preprint" as const,
+                title: "Early Results",
+                year: "2024",
+                authors: [a],
+                server: "arXiv",
+                url: "https://arxiv.org",
+            }
+            expect(buildSegments(ref, PREPRINT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Preprint — with doi", () => {
+            const ref = {
+                type: "Preprint" as const,
+                title: "Early Results",
+                year: "2024",
+                authors: [a],
+                server: "arXiv",
+                url: "https://arxiv.org",
+                doi: "10.48550/arXiv.2401.00001",
+            }
+            expect(buildSegments(ref, PREPRINT_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Video — required fields only", () => {
+            const ref = {
+                type: "Video" as const,
+                title: "Tutorial Video",
+                platform: "YouTube",
+                url: "https://youtube.com",
+                accessedDate: fixedDate,
+            }
+            expect(buildSegments(ref, VIDEO_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Video — with authors and releaseDate", () => {
+            const ref = {
+                type: "Video" as const,
+                title: "Tutorial Video",
+                platform: "YouTube",
+                url: "https://youtube.com",
+                accessedDate: fixedDate,
+                authors: [a],
+                releaseDate: new Date("2024-01-01"),
+            }
+            expect(buildSegments(ref, VIDEO_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Video — with empty authors array", () => {
+            const ref = {
+                type: "Video" as const,
+                title: "Tutorial Video",
+                platform: "YouTube",
+                url: "https://youtube.com",
+                accessedDate: fixedDate,
+                authors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, VIDEO_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Podcast — required fields only", () => {
+            const ref = {
+                type: "Podcast" as const,
+                episodeTitle: "Ep 1",
+                seriesTitle: "Pod",
+                platform: "Spotify",
+                url: "https://spotify.com",
+                accessedDate: fixedDate,
+            }
+            expect(buildSegments(ref, PODCAST_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Podcast — with authors", () => {
+            const ref = {
+                type: "Podcast" as const,
+                episodeTitle: "Ep 1",
+                seriesTitle: "Pod",
+                platform: "Spotify",
+                url: "https://spotify.com",
+                accessedDate: fixedDate,
+                authors: [a],
+            }
+            expect(buildSegments(ref, PODCAST_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Course — required fields only", () => {
+            const ref = {
+                type: "Course" as const,
+                title: "Intro to CS",
+                year: "2024",
+                instructor: a,
+                institution: "MIT",
+                term: "Fall 2024",
+            }
+            expect(buildSegments(ref, COURSE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Course — with courseCode", () => {
+            const ref = {
+                type: "Course" as const,
+                title: "Intro to CS",
+                year: "2024",
+                instructor: a,
+                institution: "MIT",
+                term: "Fall 2024",
+                courseCode: "6.001",
+            }
+            expect(buildSegments(ref, COURSE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Presentation", () => {
+            const ref = {
+                type: "Presentation" as const,
+                title: "Keynote Talk",
+                presenter: a,
+                eventTitle: "Event",
+                location: "NYC",
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, PRESENTATION_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Interview — required fields only", () => {
+            const ref = {
+                type: "Interview" as const,
+                interviewee: a,
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, INTERVIEW_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Interview — with interviewer", () => {
+            const ref = {
+                type: "Interview" as const,
+                interviewee: a,
+                interviewer: a2,
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, INTERVIEW_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("PersonalCommunication", () => {
+            const ref = {
+                type: "PersonalCommunication" as const,
+                person: a,
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, PERSONAL_COMMUNICATION_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Email", () => {
+            const ref = {
+                type: "Email" as const,
+                sender: a,
+                recipient: a2,
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, EMAIL_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Law", () => {
+            const ref = {
+                type: "Law" as const,
+                title: "Act",
+                jurisdiction: "US",
+                dateEnacted: fixedDate,
+            }
+            expect(buildSegments(ref, LAW_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("CourtCase — required fields only", () => {
+            const ref = {
+                type: "CourtCase" as const,
+                caseName: "X v Y",
+                court: "Supreme Court",
+                date: fixedDate,
+            }
+            expect(buildSegments(ref, COURT_CASE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("CourtCase — with reporter", () => {
+            const ref = {
+                type: "CourtCase" as const,
+                caseName: "X v Y",
+                court: "Supreme Court",
+                date: fixedDate,
+                reporter: "123 U.S. 456",
+            }
+            expect(buildSegments(ref, COURT_CASE_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("GovernmentPublication — required fields only", () => {
+            const ref = {
+                type: "GovernmentPublication" as const,
+                title: "Annual Report",
+                date: fixedDate,
+                agency: "EPA",
+                location: "DC",
+            }
+            expect(buildSegments(ref, GOVERNMENT_PUBLICATION_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("GovernmentPublication — with authors and reportNumber", () => {
+            const ref = {
+                type: "GovernmentPublication" as const,
+                title: "Annual Report",
+                date: fixedDate,
+                agency: "EPA",
+                location: "DC",
+                authors: [a],
+                reportNumber: "EPA-001",
+            }
+            expect(buildSegments(ref, GOVERNMENT_PUBLICATION_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("GovernmentPublication — with empty authors array", () => {
+            const ref = {
+                type: "GovernmentPublication" as const,
+                title: "Annual Report",
+                date: fixedDate,
+                agency: "EPA",
+                location: "DC",
+                authors: [] as TAuthor[],
+            }
+            expect(buildSegments(ref, GOVERNMENT_PUBLICATION_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("Datasheet", () => {
+            const ref = {
+                type: "Datasheet" as const,
+                title: "Processor Specs",
+                year: "2024",
+                manufacturer: "Intel",
+                partNumber: "i7-12700K",
+                url: "https://intel.com",
+            }
+            expect(buildSegments(ref, DATASHEET_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ProductManual — required fields only", () => {
+            const ref = {
+                type: "ProductManual" as const,
+                title: "User Guide",
+                year: "2024",
+                manufacturer: "Dell",
+                model: "XPS 15",
+            }
+            expect(buildSegments(ref, PRODUCT_MANUAL_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+
+        it("ProductManual — with url", () => {
+            const ref = {
+                type: "ProductManual" as const,
+                title: "User Guide",
+                year: "2024",
+                manufacturer: "Dell",
+                model: "XPS 15",
+                url: "https://dell.com/manual",
+            }
+            expect(buildSegments(ref, PRODUCT_MANUAL_TEMPLATE)).toEqual(
+                formatCitationParts(ref).segments
+            )
+        })
+    })
+
     describe("formatCitationParts", () => {
         it("formats a Book citation with all optional fields", () => {
             const result = formatCitationParts({
@@ -846,9 +1676,6 @@ describe("segment template config", () => {
         expect(BOOK_TEMPLATE.length).toBeGreaterThan(0)
     })
 })
-
-import { buildSegments } from "../../src/extensions/ieee/segment-builder.js"
-import { BOOK_TEMPLATE } from "../../src/extensions/ieee/segment-templates.js"
 
 describe("buildSegments", () => {
     it("produces identical output to bookSegments for a full Book reference", () => {
