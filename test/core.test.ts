@@ -25218,3 +25218,212 @@ describe("ArgumentEngine.normalizeAllExpressions", () => {
         expect(changes.expressions!.removed.length).toBe(2)
     })
 })
+
+describe("post-load normalization", () => {
+    it("fromData normalizes unjustified formulas when autoNormalize is true", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+        ]
+        const premises: TOptionalChecksum<TCorePremise>[] = [
+            { id: "p1", argumentId: "arg-1", argumentVersion: 1 },
+        ]
+        const expressions = [
+            {
+                id: "e-and",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e-formula",
+                type: "formula" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 0,
+            },
+            {
+                id: "e-v1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-formula",
+                position: 0,
+            },
+            {
+                id: "e-v2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 1,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            aLib(),
+            sLib(),
+            csLib(),
+            variables,
+            premises,
+            expressions,
+            { conclusionPremiseId: "p1" },
+            undefined // uses DEFAULT_GRAMMAR_CONFIG (autoNormalize: true)
+        )
+
+        const pe = engine.findPremiseByExpressionId("e-v1")!
+        expect(pe.getExpression("e-formula")).toBeUndefined()
+        expect(pe.getExpression("e-v1")!.parentId).toBe("e-and")
+    })
+
+    it("fromData does not normalize when autoNormalize is false", () => {
+        const arg = { id: "arg-1", version: 1 }
+        const variables = [
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+        ]
+        const premises: TOptionalChecksum<TCorePremise>[] = [
+            { id: "p1", argumentId: "arg-1", argumentVersion: 1 },
+        ]
+        const expressions = [
+            {
+                id: "e-and",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e-formula",
+                type: "formula" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 0,
+            },
+            {
+                id: "e-v1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-formula",
+                position: 0,
+            },
+            {
+                id: "e-v2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 1,
+            },
+        ]
+        const engine = ArgumentEngine.fromData(
+            arg,
+            aLib(),
+            sLib(),
+            csLib(),
+            variables,
+            premises,
+            expressions,
+            { conclusionPremiseId: "p1" },
+            { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG },
+            PERMISSIVE_GRAMMAR_CONFIG
+        )
+
+        const pe = engine.findPremiseByExpressionId("e-formula")!
+        expect(pe.getExpression("e-formula")).toBeDefined()
+        expect(pe.getExpression("e-v1")!.parentId).toBe("e-formula")
+    })
+
+    it("fromSnapshot normalizes unjustified formulas when autoNormalize is true", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib(), {
+            grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
+        })
+        eng.addVariable(VAR_P)
+        eng.addVariable(VAR_Q)
+        const { result: pe } = eng.createPremise()
+        pe.addExpression(makeOpExpr("op-and", "and", { premiseId: pe.getId() }))
+        pe.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-and",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, {
+                parentId: "formula-1",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+        const snapshot = eng.snapshot()
+
+        // Restore with auto-normalize on (default)
+        const restored = ArgumentEngine.fromSnapshot(
+            snapshot,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+
+        const restoredPe = restored.findPremiseByExpressionId("v-p")!
+        expect(restoredPe.getExpression("formula-1")).toBeUndefined()
+        expect(restoredPe.getExpression("v-p")!.parentId).toBe("op-and")
+    })
+})

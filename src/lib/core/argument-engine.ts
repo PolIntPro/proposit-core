@@ -1287,6 +1287,15 @@ export class ArgumentEngine<
 
         engine.restoringFromSnapshot = false
 
+        // Post-load normalization: collapse unjustified formulas if the
+        // caller's grammar config requests it.
+        const restoredGrammarConfig = grammarConfig ?? DEFAULT_GRAMMAR_CONFIG
+        if (restoredGrammarConfig.autoNormalize) {
+            for (const pe of engine.premises.values()) {
+                pe.normalizeExpressions()
+            }
+        }
+
         if (checksumVerification === "strict") {
             engine.flushChecksums()
             ArgumentEngine.verifySnapshotChecksums(engine, snapshot)
@@ -1433,6 +1442,16 @@ export class ArgumentEngine<
         engine.grammarConfig = config?.grammarConfig
 
         engine.restoringFromSnapshot = false
+
+        // Post-load normalization: collapse unjustified formulas and apply
+        // grammar rules to loaded data. Runs after all expressions are in place.
+        const restoredGrammarConfig =
+            config?.grammarConfig ?? DEFAULT_GRAMMAR_CONFIG
+        if (restoredGrammarConfig.autoNormalize) {
+            for (const pe of engine.premises.values()) {
+                pe.normalizeExpressions()
+            }
+        }
 
         if (checksumVerification === "strict") {
             engine.flushChecksums()
