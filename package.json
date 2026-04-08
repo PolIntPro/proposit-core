@@ -1,5 +1,5 @@
 {
-    "name": "@polintpro/proposit-core",
+    "name": "@proposit/proposit-core",
     "version": "0.8.9",
     "description": "Core engine for building and manipulating propositional logic arguments.",
     "license": "MIT",
@@ -10,7 +10,7 @@
         "validation",
         "formal-logic"
     ],
-    "homepage": "https://github.com/polintpro/proposit-core",
+    "homepage": "https://github.com/Proposit-App/proposit-core",
     "type": "module",
     "engines": {
         "node": ">=22.3.0"
@@ -40,7 +40,7 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/polintpro/proposit-core.git"
+        "url": "git+https://github.com/Proposit-App/proposit-core.git"
     },
     "publishConfig": {
         "access": "public"
