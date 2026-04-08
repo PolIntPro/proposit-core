@@ -924,14 +924,17 @@ describe("removeExpression — operator collapse", () => {
         )
 
         // Remove expr-p → op-and has 1 child (expr-q)
-        // op-and is removed; expr-q is promoted into op-and's slot under formula-1 (pos 0)
-        // formula-1 still has 1 child (expr-q) — no further collapse
-        // op-root has 2 children: formula-1 and expr-r — no further collapse
+        // op-and collapses; expr-q promoted into formula-1
+        // formula-1 has 1 child (expr-q, a variable — no binary op) → formula-1 collapses
+        // expr-q promoted into op-root at position 0
         premise.removeExpression("expr-p", true)
 
         expect(premise.removeExpression("op-and", true).result).toBeUndefined()
-        // op-root still exists with formula-1 → expr-q and expr-r as children
-        expect(premise.toDisplayString()).toBe("((Q) ∨ R)")
+        expect(
+            premise.removeExpression("formula-1", true).result
+        ).toBeUndefined()
+        // op-root has expr-q and expr-r as direct children (no formula wrapper)
+        expect(premise.toDisplayString()).toBe("(Q ∨ R)")
     })
 
     it("does not collapse an operator that still has two or more children", () => {
@@ -24427,6 +24430,304 @@ describe("validateArgument (standalone)", () => {
             expect(() => em.removeExpression("formula-1", false)).toThrowError(
                 /would promote a non-not operator/
             )
+        })
+
+        it("collapses formula whose sole child is a variable", () => {
+            const em = new ExpressionManager()
+            // Build: or → [formula → and → [P, Q], R]
+            em.addExpression({
+                id: "op-or",
+                type: "operator",
+                operator: "or",
+                parentId: null,
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "formula-1",
+                type: "formula",
+                parentId: "op-or",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "op-and",
+                type: "operator",
+                operator: "and",
+                parentId: "formula-1",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-p",
+                type: "variable",
+                variableId: VAR_P.id,
+                parentId: "op-and",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-q",
+                type: "variable",
+                variableId: VAR_Q.id,
+                parentId: "op-and",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-r",
+                type: "variable",
+                variableId: VAR_R.id,
+                parentId: "op-or",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+
+            // Remove v-p: and has 1 child (v-q) → operator collapse promotes v-q into formula
+            // formula now has v-q (a variable, no binary operator) → formula collapses
+            // v-q promoted into op-or at position 0
+            em.removeExpression("v-p", true)
+
+            expect(em.getExpression("op-and")).toBeUndefined()
+            expect(em.getExpression("formula-1")).toBeUndefined()
+            expect(em.getExpression("v-q")!.parentId).toBe("op-or")
+        })
+
+        it("does not collapse formula whose child is a binary operator", () => {
+            const em = new ExpressionManager()
+            // Build: or → [formula → and → [P, Q, R], S]
+            em.addExpression({
+                id: "op-or",
+                type: "operator",
+                operator: "or",
+                parentId: null,
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "formula-1",
+                type: "formula",
+                parentId: "op-or",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "op-and",
+                type: "operator",
+                operator: "and",
+                parentId: "formula-1",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-p",
+                type: "variable",
+                variableId: VAR_P.id,
+                parentId: "op-and",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-q",
+                type: "variable",
+                variableId: VAR_Q.id,
+                parentId: "op-and",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-r",
+                type: "variable",
+                variableId: VAR_R.id,
+                parentId: "op-and",
+                position: 2,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-s",
+                type: "variable",
+                variableId: VAR_P.id,
+                parentId: "op-or",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+
+            // Remove v-p: and has 2 children (v-q, v-r) → no operator collapse
+            // formula still wraps and (a binary operator) → no formula collapse
+            em.removeExpression("v-p", true)
+
+            expect(em.getExpression("formula-1")).toBeDefined()
+            expect(em.getExpression("op-and")).toBeDefined()
+        })
+
+        it("collapses formula whose child is not → variable (no binary op)", () => {
+            const em = new ExpressionManager({
+                grammarConfig: {
+                    enforceFormulaBetweenOperators: false,
+                    autoNormalize: true,
+                },
+            })
+            // Build: and → [formula → not → P, Q]
+            em.addExpression({
+                id: "op-and",
+                type: "operator",
+                operator: "and",
+                parentId: null,
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "formula-1",
+                type: "formula",
+                parentId: "op-and",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "op-not",
+                type: "operator",
+                operator: "not",
+                parentId: "formula-1",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-p",
+                type: "variable",
+                variableId: VAR_P.id,
+                parentId: "op-not",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-q",
+                type: "variable",
+                variableId: VAR_Q.id,
+                parentId: "op-and",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+
+            // Trigger by removing v-p → not collapses (0 children) → formula has 0 children → formula collapses
+            em.removeExpression("v-p", true)
+
+            expect(em.getExpression("formula-1")).toBeUndefined()
+            expect(em.getExpression("op-not")).toBeUndefined()
+        })
+
+        it("stops bounded subtree check at nested formula", () => {
+            const em = new ExpressionManager({
+                grammarConfig: {
+                    enforceFormulaBetweenOperators: false,
+                    autoNormalize: true,
+                },
+            })
+            // Build: outer-formula → not → inner-formula → and → [P, Q]
+            em.addExpression({
+                id: "outer-formula",
+                type: "formula",
+                parentId: null,
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "op-not",
+                type: "operator",
+                operator: "not",
+                parentId: "outer-formula",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "inner-formula",
+                type: "formula",
+                parentId: "op-not",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "op-and",
+                type: "operator",
+                operator: "and",
+                parentId: "inner-formula",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-p",
+                type: "variable",
+                variableId: VAR_P.id,
+                parentId: "op-and",
+                position: 0,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+            em.addExpression({
+                id: "v-q",
+                type: "variable",
+                variableId: VAR_Q.id,
+                parentId: "op-and",
+                position: 1,
+                argumentId: ARG.id,
+                argumentVersion: ARG.version,
+                premiseId: "premise-1",
+            } as TExpressionInput)
+
+            // Remove v-p: and collapses (1 child v-q), inner-formula now has v-q (no binary op)
+            // inner-formula collapses, not now has v-q, outer-formula now has not → v-q (no binary op)
+            // outer-formula collapses, not promoted to root.
+            em.removeExpression("v-p", true)
+
+            expect(em.getExpression("outer-formula")).toBeUndefined()
+            expect(em.getExpression("inner-formula")).toBeUndefined()
+            expect(em.getExpression("op-and")).toBeUndefined()
+            expect(em.getExpression("op-not")!.parentId).toBeNull()
+            expect(em.getExpression("v-q")!.parentId).toBe("op-not")
         })
     })
 })

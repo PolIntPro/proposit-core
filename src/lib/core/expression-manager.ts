@@ -832,14 +832,61 @@ export class ExpressionManager<
                 } as unknown as TCorePropositionalExpression)
                 this.detachExpression(operatorId, operator)
 
-                // Prune collapsed formula from dirty set and propagate to grandparent.
                 this.dirtyExpressionIds.delete(operatorId)
                 if (grandparentId !== null) {
                     this.markExpressionDirty(grandparentId)
                 }
 
                 this.collapseIfNeeded(grandparentId)
+                return
             }
+
+            // 1-child formula: collapse if no binary operator in bounded subtree.
+            if (
+                children.length === 1 &&
+                !this.hasBinaryOperatorInBoundedSubtree(children[0].id)
+            ) {
+                const child = children[0]
+                const grandparentId = operator.parentId
+                const grandparentPosition = operator.position
+
+                // Promote child into the formula's slot.
+                const promoted = this.attachChecksum({
+                    ...child,
+                    parentId: grandparentId,
+                    position: grandparentPosition,
+                } as TExpressionInput<TExpr>)
+                this.expressions.set(child.id, promoted)
+                this.collector?.modifiedExpression({
+                    ...promoted,
+                } as unknown as TCorePropositionalExpression)
+
+                // Replace formula with promoted child in grandparent's child-id set.
+                this.childExpressionIdsByParentId
+                    .get(grandparentId)
+                    ?.delete(operatorId)
+                getOrCreate(
+                    this.childExpressionIdsByParentId,
+                    grandparentId,
+                    () => new Set()
+                ).add(child.id)
+
+                // Remove formula's own tracking entries.
+                this.childExpressionIdsByParentId.delete(operatorId)
+                this.childPositionsByParentId.delete(operatorId)
+                this.collector?.removedExpression({
+                    ...operator,
+                } as unknown as TCorePropositionalExpression)
+                this.expressions.delete(operatorId)
+
+                // Prune formula from dirty set and mark promoted child dirty.
+                this.dirtyExpressionIds.delete(operatorId)
+                this.markExpressionDirty(child.id)
+
+                // Grandparent may also be a formula that now needs collapsing.
+                this.collapseIfNeeded(grandparentId)
+            }
+
             return
         }
 
@@ -862,6 +909,11 @@ export class ExpressionManager<
             }
 
             this.collapseIfNeeded(grandparentId)
+        } else if (children.length === 1 && operator.operator === "not") {
+            // `not` is unary — 1 child is its valid state; skip collapse.
+            // Still recurse to grandparent: a formula wrapping this `not` may
+            // now qualify for collapse after a descendant change.
+            this.collapseIfNeeded(operator.parentId)
         } else if (children.length === 1) {
             const child = children[0]
             const grandparentId = operator.parentId
@@ -930,8 +982,32 @@ export class ExpressionManager<
             this.dirtyExpressionIds.delete(operatorId)
             this.markExpressionDirty(child.id)
 
-            // The grandparent's child count is unchanged; no further recursion needed.
+            // Grandparent may be a formula that now needs collapsing after the
+            // promoted child replaced the operator.
+            this.collapseIfNeeded(grandparentId)
         }
+    }
+
+    /**
+     * Checks whether the subtree rooted at `expressionId` contains a binary
+     * operator (`and` or `or`). Traversal stops at formula boundaries — a
+     * nested formula owns its own subtree and is not inspected.
+     */
+    private hasBinaryOperatorInBoundedSubtree(expressionId: string): boolean {
+        const expr = this.expressions.get(expressionId)
+        if (!expr) return false
+        if (expr.type === "formula") return false
+        if (expr.type === "variable") return false
+        if (
+            expr.type === "operator" &&
+            (expr.operator === "and" || expr.operator === "or")
+        ) {
+            return true
+        }
+        const children = this.getChildExpressions(expressionId)
+        return children.some((child) =>
+            this.hasBinaryOperatorInBoundedSubtree(child.id)
+        )
     }
 
     /** Returns `true` if any expression in the tree references the given variable ID. */
