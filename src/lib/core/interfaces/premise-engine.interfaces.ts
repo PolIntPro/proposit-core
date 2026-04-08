@@ -224,6 +224,18 @@ export interface TExpressionMutations<
         targetChildId?: string,
         extraFields?: Partial<TExpr>
     ): TCoreMutationResult<TExpr | null, TExpr, TVar, TPremise, TArg>
+    /**
+     * Performs a full normalization sweep on this premise's expression tree.
+     * Collapses unjustified formulas, operators with 0/1 children, and inserts
+     * formula buffers where needed. Works regardless of `autoNormalize` setting.
+     */
+    normalizeExpressions(): TCoreMutationResult<
+        void,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg
+    >
 }
 
 /**

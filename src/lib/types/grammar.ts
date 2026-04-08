@@ -16,11 +16,17 @@ export type TGrammarOptions = {
  * Controls which structural rules are enforced and whether violations are
  * automatically corrected.
  *
- * **`autoNormalize` scope:** Supported in all expression mutation operations
- * including `addExpression`, `insertExpression`, `wrapExpression`, and
- * bulk-loading paths (`loadInitialExpressions`). `removeExpression` always
- * throws on violations regardless of this flag (there is no meaningful
- * auto-normalization for removal).
+ * **`autoNormalize` scope:** When `true`, expression mutation operations
+ * (`addExpression`, `insertExpression`, `wrapExpression`) auto-insert formula
+ * buffers. `removeExpression` auto-collapses operators with 0 or 1 children
+ * and collapses formulas whose bounded subtree has no binary operator
+ * (`and`/`or`). When `false`, no automatic structural changes occur — the
+ * tree can be in any state including incomplete or grammar-violating.
+ *
+ * **Formula collapse rule:** A formula node is only justified if its bounded
+ * subtree (stopping at the next nested formula) contains a binary operator
+ * (`and` or `or`). Formulas wrapping only variables, `not` chains, or other
+ * non-binary subtrees are automatically collapsed when `autoNormalize` is `true`.
  */
 export type TGrammarConfig = TGrammarOptions & {
     /** When `true`, auto-fix violations where possible instead of throwing. */
