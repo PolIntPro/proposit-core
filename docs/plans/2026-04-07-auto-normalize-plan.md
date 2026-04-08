@@ -23,6 +23,7 @@
 ### Task 1: Gate `collapseIfNeeded` on `autoNormalize` and change default
 
 **Files:**
+
 - Modify: `src/lib/types/grammar.ts:31-34`
 - Modify: `src/lib/core/expression-manager.ts:819` (`collapseIfNeeded`)
 - Modify: `src/lib/core/expression-manager.ts:1074` (`simulateCollapseChain`)
@@ -114,7 +115,7 @@ describe("autoNormalize gating", () => {
     })
 
     it("collapse still works with autoNormalize true (default)", () => {
-        const em = new ExpressionManager()  // uses DEFAULT_GRAMMAR_CONFIG
+        const em = new ExpressionManager() // uses DEFAULT_GRAMMAR_CONFIG
         em.addExpression({
             id: "op-and",
             type: "operator",
@@ -162,34 +163,63 @@ describe("autoNormalize gating", () => {
         })
         // Build: and → [formula → or → [P, Q], R]
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "formula-1", type: "formula",
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "formula-1",
+            type: "formula",
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "op-or", type: "operator", operator: "or",
-            parentId: "formula-1", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-or",
+            type: "operator",
+            operator: "or",
+            parentId: "formula-1",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-p", type: "variable", variableId: VAR_P.id,
-            parentId: "op-or", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-p",
+            type: "variable",
+            variableId: VAR_P.id,
+            parentId: "op-or",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-q", type: "variable", variableId: VAR_Q.id,
-            parentId: "op-or", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-q",
+            type: "variable",
+            variableId: VAR_Q.id,
+            parentId: "op-or",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-r", type: "variable", variableId: VAR_R.id,
-            parentId: "op-and", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-r",
+            type: "variable",
+            variableId: VAR_R.id,
+            parentId: "op-and",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         // With autoNormalize:false, removing formula-1 (deleteSubtree:false) does
@@ -295,8 +325,13 @@ it("fromData with no grammar config defaults to auto-normalize", () => {
     // ... same setup ...
     // Default config now has autoNormalize: true — auto-normalizes instead of throwing
     const engine = ArgumentEngine.fromData(
-        arg, aLib(), sLib(), csLib(),
-        variables, premises, expressions,
+        arg,
+        aLib(),
+        sLib(),
+        csLib(),
+        variables,
+        premises,
+        expressions,
         { conclusionPremiseId: "p1" }
     )
     // or is now wrapped in an auto-inserted formula under and
@@ -309,8 +344,13 @@ it("fromData with no grammar config defaults to auto-normalize", () => {
     // Explicit permissive config still allows bare operator-under-operator
     expect(() =>
         ArgumentEngine.fromData(
-            arg, aLib(), sLib(), csLib(),
-            variables, premises, expressions,
+            arg,
+            aLib(),
+            sLib(),
+            csLib(),
+            variables,
+            premises,
+            expressions,
             { conclusionPremiseId: "p1" },
             { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG },
             PERMISSIVE_GRAMMAR_CONFIG
@@ -336,6 +376,7 @@ git commit -m "refactor: gate collapseIfNeeded on autoNormalize, change default 
 ### Task 2: Add `hasBinaryOperatorInBoundedSubtree` helper and formula collapse
 
 **Files:**
+
 - Modify: `src/lib/core/expression-manager.ts:819-843` (`collapseIfNeeded` formula branch)
 - Test: `test/core.test.ts`
 
@@ -348,34 +389,63 @@ it("collapses formula whose sole child is a variable", () => {
     const em = new ExpressionManager()
     // Build: or → [formula → and → [P, Q], R]
     em.addExpression({
-        id: "op-or", type: "operator", operator: "or",
-        parentId: null, position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-or",
+        type: "operator",
+        operator: "or",
+        parentId: null,
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "formula-1", type: "formula",
-        parentId: "op-or", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "formula-1",
+        type: "formula",
+        parentId: "op-or",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-and", type: "operator", operator: "and",
-        parentId: "formula-1", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-and",
+        type: "operator",
+        operator: "and",
+        parentId: "formula-1",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-p", type: "variable", variableId: VAR_P.id,
-        parentId: "op-and", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-p",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-and",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-q", type: "variable", variableId: VAR_Q.id,
-        parentId: "op-and", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-q",
+        type: "variable",
+        variableId: VAR_Q.id,
+        parentId: "op-and",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-r", type: "variable", variableId: VAR_R.id,
-        parentId: "op-or", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-r",
+        type: "variable",
+        variableId: VAR_R.id,
+        parentId: "op-or",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
 
     // Remove v-p: and has 1 child (v-q) → operator collapse promotes v-q into formula
@@ -392,39 +462,73 @@ it("does not collapse formula whose child is a binary operator", () => {
     const em = new ExpressionManager()
     // Build: or → [formula → and → [P, Q, R], S]
     em.addExpression({
-        id: "op-or", type: "operator", operator: "or",
-        parentId: null, position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-or",
+        type: "operator",
+        operator: "or",
+        parentId: null,
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "formula-1", type: "formula",
-        parentId: "op-or", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "formula-1",
+        type: "formula",
+        parentId: "op-or",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-and", type: "operator", operator: "and",
-        parentId: "formula-1", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-and",
+        type: "operator",
+        operator: "and",
+        parentId: "formula-1",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-p", type: "variable", variableId: VAR_P.id,
-        parentId: "op-and", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-p",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-and",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-q", type: "variable", variableId: VAR_Q.id,
-        parentId: "op-and", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-q",
+        type: "variable",
+        variableId: VAR_Q.id,
+        parentId: "op-and",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-r", type: "variable", variableId: VAR_R.id,
-        parentId: "op-and", position: 2,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-r",
+        type: "variable",
+        variableId: VAR_R.id,
+        parentId: "op-and",
+        position: 2,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-s", type: "variable", variableId: VAR_P.id,
-        parentId: "op-or", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-s",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-or",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
 
     // Remove v-p: and has 2 children (v-q, v-r) → no operator collapse
@@ -444,29 +548,53 @@ it("collapses formula whose child is not → variable (no binary op)", () => {
     })
     // Build: and → [formula → not → P, Q]
     em.addExpression({
-        id: "op-and", type: "operator", operator: "and",
-        parentId: null, position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-and",
+        type: "operator",
+        operator: "and",
+        parentId: null,
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "formula-1", type: "formula",
-        parentId: "op-and", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "formula-1",
+        type: "formula",
+        parentId: "op-and",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-not", type: "operator", operator: "not",
-        parentId: "formula-1", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-not",
+        type: "operator",
+        operator: "not",
+        parentId: "formula-1",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-p", type: "variable", variableId: VAR_P.id,
-        parentId: "op-not", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-p",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-not",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-q", type: "variable", variableId: VAR_Q.id,
-        parentId: "op-and", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-q",
+        type: "variable",
+        variableId: VAR_Q.id,
+        parentId: "op-and",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
 
     // Formula's bounded subtree: not → P. No binary operator. Formula should collapse.
@@ -486,34 +614,62 @@ it("stops bounded subtree check at nested formula", () => {
     })
     // Build: outer-formula → not → inner-formula → and → [P, Q]
     em.addExpression({
-        id: "outer-formula", type: "formula",
-        parentId: null, position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "outer-formula",
+        type: "formula",
+        parentId: null,
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-not", type: "operator", operator: "not",
-        parentId: "outer-formula", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-not",
+        type: "operator",
+        operator: "not",
+        parentId: "outer-formula",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "inner-formula", type: "formula",
-        parentId: "op-not", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "inner-formula",
+        type: "formula",
+        parentId: "op-not",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-and", type: "operator", operator: "and",
-        parentId: "inner-formula", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-and",
+        type: "operator",
+        operator: "and",
+        parentId: "inner-formula",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-p", type: "variable", variableId: VAR_P.id,
-        parentId: "op-and", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-p",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-and",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-q", type: "variable", variableId: VAR_Q.id,
-        parentId: "op-and", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-q",
+        type: "variable",
+        variableId: VAR_Q.id,
+        parentId: "op-and",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
 
     // outer-formula's bounded subtree is: not → inner-formula (stop). No binary op found.
@@ -610,9 +766,7 @@ if (operator.type === "formula") {
         } as unknown as TCorePropositionalExpression)
 
         // Replace formula with promoted child in grandparent's child-id set.
-        this.childExpressionIdsByParentId
-            .get(grandparentId)
-            ?.delete(operatorId)
+        this.childExpressionIdsByParentId.get(grandparentId)?.delete(operatorId)
         getOrCreate(
             this.childExpressionIdsByParentId,
             grandparentId,
@@ -732,6 +886,7 @@ git commit -m "feat: add formula collapse for formulas without binary operator d
 ### Task 3: Extend `simulateCollapseChain` for new collapse cascades
 
 **Files:**
+
 - Modify: `src/lib/core/expression-manager.ts:1074-1104` (`simulateCollapseChain`)
 - Test: `test/core.test.ts`
 
@@ -747,39 +902,73 @@ it("assertRemovalSafe accounts for formula collapse after operator promotion", (
     // Q promoted into formula → formula has Q (variable, no binary op) → formula collapses,
     // Q promoted into and. This is all safe — no root-only or nesting violations.
     em.addExpression({
-        id: "op-and", type: "operator", operator: "and",
-        parentId: null, position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-and",
+        type: "operator",
+        operator: "and",
+        parentId: null,
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "formula-1", type: "formula",
-        parentId: "op-and", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "formula-1",
+        type: "formula",
+        parentId: "op-and",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-or", type: "operator", operator: "or",
-        parentId: "formula-1", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-or",
+        type: "operator",
+        operator: "or",
+        parentId: "formula-1",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "op-not", type: "operator", operator: "not",
-        parentId: "op-or", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "op-not",
+        type: "operator",
+        operator: "not",
+        parentId: "op-or",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-p", type: "variable", variableId: VAR_P.id,
-        parentId: "op-not", position: 0,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-p",
+        type: "variable",
+        variableId: VAR_P.id,
+        parentId: "op-not",
+        position: 0,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-q", type: "variable", variableId: VAR_Q.id,
-        parentId: "op-or", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-q",
+        type: "variable",
+        variableId: VAR_Q.id,
+        parentId: "op-or",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
     em.addExpression({
-        id: "v-r", type: "variable", variableId: VAR_R.id,
-        parentId: "op-and", position: 1,
-        argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+        id: "v-r",
+        type: "variable",
+        variableId: VAR_R.id,
+        parentId: "op-and",
+        position: 1,
+        argumentId: ARG.id,
+        argumentVersion: ARG.version,
+        premiseId: "premise-1",
     } as TExpressionInput)
 
     // Should not throw — entire cascade is safe
@@ -934,6 +1123,7 @@ git commit -m "feat: extend collapse simulation for formula collapse and post-pr
 ### Task 4: Public `normalize()` on `ExpressionManager`
 
 **Files:**
+
 - Modify: `src/lib/core/expression-manager.ts`
 - Test: `test/core.test.ts`
 
@@ -949,24 +1139,43 @@ describe("ExpressionManager.normalize", () => {
         })
         // Build: and → [formula → P, Q] (formula wrapping a variable is unjustified)
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "formula-1", type: "formula",
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "formula-1",
+            type: "formula",
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-p", type: "variable", variableId: VAR_P.id,
-            parentId: "formula-1", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-p",
+            type: "variable",
+            variableId: VAR_P.id,
+            parentId: "formula-1",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-q", type: "variable", variableId: VAR_Q.id,
-            parentId: "op-and", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-q",
+            type: "variable",
+            variableId: VAR_Q.id,
+            parentId: "op-and",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -980,9 +1189,14 @@ describe("ExpressionManager.normalize", () => {
             grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
         })
         em.addExpression({
-            id: "op-not", type: "operator", operator: "not",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-not",
+            type: "operator",
+            operator: "not",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -995,14 +1209,24 @@ describe("ExpressionManager.normalize", () => {
             grammarConfig: PERMISSIVE_GRAMMAR_CONFIG,
         })
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-p", type: "variable", variableId: VAR_P.id,
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-p",
+            type: "variable",
+            variableId: VAR_P.id,
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -1017,14 +1241,24 @@ describe("ExpressionManager.normalize", () => {
         })
         // Build: and → or (missing formula buffer)
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "op-or", type: "operator", operator: "or",
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-or",
+            type: "operator",
+            operator: "or",
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -1045,29 +1279,53 @@ describe("ExpressionManager.normalize", () => {
         // After collapse, not is direct child of and → needs formula buffer.
         // Wait — not is exempt from the nesting rule, so no formula buffer needed.
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "formula-1", type: "formula",
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "formula-1",
+            type: "formula",
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "op-not", type: "operator", operator: "not",
-            parentId: "formula-1", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-not",
+            type: "operator",
+            operator: "not",
+            parentId: "formula-1",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-p", type: "variable", variableId: VAR_P.id,
-            parentId: "op-not", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-p",
+            type: "variable",
+            variableId: VAR_P.id,
+            parentId: "op-not",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-q", type: "variable", variableId: VAR_Q.id,
-            parentId: "op-and", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-q",
+            type: "variable",
+            variableId: VAR_Q.id,
+            parentId: "op-and",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -1081,34 +1339,63 @@ describe("ExpressionManager.normalize", () => {
         const em = new ExpressionManager()
         // Build a valid tree: and → [formula → or → [P, Q], R]
         em.addExpression({
-            id: "op-and", type: "operator", operator: "and",
-            parentId: null, position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-and",
+            type: "operator",
+            operator: "and",
+            parentId: null,
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "formula-1", type: "formula",
-            parentId: "op-and", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "formula-1",
+            type: "formula",
+            parentId: "op-and",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "op-or", type: "operator", operator: "or",
-            parentId: "formula-1", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "op-or",
+            type: "operator",
+            operator: "or",
+            parentId: "formula-1",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-p", type: "variable", variableId: VAR_P.id,
-            parentId: "op-or", position: 0,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-p",
+            type: "variable",
+            variableId: VAR_P.id,
+            parentId: "op-or",
+            position: 0,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-q", type: "variable", variableId: VAR_Q.id,
-            parentId: "op-or", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-q",
+            type: "variable",
+            variableId: VAR_Q.id,
+            parentId: "op-or",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
         em.addExpression({
-            id: "v-r", type: "variable", variableId: VAR_R.id,
-            parentId: "op-and", position: 1,
-            argumentId: ARG.id, argumentVersion: ARG.version, premiseId: "premise-1",
+            id: "v-r",
+            type: "variable",
+            variableId: VAR_R.id,
+            parentId: "op-and",
+            position: 1,
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
         } as TExpressionInput)
 
         em.normalize()
@@ -1282,6 +1569,7 @@ git commit -m "feat: add ExpressionManager.normalize() for on-demand normalizati
 ### Task 5: `normalizeExpressions()` on `PremiseEngine` and `normalizeAllExpressions()` on `ArgumentEngine`
 
 **Files:**
+
 - Modify: `src/lib/core/premise-engine.ts`
 - Modify: `src/lib/core/argument-engine.ts`
 - Test: `test/core.test.ts`
@@ -1316,8 +1604,12 @@ describe("PremiseEngine.normalizeExpressions", () => {
         expect(pe.getExpression("formula-1")).toBeUndefined()
         expect(pe.getExpression("v-p")!.parentId).toBe("op-and")
         // Changeset reflects the changes
-        expect(changes.expressions!.removed.some((e) => e.id === "formula-1")).toBe(true)
-        expect(changes.expressions!.modified.some((e) => e.id === "v-p")).toBe(true)
+        expect(
+            changes.expressions!.removed.some((e) => e.id === "formula-1")
+        ).toBe(true)
+        expect(changes.expressions!.modified.some((e) => e.id === "v-p")).toBe(
+            true
+        )
     })
 })
 
@@ -1332,20 +1624,28 @@ describe("ArgumentEngine.normalizeAllExpressions", () => {
         const { result: pe2 } = eng.createPremise()
 
         // pe1: and → [formula → P, Q]
-        pe1.addExpression(makeOpExpr("op-and-1", "and", { premiseId: pe1.getId() }))
+        pe1.addExpression(
+            makeOpExpr("op-and-1", "and", { premiseId: pe1.getId() })
+        )
         pe1.addExpression(
             makeFormulaExpr("formula-1", {
-                parentId: "op-and-1", position: 0, premiseId: pe1.getId(),
+                parentId: "op-and-1",
+                position: 0,
+                premiseId: pe1.getId(),
             })
         )
         pe1.addExpression(
             makeVarExpr("v-p-1", VAR_P.id, {
-                parentId: "formula-1", position: 0, premiseId: pe1.getId(),
+                parentId: "formula-1",
+                position: 0,
+                premiseId: pe1.getId(),
             })
         )
         pe1.addExpression(
             makeVarExpr("v-q-1", VAR_Q.id, {
-                parentId: "op-and-1", position: 1, premiseId: pe1.getId(),
+                parentId: "op-and-1",
+                position: 1,
+                premiseId: pe1.getId(),
             })
         )
 
@@ -1355,7 +1655,9 @@ describe("ArgumentEngine.normalizeAllExpressions", () => {
         )
         pe2.addExpression(
             makeVarExpr("v-q-2", VAR_Q.id, {
-                parentId: "formula-2", position: 0, premiseId: pe2.getId(),
+                parentId: "formula-2",
+                position: 0,
+                premiseId: pe2.getId(),
             })
         )
 
@@ -1462,6 +1764,7 @@ git commit -m "feat: add normalizeExpressions() and normalizeAllExpressions() pu
 ### Task 6: Post-load normalization in `fromSnapshot` and `fromData`
 
 **Files:**
+
 - Modify: `src/lib/core/argument-engine.ts:1161-1270` (`fromSnapshot`)
 - Modify: `src/lib/core/argument-engine.ts:1278-1430` (`fromData`)
 - Test: `test/core.test.ts`
@@ -1473,24 +1776,78 @@ describe("post-load normalization", () => {
     it("fromData normalizes unjustified formulas when autoNormalize is true", () => {
         const arg = { id: "arg-1", version: 1 }
         const variables = [
-            { id: "v1", symbol: "P", argumentId: "arg-1", argumentVersion: 1, claimId: "claim-default", claimVersion: 0 },
-            { id: "v2", symbol: "Q", argumentId: "arg-1", argumentVersion: 1, claimId: "claim-default", claimVersion: 0 },
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
         ]
         const premises: TOptionalChecksum<TCorePremise>[] = [
             { id: "p1", argumentId: "arg-1", argumentVersion: 1 },
         ]
         // Tree: and → [formula → P, Q] (formula wrapping a variable is unjustified)
         const expressions = [
-            { id: "e-and", type: "operator" as const, operator: "and" as const, argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: null, position: 0 },
-            { id: "e-formula", type: "formula" as const, argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-and", position: 0 },
-            { id: "e-v1", type: "variable" as const, variableId: "v1", argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-formula", position: 0 },
-            { id: "e-v2", type: "variable" as const, variableId: "v2", argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-and", position: 1 },
+            {
+                id: "e-and",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e-formula",
+                type: "formula" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 0,
+            },
+            {
+                id: "e-v1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-formula",
+                position: 0,
+            },
+            {
+                id: "e-v2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 1,
+            },
         ]
         const engine = ArgumentEngine.fromData(
-            arg, aLib(), sLib(), csLib(),
-            variables, premises, expressions,
+            arg,
+            aLib(),
+            sLib(),
+            csLib(),
+            variables,
+            premises,
+            expressions,
             { conclusionPremiseId: "p1" },
-            undefined, // config — uses DEFAULT_GRAMMAR_CONFIG (autoNormalize: true)
+            undefined // config — uses DEFAULT_GRAMMAR_CONFIG (autoNormalize: true)
         )
 
         // formula was collapsed during post-load normalization
@@ -1502,24 +1859,78 @@ describe("post-load normalization", () => {
     it("fromData does not normalize when autoNormalize is false", () => {
         const arg = { id: "arg-1", version: 1 }
         const variables = [
-            { id: "v1", symbol: "P", argumentId: "arg-1", argumentVersion: 1, claimId: "claim-default", claimVersion: 0 },
-            { id: "v2", symbol: "Q", argumentId: "arg-1", argumentVersion: 1, claimId: "claim-default", claimVersion: 0 },
+            {
+                id: "v1",
+                symbol: "P",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
+            {
+                id: "v2",
+                symbol: "Q",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                claimId: "claim-default",
+                claimVersion: 0,
+            },
         ]
         const premises: TOptionalChecksum<TCorePremise>[] = [
             { id: "p1", argumentId: "arg-1", argumentVersion: 1 },
         ]
         const expressions = [
-            { id: "e-and", type: "operator" as const, operator: "and" as const, argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: null, position: 0 },
-            { id: "e-formula", type: "formula" as const, argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-and", position: 0 },
-            { id: "e-v1", type: "variable" as const, variableId: "v1", argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-formula", position: 0 },
-            { id: "e-v2", type: "variable" as const, variableId: "v2", argumentId: "arg-1", argumentVersion: 1, premiseId: "p1", parentId: "e-and", position: 1 },
+            {
+                id: "e-and",
+                type: "operator" as const,
+                operator: "and" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: null,
+                position: 0,
+            },
+            {
+                id: "e-formula",
+                type: "formula" as const,
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 0,
+            },
+            {
+                id: "e-v1",
+                type: "variable" as const,
+                variableId: "v1",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-formula",
+                position: 0,
+            },
+            {
+                id: "e-v2",
+                type: "variable" as const,
+                variableId: "v2",
+                argumentId: "arg-1",
+                argumentVersion: 1,
+                premiseId: "p1",
+                parentId: "e-and",
+                position: 1,
+            },
         ]
         const engine = ArgumentEngine.fromData(
-            arg, aLib(), sLib(), csLib(),
-            variables, premises, expressions,
+            arg,
+            aLib(),
+            sLib(),
+            csLib(),
+            variables,
+            premises,
+            expressions,
             { conclusionPremiseId: "p1" },
             { grammarConfig: PERMISSIVE_GRAMMAR_CONFIG },
-            PERMISSIVE_GRAMMAR_CONFIG,
+            PERMISSIVE_GRAMMAR_CONFIG
         )
 
         // formula survives — no normalization
@@ -1539,24 +1950,33 @@ describe("post-load normalization", () => {
         pe.addExpression(makeOpExpr("op-and", "and", { premiseId: pe.getId() }))
         pe.addExpression(
             makeFormulaExpr("formula-1", {
-                parentId: "op-and", position: 0, premiseId: pe.getId(),
+                parentId: "op-and",
+                position: 0,
+                premiseId: pe.getId(),
             })
         )
         pe.addExpression(
             makeVarExpr("v-p", VAR_P.id, {
-                parentId: "formula-1", position: 0, premiseId: pe.getId(),
+                parentId: "formula-1",
+                position: 0,
+                premiseId: pe.getId(),
             })
         )
         pe.addExpression(
             makeVarExpr("v-q", VAR_Q.id, {
-                parentId: "op-and", position: 1, premiseId: pe.getId(),
+                parentId: "op-and",
+                position: 1,
+                premiseId: pe.getId(),
             })
         )
         const snapshot = eng.snapshot()
 
         // Restore with auto-normalize on (default)
         const restored = ArgumentEngine.fromSnapshot(
-            snapshot, aLib(), sLib(), csLib(),
+            snapshot,
+            aLib(),
+            sLib(),
+            csLib()
         )
 
         const restoredPe = restored.findPremiseByExpressionId("v-p")!
@@ -1580,8 +2000,7 @@ engine.restoringFromSnapshot = false
 
 // Post-load normalization: collapse unjustified formulas and apply
 // grammar rules to loaded data. Runs after all expressions are in place.
-const restoredGrammarConfig =
-    config?.grammarConfig ?? DEFAULT_GRAMMAR_CONFIG
+const restoredGrammarConfig = config?.grammarConfig ?? DEFAULT_GRAMMAR_CONFIG
 if (restoredGrammarConfig.autoNormalize) {
     for (const pe of engine.premises.values()) {
         pe.normalizeExpressions()
@@ -1629,6 +2048,7 @@ git commit -m "feat: add post-load normalization in fromSnapshot and fromData"
 ### Task 7: Update JSDoc and grammar type documentation
 
 **Files:**
+
 - Modify: `src/lib/types/grammar.ts`
 - Modify: `src/lib/core/expression-manager.ts` (class-level JSDoc)
 
@@ -1684,6 +2104,7 @@ git commit -m "docs: update grammar config JSDoc for autoNormalize and formula c
 ### Task 8: Export new public API and update CLAUDE.md
 
 **Files:**
+
 - Modify: `src/lib/core/interfaces/premise-engine.interfaces.ts` (if interface exists for PremiseEngine)
 - Modify: `CLAUDE.md`
 

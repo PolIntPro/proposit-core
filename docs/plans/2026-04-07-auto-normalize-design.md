@@ -23,7 +23,7 @@ Separately, operator collapse (0/1 children) currently runs unconditionally — 
 ```typescript
 DEFAULT_GRAMMAR_CONFIG = {
     enforceFormulaBetweenOperators: true,
-    autoNormalize: true   // was false
+    autoNormalize: true, // was false
 }
 ```
 
@@ -51,6 +51,7 @@ private hasBinaryOperatorInBoundedSubtree(expressionId: string): boolean
 ```
 
 Walks the subtree rooted at `expressionId`:
+
 - Returns `true` if it encounters an `and` or `or` operator expression.
 - Stops traversal at formula boundaries (returns `false` for that branch — the nested formula owns its own subtree).
 - Returns `false` for variable expressions (leaf).
@@ -90,12 +91,14 @@ public normalize(): void
 ```
 
 Performs a full normalization sweep:
+
 1. Finds all formulas whose bounded subtree has no binary operator and collapses them.
 2. Runs operator collapse (0/1 children) on any operators that need it.
 3. Inserts formula buffers where `enforceFormulaBetweenOperators` requires them (binary operators as direct children of operators without formula wrappers).
 4. Repeats until stable (collapsing one node may expose another).
 
 Exposed through the engine API:
+
 - `PremiseEngine.normalizeExpressions()` — normalizes one premise's expression tree, returns changeset.
 - `ArgumentEngine.normalizeAllExpressions()` — normalizes all premises, returns combined changeset.
 
@@ -114,6 +117,7 @@ Normalization does NOT run inline during loading. Expressions are loaded permiss
 ### 6. Changeset Semantics
 
 Formula collapse produces the same changeset entries as operator collapse:
+
 - **Formula deleted**: `removedExpression` event
 - **Child promoted**: `modifiedExpression` event (parentId/position changed)
 - Dirty propagation follows existing patterns (mark promoted child dirty, prune deleted from dirty set)
