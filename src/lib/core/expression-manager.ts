@@ -818,6 +818,42 @@ export class ExpressionManager<
         return target
     }
 
+    /**
+     * Promotes `child` into the slot occupied by `parent` and removes `parent`.
+     * Used by `collapseIfNeeded` and `normalize()`.
+     */
+    private promoteChild(parentId: string, parent: TExpr, child: TExpr): void {
+        const grandparentId = parent.parentId
+        const grandparentPosition = parent.position
+
+        const promoted = this.attachChecksum({
+            ...child,
+            parentId: grandparentId,
+            position: grandparentPosition,
+        } as TExpressionInput<TExpr>)
+        this.expressions.set(child.id, promoted)
+        this.collector?.modifiedExpression({
+            ...promoted,
+        } as unknown as TCorePropositionalExpression)
+
+        this.childExpressionIdsByParentId.get(grandparentId)?.delete(parentId)
+        getOrCreate(
+            this.childExpressionIdsByParentId,
+            grandparentId,
+            () => new Set()
+        ).add(child.id)
+
+        this.childExpressionIdsByParentId.delete(parentId)
+        this.childPositionsByParentId.delete(parentId)
+        this.collector?.removedExpression({
+            ...parent,
+        } as unknown as TCorePropositionalExpression)
+        this.expressions.delete(parentId)
+
+        this.dirtyExpressionIds.delete(parentId)
+        this.markExpressionDirty(child.id)
+    }
+
     private collapseIfNeeded(operatorId: string | null): void {
         if (!this.grammarConfig.autoNormalize) return
         if (operatorId === null) return
@@ -848,42 +884,8 @@ export class ExpressionManager<
                 children.length === 1 &&
                 !this.hasBinaryOperatorInBoundedSubtree(children[0].id)
             ) {
-                const child = children[0]
                 const grandparentId = operator.parentId
-                const grandparentPosition = operator.position
-
-                // Promote child into the formula's slot.
-                const promoted = this.attachChecksum({
-                    ...child,
-                    parentId: grandparentId,
-                    position: grandparentPosition,
-                } as TExpressionInput<TExpr>)
-                this.expressions.set(child.id, promoted)
-                this.collector?.modifiedExpression({
-                    ...promoted,
-                } as unknown as TCorePropositionalExpression)
-
-                // Replace formula with promoted child in grandparent's child-id set.
-                this.childExpressionIdsByParentId
-                    .get(grandparentId)
-                    ?.delete(operatorId)
-                getOrCreate(
-                    this.childExpressionIdsByParentId,
-                    grandparentId,
-                    () => new Set()
-                ).add(child.id)
-
-                // Remove formula's own tracking entries.
-                this.childExpressionIdsByParentId.delete(operatorId)
-                this.childPositionsByParentId.delete(operatorId)
-                this.collector?.removedExpression({
-                    ...operator,
-                } as unknown as TCorePropositionalExpression)
-                this.expressions.delete(operatorId)
-
-                // Prune formula from dirty set and mark promoted child dirty.
-                this.dirtyExpressionIds.delete(operatorId)
-                this.markExpressionDirty(child.id)
+                this.promoteChild(operatorId, operator, children[0])
 
                 // Grandparent may also be a formula that now needs collapsing.
                 this.collapseIfNeeded(grandparentId)
@@ -919,7 +921,6 @@ export class ExpressionManager<
         } else if (children.length === 1) {
             const child = children[0]
             const grandparentId = operator.parentId
-            const grandparentPosition = operator.position
 
             // Defense-in-depth: validate promotion doesn't violate nesting or root-only rules.
             if (child.type === "operator") {
@@ -946,43 +947,7 @@ export class ExpressionManager<
                 }
             }
 
-            // Promote the surviving child into the operator's slot in the grandparent.
-            const promoted = this.attachChecksum({
-                ...child,
-                parentId: grandparentId,
-                position: grandparentPosition,
-            } as TExpressionInput<TExpr>)
-            this.expressions.set(child.id, promoted)
-            this.collector?.modifiedExpression({
-                ...promoted,
-            } as unknown as TCorePropositionalExpression)
-
-            // Replace the operator with the promoted child in the grandparent's child-id set.
-            this.childExpressionIdsByParentId
-                .get(grandparentId)
-                ?.delete(operatorId)
-            getOrCreate(
-                this.childExpressionIdsByParentId,
-                grandparentId,
-                () => new Set()
-            ).add(child.id)
-
-            // The grandparent's position set is unchanged: grandparentPosition was
-            // already tracked for the operator and continues to be occupied by the
-            // promoted child.
-
-            // Remove the operator's own tracking entries.
-            this.childExpressionIdsByParentId.delete(operatorId)
-            this.childPositionsByParentId.delete(operatorId)
-            this.collector?.removedExpression({
-                ...operator,
-            } as unknown as TCorePropositionalExpression)
-            this.expressions.delete(operatorId)
-
-            // Prune collapsed operator from dirty set and mark promoted child dirty
-            // (its parentId changed) which also propagates to ancestors.
-            this.dirtyExpressionIds.delete(operatorId)
-            this.markExpressionDirty(child.id)
+            this.promoteChild(operatorId, operator, child)
 
             // Grandparent may be a formula that now needs collapsing after the
             // promoted child replaced the operator.
@@ -1010,6 +975,90 @@ export class ExpressionManager<
         return children.some((child) =>
             this.hasBinaryOperatorInBoundedSubtree(child.id)
         )
+    }
+
+    /**
+     * Performs a full normalization sweep on the expression tree:
+     * 1. Collapses operators with 0 or 1 children.
+     * 2. Collapses formulas whose bounded subtree has no binary operator.
+     * 3. Inserts formula buffers where `enforceFormulaBetweenOperators` requires them.
+     * 4. Repeats until stable.
+     *
+     * Works regardless of the current `autoNormalize` setting — this is an
+     * explicit on-demand normalization.
+     */
+    public normalize(): void {
+        let changed = true
+        while (changed) {
+            changed = false
+
+            // Pass 1: Collapse operators with 0 or 1 children (bottom-up).
+            for (const expr of this.toArray()) {
+                if (expr.type !== "operator") continue
+                if (!this.expressions.has(expr.id)) continue
+                const children = this.getChildExpressions(expr.id)
+                if (children.length === 0) {
+                    const grandparentId = expr.parentId
+                    this.collector?.removedExpression({
+                        ...expr,
+                    } as unknown as TCorePropositionalExpression)
+                    this.detachExpression(expr.id, expr)
+                    this.dirtyExpressionIds.delete(expr.id)
+                    if (grandparentId !== null) {
+                        this.markExpressionDirty(grandparentId)
+                    }
+                    changed = true
+                } else if (children.length === 1 && expr.operator !== "not") {
+                    this.promoteChild(expr.id, expr, children[0])
+                    changed = true
+                }
+            }
+
+            // Pass 2: Collapse unjustified formulas (bottom-up).
+            for (const expr of this.toArray()) {
+                if (expr.type !== "formula") continue
+                if (!this.expressions.has(expr.id)) continue
+                const children = this.getChildExpressions(expr.id)
+                if (children.length === 0) {
+                    const grandparentId = expr.parentId
+                    this.collector?.removedExpression({
+                        ...expr,
+                    } as unknown as TCorePropositionalExpression)
+                    this.detachExpression(expr.id, expr)
+                    this.dirtyExpressionIds.delete(expr.id)
+                    if (grandparentId !== null) {
+                        this.markExpressionDirty(grandparentId)
+                    }
+                    changed = true
+                } else if (
+                    children.length === 1 &&
+                    !this.hasBinaryOperatorInBoundedSubtree(children[0].id)
+                ) {
+                    this.promoteChild(expr.id, expr, children[0])
+                    changed = true
+                }
+            }
+
+            // Pass 3: Insert formula buffers for operator-under-operator violations.
+            for (const expr of this.toArray()) {
+                if (expr.type !== "operator" || expr.operator === "not")
+                    continue
+                if (!this.expressions.has(expr.id)) continue
+                if (expr.parentId === null) continue
+                const parent = this.expressions.get(expr.parentId)
+                if (!parent || parent.type !== "operator") continue
+
+                // Non-not operator is direct child of operator — insert formula buffer.
+                const formulaId = this.registerFormulaBuffer(
+                    expr as unknown as TExpr,
+                    expr.parentId,
+                    expr.position
+                )
+                // Reparent the operator under the formula.
+                this.reparent(expr.id, formulaId, 0)
+                changed = true
+            }
+        }
     }
 
     /** Returns `true` if any expression in the tree references the given variable ID. */
