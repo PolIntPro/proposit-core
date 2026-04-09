@@ -74,6 +74,8 @@ import type {
     TPremiseEvaluation,
     TPremiseLifecycle,
     TPremiseIdentity,
+    TFormulaTreeVisitor,
+    TFormulaTreeWalking,
     TDisplayable,
     THierarchicalChecksummable,
 } from "./interfaces/index.js"
@@ -103,6 +105,7 @@ export class PremiseEngine<
         TPremiseLifecycle<TPremise, TExpr>,
         TPremiseIdentity<TArg, TPremise, TExpr, TVar>,
         TDisplayable,
+        TFormulaTreeWalking,
         THierarchicalChecksummable<"expressions">
 {
     private premise: TOptionalChecksum<TPremise>
@@ -1519,6 +1522,13 @@ export class PremiseEngine<
         return this.renderExpression(this.rootExpressionId)
     }
 
+    public walkFormulaTree<T>(visitor: TFormulaTreeVisitor<T>): T {
+        if (this.rootExpressionId === undefined) {
+            return visitor.empty()
+        }
+        return this.walkExpression(visitor, this.rootExpressionId)
+    }
+
     public getReferencedVariableIds(): Set<string> {
         const ids = new Set<string>()
         for (const expr of this.expressions.toArray()) {
@@ -1805,6 +1815,40 @@ export class PremiseEngine<
             this.renderExpression(child.id)
         )
         return `(${renderedChildren.join(` ${this.operatorSymbol(expression.operator)} `)})`
+    }
+
+    private walkExpression<T>(
+        visitor: TFormulaTreeVisitor<T>,
+        expressionId: string
+    ): T {
+        const expression = this.expressions.getExpression(expressionId)
+        if (!expression) {
+            throw new Error(`Expression "${expressionId}" was not found.`)
+        }
+
+        if (expression.type === "variable") {
+            const variable = this.variables.getVariable(expression.variableId)
+            if (!variable) {
+                throw new Error(
+                    `Variable "${expression.variableId}" for expression "${expressionId}" was not found.`
+                )
+            }
+            return visitor.variable(variable.symbol, expression.variableId)
+        }
+
+        if (expression.type === "formula") {
+            const children = this.expressions.getChildExpressions(expression.id)
+            if (children.length === 0) {
+                return visitor.empty()
+            }
+            return visitor.formula(this.walkExpression(visitor, children[0].id))
+        }
+
+        const children = this.expressions.getChildExpressions(expression.id)
+        const renderedChildren = children.map((child) =>
+            this.walkExpression(visitor, child.id)
+        )
+        return visitor.operator(expression.operator, renderedChildren)
     }
 
     private operatorSymbol(operator: TCoreLogicalOperatorType): string {

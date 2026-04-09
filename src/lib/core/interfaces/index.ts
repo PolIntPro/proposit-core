@@ -14,6 +14,8 @@ export type {
 } from "./argument-engine.interfaces.js"
 
 export type {
+    TFormulaTreeVisitor,
+    TFormulaTreeWalking,
     TExpressionMutations,
     TExpressionQueries,
     TVariableReferences,

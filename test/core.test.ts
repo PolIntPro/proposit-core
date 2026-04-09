@@ -25427,3 +25427,248 @@ describe("post-load normalization", () => {
         expect(restoredPe.getExpression("v-p")!.parentId).toBe("op-and")
     })
 })
+
+// ---------------------------------------------------------------------------
+// walkFormulaTree
+// ---------------------------------------------------------------------------
+
+describe("walkFormulaTree", () => {
+    it("calls visitor.empty() when the premise has no root expression", () => {
+        const pe = premiseWithVars()
+        const result = pe.walkFormulaTree({
+            variable: () => "var",
+            operator: () => "op",
+            formula: () => "formula",
+            empty: () => "EMPTY",
+        })
+        expect(result).toBe("EMPTY")
+    })
+
+    it("calls visitor.variable() for a single variable premise", () => {
+        const pe = premiseWithVars()
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, { premiseId: pe.getId() })
+        )
+        type TNode =
+            | { type: "variable"; symbol: string; varId: string }
+            | { type: "op" }
+            | { type: "formula" }
+            | { type: "empty" }
+        const result = pe.walkFormulaTree<TNode>({
+            variable: (symbol, varId) => ({ type: "variable", symbol, varId }),
+            operator: () => ({ type: "op" }),
+            formula: () => ({ type: "formula" }),
+            empty: () => ({ type: "empty" }),
+        })
+        expect(result).toEqual({
+            type: "variable",
+            symbol: "P",
+            varId: VAR_P.id,
+        })
+    })
+
+    it("walks A ∧ B correctly", () => {
+        const pe = premiseWithVars()
+        pe.addExpression(makeOpExpr("op-and", "and", { premiseId: pe.getId() }))
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+        const result = pe.walkFormulaTree<string[]>({
+            variable: (symbol) => [symbol],
+            operator: (type, children) => [type, ...children.flat()],
+            formula: (child) => ["formula", ...child],
+            empty: () => ["empty"],
+        })
+        expect(result).toEqual(["and", "P", "Q"])
+    })
+
+    it("walks (A ∧ B) → C with formula grouping", () => {
+        const pe = premiseWithVars()
+        // implies at root
+        pe.addExpression(
+            makeOpExpr("op-implies", "implies", { premiseId: pe.getId() })
+        )
+        // formula wrapping the AND
+        pe.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-implies",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        // AND inside formula
+        pe.addExpression(
+            makeOpExpr("op-and", "and", {
+                parentId: "formula-1",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        // A and B under AND
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+        // C under implies
+        pe.addExpression(
+            makeVarExpr("v-r", VAR_R.id, {
+                parentId: "op-implies",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+        const log: string[] = []
+        pe.walkFormulaTree({
+            variable: (symbol) => {
+                log.push(`variable:${symbol}`)
+                return symbol
+            },
+            operator: (type, children) => {
+                log.push(`operator:${type}:[${children.join(",")}]`)
+                return `${type}(${children.join(",")})`
+            },
+            formula: (child) => {
+                log.push(`formula:${child}`)
+                return `(${child})`
+            },
+            empty: () => {
+                log.push("empty")
+                return "empty"
+            },
+        })
+        expect(log).toEqual([
+            "variable:P",
+            "variable:Q",
+            "operator:and:[P,Q]",
+            "formula:and(P,Q)",
+            "variable:R",
+            "operator:implies:[(and(P,Q)),R]",
+        ])
+    })
+
+    it("produces the same output as toDisplayString with a string visitor", () => {
+        const pe = premiseWithVars()
+        // Build: (P ∧ Q) → R
+        pe.addExpression(
+            makeOpExpr("op-implies", "implies", { premiseId: pe.getId() })
+        )
+        pe.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-implies",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeOpExpr("op-and", "and", {
+                parentId: "formula-1",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+        pe.addExpression(
+            makeVarExpr("v-r", VAR_R.id, {
+                parentId: "op-implies",
+                position: 1,
+                premiseId: pe.getId(),
+            })
+        )
+
+        const OPERATOR_SYMBOLS: Record<string, string> = {
+            and: "∧",
+            or: "∨",
+            implies: "→",
+            iff: "↔",
+            not: "¬",
+        }
+
+        const walked = pe.walkFormulaTree<string>({
+            variable: (symbol) => symbol,
+            operator: (type, children) => {
+                if (type === "not") {
+                    return children.length === 0
+                        ? `${OPERATOR_SYMBOLS[type]} (?)`
+                        : `${OPERATOR_SYMBOLS[type]}(${children[0]})`
+                }
+                if (children.length === 0) return "(?)"
+                return `(${children.join(` ${OPERATOR_SYMBOLS[type]} `)})`
+            },
+            formula: (child) => `(${child})`,
+            empty: () => "",
+        })
+
+        expect(walked).toBe(pe.toDisplayString())
+    })
+
+    it("consistency check with toDisplayString on a negated variable", () => {
+        const pe = premiseWithVars()
+        pe.addExpression(makeOpExpr("op-not", "not", { premiseId: pe.getId() }))
+        pe.addExpression(
+            makeVarExpr("v-p", VAR_P.id, {
+                parentId: "op-not",
+                position: 0,
+                premiseId: pe.getId(),
+            })
+        )
+
+        const OPERATOR_SYMBOLS: Record<string, string> = {
+            and: "∧",
+            or: "∨",
+            implies: "→",
+            iff: "↔",
+            not: "¬",
+        }
+
+        const walked = pe.walkFormulaTree<string>({
+            variable: (symbol) => symbol,
+            operator: (type, children) => {
+                if (type === "not") {
+                    return children.length === 0
+                        ? `${OPERATOR_SYMBOLS[type]} (?)`
+                        : `${OPERATOR_SYMBOLS[type]}(${children[0]})`
+                }
+                if (children.length === 0) return "(?)"
+                return `(${children.join(` ${OPERATOR_SYMBOLS[type]} `)})`
+            },
+            formula: (child) => `(${child})`,
+            empty: () => "",
+        })
+
+        expect(walked).toBe(pe.toDisplayString())
+    })
+})

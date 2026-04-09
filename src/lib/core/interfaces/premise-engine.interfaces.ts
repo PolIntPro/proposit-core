@@ -5,6 +5,21 @@ import type {
     TCorePropositionalExpression,
     TCorePropositionalVariable,
 } from "../../schemata/index.js"
+
+/**
+ * Visitor callbacks for walking a premise's expression tree.
+ * Each method handles one node type and returns a caller-defined result.
+ */
+export interface TFormulaTreeVisitor<T> {
+    /** Called for each variable expression. */
+    variable(symbol: string, variableId: string): T
+    /** Called for each operator. Receives the operator type and rendered children. */
+    operator(type: TCoreLogicalOperatorType, children: T[]): T
+    /** Called for each formula (grouping). Receives the rendered child. */
+    formula(child: T): T
+    /** Called when the premise has no root expression. */
+    empty(): T
+}
 import type {
     TCoreExpressionAssignment,
     TCorePremiseEvaluationResult,
@@ -490,4 +505,20 @@ export interface TPremiseIdentity<
     setExtras(
         extras: Record<string, unknown>
     ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg>
+}
+
+/**
+ * Generic formula tree traversal via visitor pattern.
+ */
+export interface TFormulaTreeWalking {
+    /**
+     * Walks the premise's expression tree, invoking the visitor for each node,
+     * and returns the visitor's result for the root. Returns the result of
+     * `visitor.empty()` when the premise has no root expression.
+     *
+     * @param visitor - Callbacks for each expression node type.
+     * @returns The visitor's result for the root node, or `visitor.empty()`
+     *   if the premise is empty.
+     */
+    walkFormulaTree<T>(visitor: TFormulaTreeVisitor<T>): T
 }

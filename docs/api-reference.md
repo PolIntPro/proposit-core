@@ -892,6 +892,23 @@ Returns the expression tree rendered with standard logical notation (¬ ∧ ∨ 
 
 ---
 
+### `walkFormulaTree<T>(visitor)` → `T`
+
+Walks the premise's expression tree and invokes the visitor for each node, returning the caller-defined result type. Returns `visitor.empty()` when the premise has no root expression.
+
+```typescript
+interface TFormulaTreeVisitor<T> {
+    variable(symbol: string, variableId: string): T
+    operator(type: TCoreLogicalOperatorType, children: T[]): T
+    formula(child: T): T
+    empty(): T
+}
+```
+
+Mirrors the internal traversal of `toDisplayString()` but delegates rendering to the caller, enabling arbitrary output types (e.g. React component trees, AST nodes).
+
+---
+
 ### `toPremiseData()` → `TPremise`
 
 Returns a serialisable premise object (`{ id, argumentId, argumentVersion, checksum }` plus any extension fields). Does not include `rootExpressionId`, expressions, or variables — use `getRootExpressionId()`, `getExpressions()`, and `getReferencedVariableIds()` for those.
