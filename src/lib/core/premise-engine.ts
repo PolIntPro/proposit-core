@@ -157,6 +157,16 @@ export class PremiseEngine<
         this.generateId = config?.generateId ?? defaultGenerateId
     }
 
+    /**
+     * Overrides the grammar config for both this premise engine and its
+     * internal expression manager. Used by restoration paths when the
+     * caller's grammar config should override the snapshot's config.
+     */
+    public setGrammarConfig(grammarConfig: TGrammarConfig): void {
+        this.grammarConfig = grammarConfig
+        this.expressions.setGrammarConfig(grammarConfig)
+    }
+
     public setOnMutate(callback: (() => void) | undefined): void {
         this.onMutate = callback
     }

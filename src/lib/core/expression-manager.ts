@@ -112,6 +112,16 @@ export class ExpressionManager<
         this.collector = collector
     }
 
+    /**
+     * Overrides the grammar config used for validation and mutation-time
+     * checks. Called by restoration paths (e.g. `fromSnapshot`) when the
+     * caller supplies a grammar config that should override whatever was
+     * stored in the snapshot.
+     */
+    setGrammarConfig(grammarConfig: TGrammarConfig): void {
+        this.config = { ...this.config, grammarConfig }
+    }
+
     constructor(config?: TLogicEngineOptions) {
         this.expressions = new Map()
         this.childExpressionIdsByParentId = new Map()
@@ -1070,13 +1080,25 @@ export class ExpressionManager<
                 if (!parent || parent.type !== "operator") continue
 
                 // Non-not operator is direct child of operator — insert formula buffer.
+                const formulaPosition = expr.position
+                const formulaParentId = expr.parentId
                 const formulaId = this.registerFormulaBuffer(
                     expr as unknown as TExpr,
-                    expr.parentId,
-                    expr.position
+                    formulaParentId,
+                    formulaPosition
                 )
-                // Reparent the operator under the formula.
+                // Reparent the operator under the formula. This removes the
+                // operator's old position from the parent's position set, but
+                // the formula now occupies that slot, so re-add it. Also mark
+                // the formula dirty since it now has a child and its
+                // descendant/combined checksums need recomputation.
                 this.reparent(expr.id, formulaId, 0)
+                getOrCreate(
+                    this.childPositionsByParentId,
+                    formulaParentId,
+                    () => new Set()
+                ).add(formulaPosition)
+                this.markExpressionDirty(formulaId)
                 changed = true
             }
 
@@ -1178,37 +1200,8 @@ export class ExpressionManager<
     private loadInitialExpressions(
         initialExpressions: TExpressionInput<TExpr>[]
     ) {
-        if (initialExpressions.length === 0) {
-            return
-        }
-
-        const pending = new Map<string, TExpressionInput<TExpr>>(
-            initialExpressions.map((expression) => [expression.id, expression])
-        )
-
-        let progressed = true
-        while (pending.size > 0 && progressed) {
-            progressed = false
-
-            for (const [id, expression] of Array.from(pending.entries())) {
-                if (
-                    expression.parentId !== null &&
-                    !this.expressions.has(expression.parentId)
-                ) {
-                    continue
-                }
-
-                this.addExpression(expression)
-                pending.delete(id)
-                progressed = true
-            }
-        }
-
-        if (pending.size > 0) {
-            const unresolved = Array.from(pending.keys()).join(", ")
-            throw new Error(
-                `Could not resolve parent relationships for expressions: ${unresolved}.`
-            )
+        for (const expression of initialExpressions) {
+            this.registerExpression(expression)
         }
     }
 

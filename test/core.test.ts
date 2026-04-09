@@ -15557,7 +15557,7 @@ describe("grammar enforcement config", () => {
     })
 
     describe("restoration paths", () => {
-        it("fromSnapshot with default config auto-normalizes operator-under-operator", () => {
+        it("fromSnapshot with default config loads data as-is; explicit normalize fixes operator-under-operator", () => {
             const em = ExpressionManager.fromSnapshot({
                 expressions: [
                     {
@@ -15582,9 +15582,45 @@ describe("grammar enforcement config", () => {
                         premiseId: "premise-1",
                         checksum: "",
                     },
+                    {
+                        id: "v1",
+                        type: "variable",
+                        variableId: "var-1",
+                        parentId: "op-or",
+                        position: 0,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v2",
+                        type: "variable",
+                        variableId: "var-2",
+                        parentId: "op-or",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
+                    {
+                        id: "v3",
+                        type: "variable",
+                        variableId: "var-3",
+                        parentId: "op-and",
+                        position: 1,
+                        argumentId: ARG.id,
+                        argumentVersion: ARG.version,
+                        premiseId: "premise-1",
+                        checksum: "",
+                    },
                 ] as TCorePropositionalExpression[],
             })
-            // Default config now has autoNormalize: true — formula buffer auto-inserted
+            // Loading no longer auto-normalizes — data loads as-is
+            expect(em.getExpression("op-or")!.parentId).toBe("op-and")
+            // Explicit normalize inserts the formula buffer
+            em.normalize()
             const orExpr = em.getExpression("op-or")!
             expect(orExpr).toBeDefined()
             expect(orExpr.parentId).not.toBe("op-and")
@@ -15626,7 +15662,7 @@ describe("grammar enforcement config", () => {
             expect(em.getExpression("op-or")).toBeDefined()
         })
 
-        it("fromSnapshot with auto-normalize config normalizes legacy tree", () => {
+        it("fromSnapshot with auto-normalize config loads data as-is; explicit normalize fixes legacy tree", () => {
             const em = ExpressionManager.fromSnapshot(
                 {
                     expressions: [
@@ -15652,10 +15688,47 @@ describe("grammar enforcement config", () => {
                             premiseId: "premise-1",
                             checksum: "",
                         },
+                        {
+                            id: "v1",
+                            type: "variable",
+                            variableId: "var-1",
+                            parentId: "op-or",
+                            position: 0,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                        {
+                            id: "v2",
+                            type: "variable",
+                            variableId: "var-2",
+                            parentId: "op-or",
+                            position: 1,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
+                        {
+                            id: "v3",
+                            type: "variable",
+                            variableId: "var-3",
+                            parentId: "op-and",
+                            position: 1,
+                            argumentId: ARG.id,
+                            argumentVersion: ARG.version,
+                            premiseId: "premise-1",
+                            checksum: "",
+                        },
                     ] as TCorePropositionalExpression[],
                 },
                 { enforceFormulaBetweenOperators: true, autoNormalize: true }
             )
+            // Loading no longer auto-normalizes — data loads as-is
+            expect(em.getExpression("op-or")!.parentId).toBe("op-and")
+            // Explicit normalize inserts the formula buffer
+            em.normalize()
             const orExpr = em.getExpression("op-or")!
             expect(orExpr).toBeDefined()
             expect(orExpr.parentId).not.toBe("op-and")
@@ -20551,7 +20624,7 @@ describe("ArgumentEngine — bulk path validation", () => {
 })
 
 describe("loadExpressions — grammar config enforcement", () => {
-    it("auto-normalizes during load when autoNormalize is true", () => {
+    it("loads data as-is without normalization; explicit normalize fixes violations", () => {
         const em = new ExpressionManager({
             grammarConfig: {
                 enforceFormulaBetweenOperators: true,
@@ -20561,26 +20634,35 @@ describe("loadExpressions — grammar config enforcement", () => {
         em.loadExpressions([
             makeOpExpr("root", "and"),
             makeOpExpr("child", "or", { parentId: "root", position: 0 }),
+            makeVarExpr("v1", "var-1", { parentId: "child", position: 0 }),
+            makeVarExpr("v2", "var-2", { parentId: "child", position: 1 }),
+            makeVarExpr("v3", "var-3", { parentId: "root", position: 1 }),
         ])
-        // The OR should be wrapped in a formula
+        // Loading no longer normalizes — operator-under-operator loads as-is
+        expect(em.getExpression("child")!.parentId).toBe("root")
+        // Explicit normalize inserts the formula buffer
+        em.normalize()
         const orExpr = em.getExpression("child")!
         const parent = em.getExpression(orExpr.parentId!)!
         expect(parent.type).toBe("formula")
     })
 
-    it("rejects violations during load when autoNormalize is false", () => {
+    it("loads data as-is without validation; validate detects violations after load", () => {
         const em = new ExpressionManager({
             grammarConfig: {
                 enforceFormulaBetweenOperators: true,
                 autoNormalize: false,
             },
         })
-        expect(() =>
-            em.loadExpressions([
-                makeOpExpr("root", "and"),
-                makeOpExpr("child", "or", { parentId: "root", position: 0 }),
-            ])
-        ).toThrow()
+        // Loading no longer validates — data loads without error
+        em.loadExpressions([
+            makeOpExpr("root", "and"),
+            makeOpExpr("child", "or", { parentId: "root", position: 0 }),
+        ])
+        // But validate catches the violation
+        const result = em.validate()
+        expect(result.ok).toBe(false)
+        expect(result.violations.some((v) => v.code === "EXPR_FORMULA_BETWEEN_OPERATORS_VIOLATED")).toBe(true)
     })
 
     it("allows violations when enforcement is off", () => {

@@ -1287,6 +1287,16 @@ export class ArgumentEngine<
 
         engine.restoringFromSnapshot = false
 
+        // Apply the caller's grammarConfig override to the engine and all
+        // premise engines so that validate() and subsequent mutations use the
+        // caller's grammar rules instead of whatever was stored in the snapshot.
+        if (grammarConfig) {
+            engine.grammarConfig = grammarConfig
+            for (const pe of engine.premises.values()) {
+                pe.setGrammarConfig(grammarConfig)
+            }
+        }
+
         // Post-load normalization: only run full normalize when autoNormalize
         // is `true` (boolean). When it is a granular config object, individual
         // flags control in-operation behavior — loading should not mutate data.
