@@ -142,6 +142,33 @@ export class ExpressionManager<
     }
 
     /**
+     * Registers an expression in the internal data structures without any
+     * grammar validation or normalization. This is the mechanical
+     * bookkeeping that both `addExpression` (after validation) and
+     * `loadInitialExpressions` (direct bulk load) share.
+     */
+    private registerExpression(expression: TExpressionInput<TExpr>): void {
+        getOrCreate(
+            this.childPositionsByParentId,
+            expression.parentId,
+            () => new Set()
+        ).add(expression.position)
+
+        const withChecksum = this.attachChecksum(expression)
+        this.expressions.set(expression.id, withChecksum)
+        this.collector?.addedExpression({
+            ...withChecksum,
+        } as unknown as TCorePropositionalExpression)
+        getOrCreate(
+            this.childExpressionIdsByParentId,
+            expression.parentId,
+            () => new Set()
+        ).add(expression.id)
+
+        this.markExpressionDirty(expression.id)
+    }
+
+    /**
      * Creates and registers a formula-buffer expression in the three internal
      * maps (`expressions`, `childExpressionIdsByParentId`,
      * `childPositionsByParentId`) and notifies the change collector.
@@ -434,21 +461,8 @@ export class ExpressionManager<
                 `Position ${expression.position} is already used under parent "${expression.parentId}".`
             )
         }
-        occupiedPositions.add(expression.position)
 
-        const withChecksum = this.attachChecksum(expression)
-        this.expressions.set(expression.id, withChecksum)
-        this.collector?.addedExpression({
-            ...withChecksum,
-        } as unknown as TCorePropositionalExpression)
-        getOrCreate(
-            this.childExpressionIdsByParentId,
-            expression.parentId,
-            () => new Set()
-        ).add(expression.id)
-
-        // Mark the new expression and its ancestors dirty for hierarchical checksum recomputation.
-        this.markExpressionDirty(expression.id)
+        this.registerExpression(expression)
     }
 
     /**
