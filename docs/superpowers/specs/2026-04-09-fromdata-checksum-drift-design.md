@@ -106,6 +106,35 @@ private loadInitialExpressions(initialExpressions: TExpressionInput<TExpr>[]) {
 Data integrity is verified by the `validate()` call at the end of
 `fromData`/`fromSnapshot`.
 
+## Grammar config enforcement is preserved
+
+`registerExpression` only bypasses validation and normalization **during the
+loading step**. The grammar config remains fully effective through three
+post-load mechanisms that are unchanged by this fix:
+
+1. **Post-load normalization** (`fromData` line 1451, `fromSnapshot` line 1294):
+   When `autoNormalize === true` (boolean), `normalizeExpressions()` runs on
+   each premise after loading. This restructures the tree to satisfy grammar
+   rules (e.g., inserting formula buffers, collapsing double negation). This
+   path is unaffected — it operates on the fully-loaded tree, not during
+   expression registration.
+
+2. **Post-load validation** (`fromData` line 1467, `fromSnapshot` line 1305):
+   `engine.validate()` calls `ExpressionManager.validate()`, which checks
+   `EXPR_FORMULA_BETWEEN_OPERATORS_VIOLATED` against `this.grammarConfig`
+   (line 2217). Invalid data is rejected with `InvariantViolationError`. This
+   runs after loading regardless of how expressions were registered.
+
+3. **Config restoration** (`ExpressionManager.fromSnapshot` line 2359):
+   After loading, `em.config = normalizedConfig` restores the snapshot's config.
+   In `fromData`, the grammar config is set on the `ArgumentEngine` (line 1443)
+   and was already passed to the `PremiseEngine`/`ExpressionManager` at
+   construction time. All subsequent mutations use the correct grammar config.
+
+The separation is: **load faithfully, then validate, then enforce going
+forward.** `registerExpression` handles the first step. The existing post-load
+code handles the second and third.
+
 ## Scope boundaries
 
 - **`registerFormulaBuffer`** is left as-is. It is only called from mutation
