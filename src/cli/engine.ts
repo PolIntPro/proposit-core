@@ -124,10 +124,18 @@ export async function hydrateEngine(
         claimLibrary = ClaimLibrary.fromSnapshot(snapshot)
     }
 
-    // Grammar config used for the CLI: enforce rules but auto-normalize.
+    // Grammar config used for the CLI: enforce rules and auto-normalize.
+    // Uses granular config (not boolean `true`) so that fromSnapshot skips
+    // post-load normalization — the CLI builds trees incrementally and must
+    // tolerate incomplete subtrees between invocations.
     const cliGrammarConfig = {
         enforceFormulaBetweenOperators: true,
-        autoNormalize: true,
+        autoNormalize: {
+            wrapInsertFormula: true,
+            negationInsertFormula: true,
+            collapseDoubleNegation: true,
+            collapseEmptyFormula: true,
+        },
     }
 
     // Build premise snapshots from disk data
@@ -186,7 +194,7 @@ export async function hydrateEngine(
         claimLibrary,
         resolvedCore.sources,
         resolvedCore.claimSources,
-        undefined,
+        cliGrammarConfig,
         "ignore"
     )
 
