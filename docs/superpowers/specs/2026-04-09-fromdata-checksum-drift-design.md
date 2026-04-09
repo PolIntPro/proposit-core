@@ -81,12 +81,12 @@ expression rewriting via `wrapInsertFormula`), delegates to
 2. Self-referential parent check
 3. Root-only operator check (`implies`/`iff` must have `parentId: null`)
 4. Parent validation:
-   - Existence
-   - Type is operator or formula
-   - `wrapInsertFormula` auto-insertion (may rewrite `parentId`/`position`,
-     calls `registerFormulaBuffer`)
-   - Child limit for operators
-   - Single-child limit for formulas
+    - Existence
+    - Type is operator or formula
+    - `wrapInsertFormula` auto-insertion (may rewrite `parentId`/`position`,
+      calls `registerFormulaBuffer`)
+    - Child limit for operators
+    - Single-child limit for formulas
 5. Position collision check
 6. **`this.registerExpression(expression)`**
 
@@ -192,8 +192,8 @@ code handles the second and third.
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `src/lib/core/expression-manager.ts` | Extract `registerExpression`, refactor `addExpression` to delegate, simplify `loadInitialExpressions` |
-| `test/core.test.ts` | Add reproduction test, order-independence test, validation-still-catches test |
-| `docs/change-requests/2026-04-09-fromdata-wrapinsertformula-checksum-drift.md` | Delete after implementation |
+| File                                                                           | Change                                                                                                |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `src/lib/core/expression-manager.ts`                                           | Extract `registerExpression`, refactor `addExpression` to delegate, simplify `loadInitialExpressions` |
+| `test/core.test.ts`                                                            | Add reproduction test, order-independence test, validation-still-catches test                         |
+| `docs/change-requests/2026-04-09-fromdata-wrapinsertformula-checksum-drift.md` | Delete after implementation                                                                           |

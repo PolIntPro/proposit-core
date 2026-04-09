@@ -20662,7 +20662,11 @@ describe("loadExpressions — grammar config enforcement", () => {
         // But validate catches the violation
         const result = em.validate()
         expect(result.ok).toBe(false)
-        expect(result.violations.some((v) => v.code === "EXPR_FORMULA_BETWEEN_OPERATORS_VIOLATED")).toBe(true)
+        expect(
+            result.violations.some(
+                (v) => v.code === "EXPR_FORMULA_BETWEEN_OPERATORS_VIOLATED"
+            )
+        ).toBe(true)
     })
 
     it("allows violations when enforcement is off", () => {
@@ -26211,9 +26215,7 @@ describe("fromData checksum idempotency", () => {
         expect(exprsA.length).toBe(exprsB.length)
         for (let i = 0; i < exprsA.length; i++) {
             expect(exprsA[i].checksum).toBe(exprsB[i].checksum)
-            expect(exprsA[i].combinedChecksum).toBe(
-                exprsB[i].combinedChecksum
-            )
+            expect(exprsA[i].combinedChecksum).toBe(exprsB[i].combinedChecksum)
             expect(exprsA[i].descendantChecksum).toBe(
                 exprsB[i].descendantChecksum
             )
@@ -26358,9 +26360,7 @@ describe("fromData checksum idempotency", () => {
         engine.addVariable(makeVar("v2", "Q"))
         const { result: pm } = engine.createPremise()
         const pid = pm.getId()
-        pm.addExpression(
-            makeOpExpr("e-and", "and", { premiseId: pid })
-        )
+        pm.addExpression(makeOpExpr("e-and", "and", { premiseId: pid }))
         pm.addExpression(
             makeOpExpr("e-or", "or", {
                 premiseId: pid,
