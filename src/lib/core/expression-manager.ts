@@ -487,13 +487,36 @@ export class ExpressionManager<
         expression: TExpressionWithoutPosition<TExpr>
     ): void {
         const children = this.getChildExpressions(parentId)
-        const position =
-            children.length === 0
-                ? this.positionConfig.initial
-                : midpoint(
-                      children[children.length - 1].position,
-                      this.positionConfig.max
-                  )
+        if (children.length === 0) {
+            this.addExpression({
+                ...expression,
+                parentId,
+                position: this.positionConfig.initial,
+            } as TExpressionInput<TExpr>)
+            return
+        }
+
+        const lastChild = children[children.length - 1]
+        let position = midpoint(lastChild.position, this.positionConfig.max)
+
+        if (position === lastChild.position) {
+            if (
+                resolveAutoNormalize(
+                    this.grammarConfig,
+                    "repositionOnCollision"
+                )
+            ) {
+                this.repositionSiblings(
+                    parentId,
+                    lastChild.position,
+                    this.positionConfig.max
+                )
+                const updated = this.getChildExpressions(parentId)
+                const newLast = updated[updated.length - 1]
+                position = midpoint(newLast.position, this.positionConfig.max)
+            }
+        }
+
         this.addExpression({
             ...expression,
             parentId,

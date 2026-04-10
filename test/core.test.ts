@@ -26529,4 +26529,32 @@ describe("repositionOnCollision auto-normalize flag", () => {
         expect(changes.expressions!.modified.length).toBeGreaterThan(0)
         expect(changes.expressions!.added.some((e) => e.id === "c3")).toBe(true)
     })
+
+    it("appendExpression redistributes when last child is at POSITION_MAX - 1", () => {
+        const pm = premiseWithVarsGranular({ repositionOnCollision: true })
+        pm.addExpression(
+            makeOpExpr("root", "and", { parentId: null, position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("c1", "var-p", {
+                parentId: "root",
+                position: POSITION_MAX - 1,
+            })
+        )
+
+        const { changes } = pm.appendExpression("root", {
+            id: "c2",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "var-q",
+            parentId: "root",
+        })
+
+        const children = pm.getChildExpressions("root")
+        expect(children).toHaveLength(2)
+        expect(children[0].position).toBeLessThan(children[1].position)
+        expect(changes.expressions!.modified.length).toBeGreaterThan(0)
+    })
 })
