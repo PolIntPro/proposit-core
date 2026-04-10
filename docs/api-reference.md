@@ -1076,6 +1076,7 @@ Granular auto-normalization flags. Each flag controls a specific automatic struc
 | `negationInsertFormula`  | Insert a formula buffer when `toggleNegation` wraps a non-not operator in NOT.                                  |
 | `collapseDoubleNegation` | Collapse NOT(NOT(x)) → x during `toggleNegation` and `normalize`.                                               |
 | `collapseEmptyFormula`   | Collapse empty formulas/operators and promote single children after `removeExpression`.                         |
+| `repositionOnCollision`  | Auto-redistribute sibling positions when a midpoint collision is detected.                                      |
 
 ### `TGrammarConfig`
 

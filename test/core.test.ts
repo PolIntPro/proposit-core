@@ -26631,10 +26631,10 @@ describe("repositionOnCollision auto-normalize flag", () => {
             makeVarExpr("c3", "var-p", { parentId: "root", position: 100 })
         )
 
-        // Remove inner-left → inner-and has 1 child → inner-right promoted into inner-and's slot.
-        // wrap still has the binary operator... wait, inner-and is gone after promotion.
-        // So wrap has 1 child (inner-right) and no binary operator → formula collapse.
-        // inner-right promoted to root at midpoint(0, 100) = 50 instead of position 1.
+        // Remove inner-left → inner-and collapses (1 child, non-not) → inner-right
+        // promoted under wrap. inner-and is gone, so wrap has 1 child and no binary
+        // operator in bounded subtree → formula collapse → inner-right promoted to
+        // root at midpoint(0, 100) = 50 instead of wrap's old position 1.
         pm.removeExpression("inner-left", true)
 
         const children = pm.getChildExpressions("root")
@@ -26820,5 +26820,40 @@ describe("repositionOnCollision auto-normalize flag", () => {
         expect(expressions).toHaveLength(1)
         expect(expressions[0].id).toBe("c1")
         expect(expressions[0].position).toBe(42)
+    })
+
+    it("addExpressionRelative before redistributes on collision", () => {
+        const pm = premiseWithVarsGranular({ repositionOnCollision: true })
+        pm.addExpression(
+            makeOpExpr("root", "and", { parentId: null, position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("c1", "var-p", { parentId: "root", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("c2", "var-q", { parentId: "root", position: 1 })
+        )
+
+        const { changes } = pm.addExpressionRelative("c2", "before", {
+            id: "c3",
+            argumentId: ARG.id,
+            argumentVersion: ARG.version,
+            premiseId: "premise-1",
+            type: "variable",
+            variableId: "var-r",
+            parentId: "root",
+        })
+
+        const children = pm.getChildExpressions("root")
+        expect(children).toHaveLength(3)
+        const positions = children.map((c) => c.position)
+        expect(positions[0]).toBeLessThan(positions[1])
+        expect(positions[1]).toBeLessThan(positions[2])
+
+        expect(changes.expressions).toBeDefined()
+        expect(changes.expressions!.modified.length).toBeGreaterThan(0)
+        expect(changes.expressions!.added.some((e) => e.id === "c3")).toBe(
+            true
+        )
     })
 })
