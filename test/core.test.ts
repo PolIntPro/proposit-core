@@ -26852,8 +26852,6 @@ describe("repositionOnCollision auto-normalize flag", () => {
 
         expect(changes.expressions).toBeDefined()
         expect(changes.expressions!.modified.length).toBeGreaterThan(0)
-        expect(changes.expressions!.added.some((e) => e.id === "c3")).toBe(
-            true
-        )
+        expect(changes.expressions!.added.some((e) => e.id === "c3")).toBe(true)
     })
 })
