@@ -27,6 +27,8 @@ export type TAutoNormalizeConfig = {
     collapseDoubleNegation: boolean
     /** Collapse empty formulas/operators and promote single children after removal. */
     collapseEmptyFormula: boolean
+    /** Auto-redistribute sibling positions when a midpoint collision is detected. */
+    repositionOnCollision: boolean
 }
 
 /**
@@ -49,6 +51,8 @@ export type TAutoNormalizeConfig = {
  *   - `collapseEmptyFormula`: auto-collapse operators with 0/1 children
  *     and formulas whose bounded subtree has no binary operator after
  *     `removeExpression`.
+ *   - `repositionOnCollision`: auto-redistribute sibling positions when
+ *     a midpoint collision is detected.
  *
  * **Formula collapse rule:** A formula node is only justified if its bounded
  * subtree (stopping at the next nested formula) contains a binary operator

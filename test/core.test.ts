@@ -108,6 +108,7 @@ import {
 import {
     PERMISSIVE_GRAMMAR_CONFIG,
     DEFAULT_GRAMMAR_CONFIG,
+    resolveAutoNormalize,
 } from "../src/lib/types/grammar"
 import {
     EXPR_SCHEMA_INVALID,
@@ -294,6 +295,7 @@ function premiseWithVarsGranular(config: {
     negationInsertFormula?: boolean
     collapseDoubleNegation?: boolean
     collapseEmptyFormula?: boolean
+    repositionOnCollision?: boolean
 }): PremiseEngine {
     const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib(), {
         grammarConfig: {
@@ -303,6 +305,7 @@ function premiseWithVarsGranular(config: {
                 negationInsertFormula: config.negationInsertFormula ?? false,
                 collapseDoubleNegation: config.collapseDoubleNegation ?? false,
                 collapseEmptyFormula: config.collapseEmptyFormula ?? false,
+                repositionOnCollision: config.repositionOnCollision ?? false,
             },
         },
     })
@@ -26126,6 +26129,7 @@ describe("fromData checksum idempotency", () => {
             negationInsertFormula: true,
             collapseDoubleNegation: true,
             collapseEmptyFormula: false,
+            repositionOnCollision: true,
         },
     }
 
@@ -26449,5 +26453,47 @@ describe("fromData checksum idempotency", () => {
         const formulaParent = pe.getExpression(orExpr.parentId!)!
         expect(formulaParent.type).toBe("formula")
         expect(formulaParent.parentId).toBe("e-and")
+    })
+})
+
+// ---------------------------------------------------------------------------
+// repositionOnCollision auto-normalize flag
+// ---------------------------------------------------------------------------
+
+describe("repositionOnCollision auto-normalize flag", () => {
+    it("resolveAutoNormalize returns true for repositionOnCollision when autoNormalize is true", () => {
+        expect(
+            resolveAutoNormalize(
+                DEFAULT_GRAMMAR_CONFIG,
+                "repositionOnCollision"
+            )
+        ).toBe(true)
+    })
+
+    it("resolveAutoNormalize returns false for repositionOnCollision when autoNormalize is false", () => {
+        expect(
+            resolveAutoNormalize(
+                PERMISSIVE_GRAMMAR_CONFIG,
+                "repositionOnCollision"
+            )
+        ).toBe(false)
+    })
+
+    it("resolveAutoNormalize returns granular repositionOnCollision value", () => {
+        expect(
+            resolveAutoNormalize(
+                {
+                    enforceFormulaBetweenOperators: true,
+                    autoNormalize: {
+                        wrapInsertFormula: false,
+                        negationInsertFormula: false,
+                        collapseDoubleNegation: false,
+                        collapseEmptyFormula: false,
+                        repositionOnCollision: true,
+                    },
+                },
+                "repositionOnCollision"
+            )
+        ).toBe(true)
     })
 })
