@@ -166,6 +166,18 @@ This matches how other mutating commands (`premises delete`, `premises create`)
 already work. The `readPremiseMeta`/`writePremiseMeta` calls are replaced with
 engine hydration and persistence.
 
+The `--clear-title` flag deletes the `title` key entirely. Since `updateExtras`
+does a shallow merge (it can add or overwrite keys but not remove them), the
+clear case should use `setExtras` with the key omitted:
+
+```ts
+const extras = pm.getExtras()
+delete extras.title
+pm.setExtras(extras)
+```
+
+The `--title <value>` flag uses `updateExtras({ title: value })`.
+
 No new CLI commands for argument extras (out of scope — can be added later using
 the new `ArgumentEngine` methods).
 
