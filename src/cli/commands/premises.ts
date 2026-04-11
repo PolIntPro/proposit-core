@@ -17,7 +17,6 @@ import {
     premiseExists,
     readPremiseData,
     readPremiseMeta,
-    writePremiseMeta,
 } from "../storage/premises.js"
 import { hydrateEngine, persistEngine } from "../engine.js"
 import { readVariables } from "../storage/variables.js"
@@ -214,20 +213,32 @@ export function registerPremiseCommands(
                         "--title and --clear-title cannot both be specified."
                     )
                 }
-                if (!(await premiseExists(argumentId, version, premiseId))) {
+
+                const engine = await hydrateEngine(argumentId, version)
+                const pm = engine.getPremise(premiseId)
+                if (!pm) {
                     errorExit(`Premise "${premiseId}" not found.`)
                 }
-                const meta = await readPremiseMeta(
-                    argumentId,
-                    version,
-                    premiseId
-                )
-                if (opts.clearTitle) {
-                    delete meta.title
-                } else if (opts.title !== undefined) {
-                    meta.title = opts.title
+
+                try {
+                    if (opts.clearTitle) {
+                        const extras = pm.getExtras()
+                        delete extras.title
+                        pm.setExtras(extras)
+                    } else if (opts.title !== undefined) {
+                        pm.updateExtras({ title: opts.title })
+                    } else {
+                        errorExit(
+                            "No updates specified. Use --title or --clear-title."
+                        )
+                    }
+                } catch (err) {
+                    errorExit(
+                        err instanceof Error ? err.message : String(err)
+                    )
                 }
-                await writePremiseMeta(argumentId, version, meta)
+
+                await persistEngine(engine)
                 printLine("success")
             }
         )
