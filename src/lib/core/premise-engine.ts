@@ -1143,8 +1143,13 @@ export class PremiseEngine<
                 ...(combinedChecksum !== undefined ? { combinedChecksum } : {}),
             } as TOptionalChecksum<TPremise>
             this.markDirty()
+
+            const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+            this.flushChecksums()
+            collector.modifiedPremise(this.toPremiseData())
+
             this.onMutate?.()
-            return { result: this.getExtras(), changes: {} }
+            return { result: this.getExtras(), changes: collector.toChangeset() }
         })
     }
 

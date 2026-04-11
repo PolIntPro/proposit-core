@@ -522,7 +522,7 @@ export interface TPremiseIdentity<
      * Replaces the premise's extra metadata record.
      *
      * @param extras - The new extras record.
-     * @returns The previous extras record and changeset.
+     * @returns The new extras record and a changeset with the modified premise.
      */
     setExtras(
         extras: Record<string, unknown>

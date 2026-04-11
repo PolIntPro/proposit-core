@@ -5270,7 +5270,7 @@ describe("PremiseEngine — mutation changesets", () => {
         expect(changes).toEqual({})
     })
 
-    it("setExtras returns new extras with empty changes", () => {
+    it("setExtras returns new extras with changeset", () => {
         const eng = new ArgumentEngine(
             { id: "arg1", version: 0 },
             aLib(),
@@ -5280,7 +5280,7 @@ describe("PremiseEngine — mutation changesets", () => {
         const { result: pm } = eng.createPremise()
         const { result, changes } = pm.setExtras({ title: "Test" })
         expect(result).toEqual({ title: "Test" })
-        expect(changes).toEqual({})
+        expect(changes.premises?.modified).toHaveLength(1)
     })
 })
 
@@ -26853,5 +26853,85 @@ describe("repositionOnCollision auto-normalize flag", () => {
         expect(changes.expressions).toBeDefined()
         expect(changes.expressions!.modified.length).toBeGreaterThan(0)
         expect(changes.expressions!.added.some((e) => e.id === "c3")).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// PremiseEngine.setExtras — changeset
+// ---------------------------------------------------------------------------
+
+describe("PremiseEngine.setExtras — changeset", () => {
+    it("produces premises.modified with correct extras and checksums", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise()
+        const { result, changes } = pm.setExtras({ title: "New Title" })
+
+        expect(result).toEqual({ title: "New Title" })
+        expect(changes.premises?.modified).toHaveLength(1)
+
+        const modified = changes.premises!.modified[0]
+        expect((modified as Record<string, unknown>).title).toBe("New Title")
+        expect(modified.checksum).toBeDefined()
+        expect(modified.descendantChecksum).toBeDefined()
+        expect(modified.combinedChecksum).toBeDefined()
+    })
+
+    it("changeset premise checksums match toPremiseData()", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise()
+        const { changes } = pm.setExtras({ title: "Test" })
+
+        const premiseData = pm.toPremiseData()
+        const modified = changes.premises!.modified[0]
+        expect(modified.checksum).toBe(premiseData.checksum)
+        expect(modified.descendantChecksum).toBe(premiseData.descendantChecksum)
+        expect(modified.combinedChecksum).toBe(premiseData.combinedChecksum)
+    })
+
+    it("consecutive setExtras calls produce separate correct changesets", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise()
+
+        const { changes: c1 } = pm.setExtras({ title: "First" })
+        const { changes: c2 } = pm.setExtras({ title: "Second" })
+
+        expect(
+            (c1.premises!.modified[0] as Record<string, unknown>).title
+        ).toBe("First")
+        expect(
+            (c2.premises!.modified[0] as Record<string, unknown>).title
+        ).toBe("Second")
+
+        // Each changeset reflects its own state
+        expect(c1.premises!.modified[0].id).toBe(pm.getId())
+        expect(c2.premises!.modified[0].id).toBe(pm.getId())
+    })
+
+    it("changeset contains no expressions or variables", () => {
+        const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib())
+        const { result: pm } = eng.createPremise()
+        eng.addVariable(makeVar("v1", "P"))
+        pm.addExpression(makeVarExpr("e1", "v1", { premiseId: pm.getId() }))
+
+        const { changes } = pm.setExtras({ title: "Test" })
+
+        expect(changes.expressions).toBeUndefined()
+        expect(changes.variables).toBeUndefined()
+        expect(changes.premises?.modified).toHaveLength(1)
     })
 })
