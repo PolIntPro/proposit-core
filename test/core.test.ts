@@ -26984,3 +26984,71 @@ describe("PremiseEngine.updateExtras", () => {
         expect(result).toEqual({ title: "New" })
     })
 })
+
+// ---------------------------------------------------------------------------
+// ArgumentEngine — extras
+// ---------------------------------------------------------------------------
+
+describe("ArgumentEngine — extras", () => {
+    it("getExtras returns non-structural fields", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 } as TOptionalChecksum<TCoreArgument>,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng.setExtras({ title: "My Argument" })
+        const extras = eng.getExtras()
+        expect(extras).toEqual({ title: "My Argument" })
+        expect(extras).not.toHaveProperty("id")
+        expect(extras).not.toHaveProperty("version")
+        expect(extras).not.toHaveProperty("checksum")
+    })
+
+    it("setExtras replaces all extras and produces changeset", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 } as TOptionalChecksum<TCoreArgument>,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng.setExtras({ title: "Old", description: "Desc" })
+        const { result, changes } = eng.setExtras({ title: "New" })
+
+        expect(result).toEqual({ title: "New" })
+        expect(result).not.toHaveProperty("description")
+        expect(eng.getExtras()).toEqual({ title: "New" })
+        expect(changes.argument).toBeDefined()
+        expect((changes.argument as Record<string, unknown>).title).toBe("New")
+        expect(changes.argument!.checksum).toBe(eng.getArgument().checksum)
+    })
+
+    it("updateExtras merges and produces changeset", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 } as TOptionalChecksum<TCoreArgument>,
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng.setExtras({ title: "Title", description: "Desc" })
+        const { result, changes } = eng.updateExtras({ title: "Updated" })
+
+        expect(result).toEqual({ title: "Updated", description: "Desc" })
+        expect(changes.argument).toBeDefined()
+        expect(changes.argument!.checksum).toBe(eng.getArgument().checksum)
+    })
+
+    it("structural fields cannot be shadowed by extras", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        eng.setExtras({ id: "hacked", version: 999 })
+
+        const arg = eng.getArgument()
+        expect(arg.id).toBe("arg1")
+        expect(arg.version).toBe(0)
+    })
+})

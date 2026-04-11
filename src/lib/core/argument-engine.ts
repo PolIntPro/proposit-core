@@ -500,6 +500,60 @@ export class ArgumentEngine<
         } as TArg
     }
 
+    public getExtras(): Record<string, unknown> {
+        const {
+            id: _id,
+            version: _version,
+            checksum: _checksum,
+            descendantChecksum: _descendantChecksum,
+            combinedChecksum: _combinedChecksum,
+            ...extras
+        } = this.argument as Record<string, unknown>
+        return { ...extras }
+    }
+
+    public setExtras(
+        extras: Record<string, unknown>
+    ): TCoreMutationResult<
+        Record<string, unknown>,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg
+    > {
+        const { id, version, checksum, descendantChecksum, combinedChecksum } =
+            this.argument as Record<string, unknown>
+        this.argument = {
+            ...extras,
+            id,
+            version,
+            ...(checksum !== undefined ? { checksum } : {}),
+            ...(descendantChecksum !== undefined
+                ? { descendantChecksum }
+                : {}),
+            ...(combinedChecksum !== undefined ? { combinedChecksum } : {}),
+        } as TOptionalChecksum<TArg>
+        this.markDirty()
+
+        const collector = new ChangeCollector<TExpr, TVar, TPremise, TArg>()
+        this.flushChecksums()
+        collector.setArgument(this.getArgument())
+
+        return { result: this.getExtras(), changes: collector.toChangeset() }
+    }
+
+    public updateExtras(
+        updates: Record<string, unknown>
+    ): TCoreMutationResult<
+        Record<string, unknown>,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg
+    > {
+        return this.setExtras({ ...this.getExtras(), ...updates })
+    }
+
     public toDisplayString(): string {
         const lines: string[] = []
         const arg = this.getArgument()

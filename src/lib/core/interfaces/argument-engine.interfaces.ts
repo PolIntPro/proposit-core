@@ -445,9 +445,14 @@ export interface TArgumentLifecycle<
 }
 
 /**
- * Argument entity access.
+ * Argument entity access and extras mutation.
  */
-export interface TArgumentIdentity<TArg extends TCoreArgument = TCoreArgument> {
+export interface TArgumentIdentity<
+    TArg extends TCoreArgument = TCoreArgument,
+    TPremise extends TCorePremise = TCorePremise,
+    TExpr extends TCorePropositionalExpression = TCorePropositionalExpression,
+    TVar extends TCorePropositionalVariable = TCorePropositionalVariable,
+> {
     /**
      * Returns a shallow copy of the argument metadata with checksum
      * attached.
@@ -455,4 +460,29 @@ export interface TArgumentIdentity<TArg extends TCoreArgument = TCoreArgument> {
      * @returns The argument entity.
      */
     getArgument(): TArg
+    /**
+     * Returns the argument's extra metadata record (all fields except
+     * id, version, and checksums).
+     *
+     * @returns The extras record.
+     */
+    getExtras(): Record<string, unknown>
+    /**
+     * Replaces the argument's extra metadata record.
+     *
+     * @param extras - The new extras record.
+     * @returns The new extras record and a changeset with the modified argument.
+     */
+    setExtras(
+        extras: Record<string, unknown>
+    ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg>
+    /**
+     * Shallow-merges updates into the argument's existing extras.
+     *
+     * @param updates - Key-value pairs to merge into the current extras.
+     * @returns The merged extras record and a changeset with the modified argument.
+     */
+    updateExtras(
+        updates: Record<string, unknown>
+    ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg>
 }
