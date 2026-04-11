@@ -26935,3 +26935,52 @@ describe("PremiseEngine.setExtras — changeset", () => {
         expect(changes.premises?.modified).toHaveLength(1)
     })
 })
+
+// ---------------------------------------------------------------------------
+// PremiseEngine.updateExtras
+// ---------------------------------------------------------------------------
+
+describe("PremiseEngine.updateExtras", () => {
+    it("merges into existing extras", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise({ a: "1", b: "2" })
+        const { result } = pm.updateExtras({ c: "3" })
+
+        expect(result).toEqual({ a: "1", b: "2", c: "3" })
+        expect(pm.getExtras()).toEqual({ a: "1", b: "2", c: "3" })
+    })
+
+    it("produces a changeset with premises.modified", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise()
+        const { changes } = pm.updateExtras({ title: "Hello" })
+
+        expect(changes.premises?.modified).toHaveLength(1)
+        const modified = changes.premises!.modified[0]
+        expect((modified as Record<string, unknown>).title).toBe("Hello")
+        expect(modified.checksum).toBe(pm.toPremiseData().checksum)
+    })
+
+    it("overlapping keys overwrite existing values", () => {
+        const eng = new ArgumentEngine(
+            { id: "arg1", version: 0 },
+            aLib(),
+            sLib(),
+            csLib()
+        )
+        const { result: pm } = eng.createPremise({ title: "Old" })
+        const { result } = pm.updateExtras({ title: "New" })
+
+        expect(result).toEqual({ title: "New" })
+    })
+})

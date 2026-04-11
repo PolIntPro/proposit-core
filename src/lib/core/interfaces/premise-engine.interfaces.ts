@@ -527,6 +527,15 @@ export interface TPremiseIdentity<
     setExtras(
         extras: Record<string, unknown>
     ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg>
+    /**
+     * Shallow-merges updates into the premise's existing extras.
+     *
+     * @param updates - Key-value pairs to merge into the current extras.
+     * @returns The merged extras record and a changeset with the modified premise.
+     */
+    updateExtras(
+        updates: Record<string, unknown>
+    ): TCoreMutationResult<Record<string, unknown>, TExpr, TVar, TPremise, TArg>
 }
 
 /**

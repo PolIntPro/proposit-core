@@ -1153,6 +1153,18 @@ export class PremiseEngine<
         })
     }
 
+    public updateExtras(
+        updates: Record<string, unknown>
+    ): TCoreMutationResult<
+        Record<string, unknown>,
+        TExpr,
+        TVar,
+        TPremise,
+        TArg
+    > {
+        return this.setExtras({ ...this.getExtras(), ...updates })
+    }
+
     public getRootExpressionId(): string | undefined {
         return this.rootExpressionId
     }
