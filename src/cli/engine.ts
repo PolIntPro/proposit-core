@@ -136,6 +136,7 @@ export async function hydrateEngine(
             collapseDoubleNegation: true,
             collapseEmptyFormula: true,
             repositionOnCollision: true,
+            absorbSameOperator: true,
         },
     }
 

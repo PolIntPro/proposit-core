@@ -1107,6 +1107,7 @@ Granular auto-normalization flags. Each flag controls a specific automatic struc
 | `collapseDoubleNegation` | Collapse NOT(NOT(x)) → x during `toggleNegation` and `normalize`.                                               |
 | `collapseEmptyFormula`   | Collapse empty formulas/operators and promote single children after `removeExpression`.                         |
 | `repositionOnCollision`  | Auto-redistribute sibling positions when a midpoint collision is detected.                                      |
+| `absorbSameOperator`     | Absorb same-operator children through a formula after an operator swap in `updateExpression`.                   |
 
 ### `TGrammarConfig`
 

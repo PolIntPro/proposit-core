@@ -296,6 +296,7 @@ function premiseWithVarsGranular(config: {
     collapseDoubleNegation?: boolean
     collapseEmptyFormula?: boolean
     repositionOnCollision?: boolean
+    absorbSameOperator?: boolean
 }): PremiseEngine {
     const eng = new ArgumentEngine(ARG, aLib(), sLib(), csLib(), {
         grammarConfig: {
@@ -306,6 +307,7 @@ function premiseWithVarsGranular(config: {
                 collapseDoubleNegation: config.collapseDoubleNegation ?? false,
                 collapseEmptyFormula: config.collapseEmptyFormula ?? false,
                 repositionOnCollision: config.repositionOnCollision ?? false,
+                absorbSameOperator: config.absorbSameOperator ?? false,
             },
         },
     })
@@ -17750,61 +17752,7 @@ describe("changeOperator", () => {
 
     // --- Merge (no longer triggers for 2-child operators) ---
 
-    it("no merge: OR(formula(AND(P, Q)), R) → change AND to OR yields OR(formula(OR(P, Q)), R)", () => {
-        const pm = premiseWithVars()
-        // Build: OR( formula(AND(P, Q)), R )
-        pm.addExpression(makeOpExpr("op-or", "or"))
-        pm.addExpression(
-            makeFormulaExpr("formula-1", {
-                parentId: "op-or",
-                position: 0,
-            })
-        )
-        pm.addExpression(
-            makeOpExpr("op-and", "and", {
-                parentId: "formula-1",
-                position: 0,
-            })
-        )
-        pm.addExpression(
-            makeVarExpr("expr-p", VAR_P.id, {
-                parentId: "op-and",
-                position: 0,
-            })
-        )
-        pm.addExpression(
-            makeVarExpr("expr-q", VAR_Q.id, {
-                parentId: "op-and",
-                position: 1,
-            })
-        )
-        pm.addExpression(
-            makeVarExpr("expr-r", VAR_R.id, {
-                parentId: "op-or",
-                position: 1,
-            })
-        )
-
-        const { result } = pm.changeOperator("op-and", "or")
-
-        // Simple type change, no merge
-        expect(result).not.toBeNull()
-        expect(result!.id).toBe("op-and")
-        if (result!.type === "operator") {
-            expect(result!.operator).toBe("or")
-        }
-
-        // Formula buffer preserved
-        expect(pm.getExpression("formula-1")).toBeDefined()
-
-        // Structure unchanged: outer OR has 2 children, inner operator has 2 children
-        const outerChildren = pm.getChildExpressions("op-or")
-        expect(outerChildren).toHaveLength(2)
-        const innerChildren = pm.getChildExpressions("op-and")
-        expect(innerChildren).toHaveLength(2)
-    })
-
-    it("no merge: formula buffer preserved when inner operator changes to match parent", () => {
+    it("absorbs: OR(formula(AND(P, Q)), R) → change AND to OR yields OR(P, Q, R)", () => {
         const pm = premiseWithVars()
         // Build: OR( formula(AND(P, Q)), R )
         pm.addExpression(makeOpExpr("op-or", "or"))
@@ -17841,8 +17789,58 @@ describe("changeOperator", () => {
 
         pm.changeOperator("op-and", "or")
 
-        // Formula still exists — no dissolution
-        expect(pm.getExpression("formula-1")).toBeDefined()
+        // Formula and inner operator dissolved — absorbed into outer OR
+        expect(pm.getExpression("formula-1")).toBeUndefined()
+        expect(pm.getExpression("op-and")).toBeUndefined()
+
+        // Outer OR now has 3 children: P, Q, R
+        const outerChildren = pm.getChildExpressions("op-or")
+        expect(outerChildren).toHaveLength(3)
+        const childIds = outerChildren.map((c) => c.id)
+        expect(childIds).toContain("expr-p")
+        expect(childIds).toContain("expr-q")
+        expect(childIds).toContain("expr-r")
+    })
+
+    it("absorbs: formula dissolved when inner operator changes to match parent", () => {
+        const pm = premiseWithVars()
+        // Build: OR( formula(AND(P, Q)), R )
+        pm.addExpression(makeOpExpr("op-or", "or"))
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-or",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-and", "and", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-or",
+                position: 1,
+            })
+        )
+
+        pm.changeOperator("op-and", "or")
+
+        // Formula dissolved — absorbed into outer OR
+        expect(pm.getExpression("formula-1")).toBeUndefined()
     })
 
     // --- Split ---
@@ -18034,7 +18032,7 @@ describe("changeOperator", () => {
 
     // --- No-merge for 2-child operators ---
 
-    it("no merge: AND(formula(OR(P, Q)), R) → change OR to AND yields AND(formula(AND(P, Q)), R)", () => {
+    it("absorbs: AND(formula(OR(P, Q)), R) → change OR to AND yields AND(P, Q, R)", () => {
         const pm = premiseWithVars()
         // Build: AND( formula(OR(P, Q)), R )
         pm.addExpression(makeOpExpr("op-and", "and"))
@@ -18069,26 +18067,26 @@ describe("changeOperator", () => {
             })
         )
 
-        const { result } = pm.changeOperator("op-or", "and")
+        pm.changeOperator("op-or", "and")
 
-        // Inner operator should now be AND, not merged
-        expect(result).not.toBeNull()
-        expect(result!.id).toBe("op-or")
-        expect(result!.type).toBe("operator")
-        if (result!.type === "operator") {
-            expect(result!.operator).toBe("and")
-        }
+        // Formula and inner operator dissolved — absorbed into outer AND
+        expect(pm.getExpression("formula-1")).toBeUndefined()
+        expect(pm.getExpression("op-or")).toBeUndefined()
 
-        // Formula buffer still exists
-        expect(pm.getExpression("formula-1")).toBeDefined()
-
-        // Inner operator still has exactly 2 children (P, Q)
-        const innerChildren = pm.getChildExpressions("op-or")
-        expect(innerChildren).toHaveLength(2)
-
-        // Outer AND still has exactly 2 children (formula-1, R)
+        // Outer AND now has 3 children: P, Q, R
         const outerChildren = pm.getChildExpressions("op-and")
-        expect(outerChildren).toHaveLength(2)
+        expect(outerChildren).toHaveLength(3)
+        const childIds = outerChildren.map((c) => c.id)
+        expect(childIds).toContain("expr-p")
+        expect(childIds).toContain("expr-q")
+        expect(childIds).toContain("expr-r")
+
+        // Positions are strictly increasing
+        for (let i = 1; i < outerChildren.length; i++) {
+            expect(outerChildren[i].position).toBeGreaterThan(
+                outerChildren[i - 1].position
+            )
+        }
     })
 
     it("no merge: OR(formula(OR(P, Q)), R) → change inner OR to AND yields OR(formula(AND(P, Q)), R)", () => {
@@ -18142,6 +18140,64 @@ describe("changeOperator", () => {
         // Inner operator still has 2 children
         const innerChildren = pm.getChildExpressions("op-or-inner")
         expect(innerChildren).toHaveLength(2)
+    })
+
+    it("absorbs with tight positions: AND(P, formula(OR(Q, R)), S) at 0,1,2", () => {
+        const pm = premiseWithVars()
+        // Build: AND(P(0), formula(OR(Q, R))(1), S(2))
+        pm.addExpression(makeOpExpr("op-and", "and"))
+        pm.addExpression(
+            makeVarExpr("expr-p", VAR_P.id, {
+                parentId: "op-and",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeFormulaExpr("formula-1", {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", {
+                parentId: "formula-1",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-q", VAR_Q.id, {
+                parentId: "op-or",
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-r", VAR_R.id, {
+                parentId: "op-or",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("expr-s", VAR_P.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+
+        pm.changeOperator("op-or", "and")
+
+        // Should absorb — AND(P, Q, R, S)
+        expect(pm.getExpression("formula-1")).toBeUndefined()
+        expect(pm.getExpression("op-or")).toBeUndefined()
+
+        const children = pm.getChildExpressions("op-and")
+        expect(children).toHaveLength(4)
+
+        // All positions strictly increasing (redistribution handled tight gap)
+        for (let i = 1; i < children.length; i++) {
+            expect(children[i].position).toBeGreaterThan(
+                children[i - 1].position
+            )
+        }
     })
 
     // --- Error cases ---
@@ -26130,6 +26186,7 @@ describe("fromData checksum idempotency", () => {
             collapseDoubleNegation: true,
             collapseEmptyFormula: false,
             repositionOnCollision: true,
+            absorbSameOperator: true,
         },
     }
 
@@ -26490,6 +26547,7 @@ describe("repositionOnCollision auto-normalize flag", () => {
                         collapseDoubleNegation: false,
                         collapseEmptyFormula: false,
                         repositionOnCollision: true,
+                        absorbSameOperator: false,
                     },
                 },
                 "repositionOnCollision"
@@ -27050,5 +27108,363 @@ describe("ArgumentEngine — extras", () => {
         const arg = eng.getArgument()
         expect(arg.id).toBe("arg1")
         expect(arg.version).toBe(0)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// updateExpression — absorbSameOperator normalization
+// ---------------------------------------------------------------------------
+
+describe("updateExpression — absorbSameOperator", () => {
+    /**
+     * Build the tree: (A ∧ (B ∨ C)) → F
+     *
+     * Structure:
+     *   implies (root)
+     *     formula "f1"          position=1
+     *       and "op-and"
+     *         var A              position=1
+     *         formula "f2"       position=2
+     *           or "op-or"
+     *             var B          position=1
+     *             var C          position=2
+     *     var F                 position=2
+     */
+    function buildTree(pm: PremiseEngine) {
+        pm.addExpression(
+            makeOpExpr("root-impl", "implies", {
+                parentId: null,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f1", { parentId: "root-impl", position: 1 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: "f1", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-a", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f2", { parentId: "op-and", position: 2 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "f2", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-c", VAR_R.id, { parentId: "op-or", position: 2 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-f", VAR_P.id, {
+                parentId: "root-impl",
+                position: 2,
+            })
+        )
+    }
+
+    it("absorbs same-operator children when or is changed to and (autoNormalize: true)", () => {
+        const pm = premiseWithVars()
+        buildTree(pm)
+
+        pm.updateExpression("op-or", { operator: "and" })
+
+        // After absorption: f2 and op-or should be gone.
+        const expressions = pm.getExpressions()
+        const ids = expressions.map((e) => e.id)
+        expect(ids).not.toContain("f2")
+        expect(ids).not.toContain("op-or")
+
+        // A, B, C should all be direct children of op-and, in order.
+        const andChildren = expressions
+            .filter((e) => e.parentId === "op-and")
+            .sort((a, b) => a.position - b.position)
+        expect(andChildren).toHaveLength(3)
+        expect(andChildren[0].id).toBe("e-a")
+        expect(andChildren[1].id).toBe("e-b")
+        expect(andChildren[2].id).toBe("e-c")
+
+        // Verify order: A < B < C
+        expect(andChildren[0].position).toBeLessThan(andChildren[1].position)
+        expect(andChildren[1].position).toBeLessThan(andChildren[2].position)
+    })
+
+    it("does not absorb when operators differ (and stays different from or)", () => {
+        const pm = premiseWithVars()
+        buildTree(pm)
+
+        // Tree already has and→formula→or; no absorption should happen.
+        const expressions = pm.getExpressions()
+        const ids = expressions.map((e) => e.id)
+        expect(ids).toContain("f2")
+        expect(ids).toContain("op-or")
+    })
+
+    it("absorbs when and is changed to or (matching parent or)", () => {
+        const pm = premiseWithVars()
+        // Build: (A ∨ (B ∧ C)) → F
+        pm.addExpression(
+            makeOpExpr("root-impl", "implies", {
+                parentId: null,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f1", { parentId: "root-impl", position: 1 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "f1", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-a", VAR_P.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f2", { parentId: "op-or", position: 2 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: "f2", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, {
+                parentId: "op-and",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-c", VAR_R.id, {
+                parentId: "op-and",
+                position: 2,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-f", VAR_P.id, {
+                parentId: "root-impl",
+                position: 2,
+            })
+        )
+
+        pm.updateExpression("op-and", { operator: "or" })
+
+        const expressions = pm.getExpressions()
+        const ids = expressions.map((e) => e.id)
+        expect(ids).not.toContain("f2")
+        expect(ids).not.toContain("op-and")
+
+        const orChildren = expressions
+            .filter((e) => e.parentId === "op-or")
+            .sort((a, b) => a.position - b.position)
+        expect(orChildren).toHaveLength(3)
+        expect(orChildren[0].id).toBe("e-a")
+        expect(orChildren[1].id).toBe("e-b")
+        expect(orChildren[2].id).toBe("e-c")
+    })
+
+    it("does not absorb when absorbSameOperator flag is disabled", () => {
+        const pm = premiseWithVarsGranular({
+            wrapInsertFormula: true,
+            absorbSameOperator: false,
+        })
+        buildTree(pm)
+
+        pm.updateExpression("op-or", { operator: "and" })
+
+        // f2 and the inner and should still exist — no absorption.
+        const expressions = pm.getExpressions()
+        const ids = expressions.map((e) => e.id)
+        expect(ids).toContain("f2")
+    })
+
+    it("reports absorbed nodes in changeset", () => {
+        const pm = premiseWithVars()
+        buildTree(pm)
+
+        const { changes } = pm.updateExpression("op-or", { operator: "and" })
+
+        // f2 and op-or should appear as removed.
+        const removedIds = (changes.expressions?.removed ?? []).map((e) => e.id)
+        expect(removedIds).toContain("f2")
+        expect(removedIds).toContain("op-or")
+
+        // e-b and e-c should appear as modified (reparented to op-and).
+        const modifiedIds = (changes.expressions?.modified ?? []).map(
+            (e) => e.id
+        )
+        expect(modifiedIds).toContain("e-b")
+        expect(modifiedIds).toContain("e-c")
+    })
+
+    it("redistributes positions when gap is too tight for absorbed children", () => {
+        // A ∧ (B ∨ C) ∧ D  with positions A=0, formula=1, D=2
+        // After OR→AND absorption, B and C must fit between A and D.
+        // There is no room for 2 integer positions in (0, 2), so
+        // siblings must be redistributed.
+        const pm = premiseWithVars()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-a", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f1", { parentId: "op-and", position: 1 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "f1", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-c", VAR_R.id, { parentId: "op-or", position: 2 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-d", VAR_P.id, { parentId: "op-and", position: 2 })
+        )
+
+        pm.updateExpression("op-or", { operator: "and" })
+
+        const children = pm
+            .getExpressions()
+            .filter((e) => e.parentId === "op-and")
+            .sort((a, b) => a.position - b.position)
+
+        expect(children).toHaveLength(4)
+        expect(children[0].id).toBe("e-a")
+        expect(children[1].id).toBe("e-b")
+        expect(children[2].id).toBe("e-c")
+        expect(children[3].id).toBe("e-d")
+
+        // All positions must be strictly increasing (no collisions).
+        for (let i = 1; i < children.length; i++) {
+            expect(children[i].position).toBeGreaterThan(
+                children[i - 1].position
+            )
+        }
+    })
+
+    it("handles absorption with wide position gaps (no redistribution needed)", () => {
+        // A ∧ (B ∨ C) ∧ D  with positions A=0, formula=1000, D=2000
+        // Plenty of room — no redistribution needed.
+        const pm = premiseWithVars()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-a", VAR_P.id, { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f1", { parentId: "op-and", position: 1000 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "f1", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-c", VAR_R.id, { parentId: "op-or", position: 2 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-d", VAR_P.id, { parentId: "op-and", position: 2000 })
+        )
+
+        pm.updateExpression("op-or", { operator: "and" })
+
+        const children = pm
+            .getExpressions()
+            .filter((e) => e.parentId === "op-and")
+            .sort((a, b) => a.position - b.position)
+
+        expect(children).toHaveLength(4)
+        expect(children[0].id).toBe("e-a")
+        expect(children[1].id).toBe("e-b")
+        expect(children[2].id).toBe("e-c")
+        expect(children[3].id).toBe("e-d")
+
+        // A and D should retain their original positions.
+        expect(children[0].position).toBe(0)
+        expect(children[3].position).toBe(2000)
+
+        // B and C should be evenly spaced between A(0) and D(2000).
+        expect(children[1].position).toBeGreaterThan(0)
+        expect(children[1].position).toBeLessThan(children[2].position)
+        expect(children[2].position).toBeLessThan(2000)
+    })
+
+    it("redistributes when formula is first child and gap is tight", () => {
+        // (B ∨ C) ∧ D  with positions formula=0, D=1
+        // After absorption, B and C replace the formula, but only 1 integer
+        // between min and D=1 — needs redistribution.
+        const pm = premiseWithVars()
+        pm.addExpression(
+            makeOpExpr("op-and", "and", { parentId: null, position: 0 })
+        )
+        pm.addExpression(
+            makeFormulaExpr("f1", { parentId: "op-and", position: 0 })
+        )
+        pm.addExpression(
+            makeOpExpr("op-or", "or", { parentId: "f1", position: 0 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, { parentId: "op-or", position: 1 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-c", VAR_R.id, { parentId: "op-or", position: 2 })
+        )
+        pm.addExpression(
+            makeVarExpr("e-d", VAR_P.id, { parentId: "op-and", position: 1 })
+        )
+
+        pm.updateExpression("op-or", { operator: "and" })
+
+        const children = pm
+            .getExpressions()
+            .filter((e) => e.parentId === "op-and")
+            .sort((a, b) => a.position - b.position)
+
+        expect(children).toHaveLength(3)
+        expect(children[0].id).toBe("e-b")
+        expect(children[1].id).toBe("e-c")
+        expect(children[2].id).toBe("e-d")
+
+        for (let i = 1; i < children.length; i++) {
+            expect(children[i].position).toBeGreaterThan(
+                children[i - 1].position
+            )
+        }
+    })
+
+    it("does not absorb implies↔iff swap (not same-group merging)", () => {
+        const pm = premiseWithVarsStrict()
+        // Build: implies → [formula → implies → [A, B], C]
+        // This is actually invalid (implies must be root-only), so use
+        // a different test: implies→iff swap shouldn't trigger absorption
+        // since implies/iff are root-only anyway.
+        pm.addExpression(
+            makeOpExpr("root-impl", "implies", {
+                parentId: null,
+                position: 0,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-a", VAR_P.id, {
+                parentId: "root-impl",
+                position: 1,
+            })
+        )
+        pm.addExpression(
+            makeVarExpr("e-b", VAR_Q.id, {
+                parentId: "root-impl",
+                position: 2,
+            })
+        )
+
+        pm.updateExpression("root-impl", { operator: "iff" })
+
+        const expressions = pm.getExpressions()
+        expect(expressions).toHaveLength(3) // no structural change
     })
 })

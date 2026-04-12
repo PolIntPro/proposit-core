@@ -29,6 +29,8 @@ export type TAutoNormalizeConfig = {
     collapseEmptyFormula: boolean
     /** Auto-redistribute sibling positions when a midpoint collision is detected. */
     repositionOnCollision: boolean
+    /** Absorb same-operator children through a formula after an operator swap in `updateExpression`. */
+    absorbSameOperator: boolean
 }
 
 /**
@@ -53,6 +55,10 @@ export type TAutoNormalizeConfig = {
  *     `removeExpression`.
  *   - `repositionOnCollision`: auto-redistribute sibling positions when
  *     a midpoint collision is detected.
+ *   - `absorbSameOperator`: when an operator swap via `updateExpression`
+ *     produces a same-operator nesting through a formula (e.g., AND →
+ *     formula → AND), absorb the inner operator's children into the
+ *     outer operator and remove the formula and inner operator.
  *
  * **Formula collapse rule:** A formula node is only justified if its bounded
  * subtree (stopping at the next nested formula) contains a binary operator

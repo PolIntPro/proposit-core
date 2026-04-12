@@ -739,7 +739,12 @@ export class ExpressionManager<
         // Mark the updated expression and its ancestors dirty for hierarchical checksum recomputation.
         this.markExpressionDirty(expressionId)
 
-        return updated
+        // After an operator swap, absorb same-operator children through a formula.
+        if (updates.operator !== undefined) {
+            this.absorbSameOperatorIfNeeded(expressionId)
+        }
+
+        return this.expressions.get(expressionId) ?? updated
     }
 
     /**
@@ -1229,6 +1234,126 @@ export class ExpressionManager<
     }
 
     /**
+     * Flag-gated wrapper: absorbs same-operator children through a formula
+     * after an operator swap, if `absorbSameOperator` is enabled.
+     */
+    private absorbSameOperatorIfNeeded(expressionId: string): void {
+        if (!resolveAutoNormalize(this.grammarConfig, "absorbSameOperator"))
+            return
+        this.absorbSameOperator(expressionId)
+    }
+
+    /**
+     * Absorbs the inner operator's children into the outer (grandparent)
+     * operator when both are the same type, separated by a formula.
+     *
+     * Example: `AND → formula → AND(B, C)` becomes `AND → [B, C]` (children
+     * promoted into the outer AND at positions between the formula's neighbors).
+     *
+     * No-op if the pattern does not match.
+     */
+    private absorbSameOperator(expressionId: string): boolean {
+        const inner = this.expressions.get(expressionId)
+        if (!inner || inner.type !== "operator") return false
+
+        // Only and/or are absorbable (implies/iff are root-only).
+        if (inner.operator !== "and" && inner.operator !== "or") return false
+
+        const formulaId = inner.parentId
+        if (formulaId === null) return false
+        const formula = this.expressions.get(formulaId)
+        if (!formula || formula.type !== "formula") return false
+
+        const outerId = formula.parentId
+        if (outerId === null) return false
+        const outer = this.expressions.get(outerId)
+        if (!outer || outer.type !== "operator") return false
+        if (outer.operator !== inner.operator) return false
+
+        // Same operator on both sides of a formula — absorb.
+        const innerChildren = this.getChildExpressions(expressionId)
+
+        // Determine the position gap available for absorbed children.
+        const outerChildren = this.getChildExpressions(outerId)
+        const formulaIdx = outerChildren.findIndex((c) => c.id === formulaId)
+        const leftPos =
+            formulaIdx > 0
+                ? outerChildren[formulaIdx - 1].position
+                : this.positionConfig.min
+        const rightPos =
+            formulaIdx < outerChildren.length - 1
+                ? outerChildren[formulaIdx + 1].position
+                : this.positionConfig.max
+
+        // Check if there is enough integer space between neighbors for N children.
+        const gap = rightPos - leftPos
+        const count = innerChildren.length
+        const needsRedistribution = gap <= count
+
+        // Reparent each inner child to the outer operator. Use evenly spaced
+        // positions within the gap; these may collide if the gap is too tight,
+        // which is fixed by a full redistribution below.
+        for (let i = 0; i < count; i++) {
+            const newPosition = Math.trunc(
+                leftPos + ((rightPos - leftPos) / (count + 1)) * (i + 1)
+            )
+            this.reparent(innerChildren[i].id, outerId, newPosition)
+        }
+
+        // Remove the inner operator and formula (now childless).
+        this.childExpressionIdsByParentId.delete(expressionId)
+        this.childPositionsByParentId.delete(expressionId)
+        this.collector?.removedExpression({
+            ...inner,
+        } as unknown as TCorePropositionalExpression)
+        this.expressions.delete(expressionId)
+        this.dirtyExpressionIds.delete(expressionId)
+
+        this.childExpressionIdsByParentId.get(outerId)?.delete(formulaId)
+        this.childPositionsByParentId.get(outerId)?.delete(formula.position)
+        this.childExpressionIdsByParentId.delete(formulaId)
+        this.childPositionsByParentId.delete(formulaId)
+        this.collector?.removedExpression({
+            ...formula,
+        } as unknown as TCorePropositionalExpression)
+        this.expressions.delete(formulaId)
+        this.dirtyExpressionIds.delete(formulaId)
+
+        // If the gap was too tight, redistribute all children of the outer
+        // operator evenly across the full position range.
+        if (needsRedistribution) {
+            const allChildren = this.getChildExpressions(outerId)
+            const total = allChildren.length
+            const positionSet = this.childPositionsByParentId.get(outerId)
+            for (const child of allChildren) {
+                positionSet?.delete(child.position)
+            }
+            for (let i = 0; i < total; i++) {
+                const newPos = Math.trunc(
+                    this.positionConfig.min +
+                        ((this.positionConfig.max - this.positionConfig.min) /
+                            (total + 1)) *
+                            (i + 1)
+                )
+                const updated = this.attachChecksum({
+                    ...allChildren[i],
+                    position: newPos,
+                } as TExpressionInput<TExpr>)
+                this.expressions.set(allChildren[i].id, updated)
+                this.collector?.modifiedExpression({
+                    ...updated,
+                } as unknown as TCorePropositionalExpression)
+                positionSet?.add(newPos)
+                this.markExpressionDirty(allChildren[i].id)
+            }
+        }
+
+        // Mark the outer operator dirty.
+        this.markExpressionDirty(outerId)
+        return true
+    }
+
+    /**
      * Checks whether the subtree rooted at `expressionId` contains a binary
      * operator (`and` or `or`). Traversal stops at formula boundaries — a
      * nested formula owns its own subtree and is not inspected.
@@ -1255,7 +1380,9 @@ export class ExpressionManager<
      * 1. Collapses operators with 0 or 1 children.
      * 2. Collapses formulas whose bounded subtree has no binary operator.
      * 3. Inserts formula buffers where `enforceFormulaBetweenOperators` requires them.
-     * 4. Repeats until stable.
+     * 4. Collapses double negation.
+     * 5. Absorbs same-operator nesting through formulas.
+     * 6. Repeats until stable.
      *
      * Works regardless of the current `autoNormalize` setting — this is an
      * explicit on-demand normalization.
@@ -1398,6 +1525,30 @@ export class ExpressionManager<
                             changed = true
                         }
                     }
+                }
+            }
+
+            // Pass 5: Absorb same-operator through formula — OP → formula → OP → [...] becomes OP → [...].
+            for (const expr of this.toArray()) {
+                if (expr.type !== "formula") continue
+                if (!this.expressions.has(expr.id)) continue
+                if (expr.parentId === null) continue
+                const parent = this.expressions.get(expr.parentId)
+                if (!parent || parent.type !== "operator") continue
+                if (parent.operator !== "and" && parent.operator !== "or")
+                    continue
+                const formulaChildren = this.getChildExpressions(expr.id)
+                if (formulaChildren.length !== 1) continue
+                const inner = formulaChildren[0]
+                if (
+                    inner.type !== "operator" ||
+                    inner.operator !== parent.operator
+                )
+                    continue
+
+                // Same operator on both sides — absorb inner's children into parent.
+                if (this.absorbSameOperator(inner.id)) {
+                    changed = true
                 }
             }
         }
@@ -2348,7 +2499,11 @@ export class ExpressionManager<
             ...updated,
         } as unknown as TCorePropositionalExpression)
         this.markExpressionDirty(expressionId)
-        return updated
+
+        // After the operator change, absorb same-operator children through a formula.
+        this.absorbSameOperatorIfNeeded(expressionId)
+
+        return this.expressions.get(expressionId) ?? updated
     }
 
     /**
