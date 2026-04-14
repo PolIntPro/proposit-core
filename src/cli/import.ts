@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import yaml from "js-yaml"
+import { parse as parseYaml } from "yaml"
 import { Value } from "typebox/value"
 import { CoreYamlArgumentSchema } from "../lib/schemata/import.js"
 import type { TCoreYamlArgument } from "../lib/schemata/import.js"
@@ -224,7 +224,7 @@ export function importArgumentFromYaml(yamlString: string): {
     sourceLibrary: SourceLibrary
     claimSourceLibrary: ClaimSourceLibrary
 } {
-    const raw = yaml.load(yamlString)
+    const raw = parseYaml(yamlString)
     const input: TCoreYamlArgument = Value.Parse(CoreYamlArgumentSchema, raw)
 
     // Parse all formulas and validate root-only constraint
