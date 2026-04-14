@@ -34,7 +34,13 @@ export type TParsedVariable = Static<typeof ParsedVariableSchema>
 export const ParsedSourceSchema = Type.Object(
     {
         miniId: Type.String(),
-        text: Type.String(),
+        url: Type.String({ description: "URL of the source" }),
+        text: Type.Optional(
+            Type.String({
+                description:
+                    "Display text or description for the source (e.g. link text from markdown)",
+            })
+        ),
     },
     { additionalProperties: true }
 )

@@ -357,7 +357,7 @@ describe("IEEE extension", () => {
         })
 
         it("relaxed map has entry for every type", () => {
-            expect(Object.keys(IEEEReferenceSchemaMapRelaxed)).toHaveLength(33)
+            expect(Object.keys(IEEEReferenceSchemaMapRelaxed)).toHaveLength(34)
         })
 
         it("relaxed map Book entry accepts invalid ISBN", () => {
@@ -824,8 +824,13 @@ describe("IEEE extension", () => {
                     manufacturer: "Dell",
                     model: "XPS 15",
                 },
+                {
+                    type: "UnparsedURL" as const,
+                    url: "https://example.com/some-source",
+                    text: "Example Source",
+                },
             ]
-            expect(refs).toHaveLength(33)
+            expect(refs).toHaveLength(34)
             for (const ref of refs) {
                 const result = formatCitationParts(ref)
                 expect(result.type).toBe(ref.type)

@@ -7,7 +7,7 @@ import type { TPromptOptions } from "./types.js"
  */
 const CORE_CLAIM_KEYS = new Set(["miniId", "role", "sourceMiniIds"])
 const CORE_VARIABLE_KEYS = new Set(["miniId", "symbol", "claimMiniId"])
-const CORE_SOURCE_KEYS = new Set(["miniId", "text"])
+const CORE_SOURCE_KEYS = new Set(["miniId", "url", "text"])
 const CORE_PREMISE_KEYS = new Set(["miniId", "formula"])
 const CORE_ARGUMENT_KEYS = new Set([
     "claims",
@@ -94,7 +94,12 @@ When formulating claims, write in third person, present tense, active voice. Eac
 
 Sources are **external citations or references** that support a claim — books, articles, datasets, URLs, etc. They are NOT other claims. Logical relationships between claims are expressed through variables, formulas, and premises.
 
-Each source has a miniId (e.g., "s1") and a text description of the external reference.
+Each source has:
+- **miniId**: e.g., "s1"
+- **url**: the URL of the external source
+- **text** (optional): display text or description for the source — e.g., link text from a markdown anchor, or a brief description if the URL alone is not self-explanatory
+
+When extracting sources from markdown, if a link has anchor text that differs from the URL (e.g., \`[Study on climate change](https://example.com/study)\`), set \`url\` to the href and \`text\` to the anchor text. If the text is identical to the URL or adds no useful information, omit \`text\`.
 
 A claim's \`sourceMiniIds\` array links that claim to its supporting **sources** (external citations). It must contain only source miniIds (e.g., \`["s1", "s2"]\`). **Never put claim miniIds (c1, c2, …) in sourceMiniIds** — that is a common mistake. If claim A depends on claim B, express that dependency through a premise formula, not through sourceMiniIds.
 

@@ -12494,10 +12494,19 @@ describe("Parsing — response schemas", () => {
     })
 
     describe("ParsedSourceSchema", () => {
-        it("accepts a valid source", () => {
+        it("accepts a valid source with url and text", () => {
             const source: TParsedSource = {
                 miniId: "s1",
+                url: "https://example.com/source",
                 text: "Some source text",
+            }
+            expect(Value.Check(ParsedSourceSchema, source)).toBe(true)
+        })
+
+        it("accepts a valid source with url only", () => {
+            const source: TParsedSource = {
+                miniId: "s1",
+                url: "https://example.com/source",
             }
             expect(Value.Check(ParsedSourceSchema, source)).toBe(true)
         })
@@ -12527,7 +12536,13 @@ describe("Parsing — response schemas", () => {
                     variables: [
                         { miniId: "v1", symbol: "P", claimMiniId: "c1" },
                     ],
-                    sources: [{ miniId: "s1", text: "A source" }],
+                    sources: [
+                        {
+                            miniId: "s1",
+                            url: "https://example.com/source",
+                            text: "A source",
+                        },
+                    ],
                     premises: [{ miniId: "p1", formula: "P" }],
                     conclusionPremiseMiniId: "p1",
                 },
@@ -12887,7 +12902,13 @@ describe("Parsing — response schemas", () => {
                         { miniId: "V1", symbol: "P", claimMiniId: "C1" },
                         { miniId: "V2", symbol: "Q", claimMiniId: "C2" },
                     ],
-                    sources: [{ miniId: "S1", text: "Some source" }],
+                    sources: [
+                        {
+                            miniId: "S1",
+                            url: "https://example.com/some-source",
+                            text: "Some source",
+                        },
+                    ],
                     premises: [
                         { miniId: "P1", formula: "P implies Q" },
                         { miniId: "P2", formula: "P" },
@@ -13181,7 +13202,13 @@ describe("Parsing — response schemas", () => {
             it("skips bad source association and emits UNRESOLVED_SOURCE_MINIID", () => {
                 const parser = new ArgumentParser()
                 const resp = validResponse()
-                resp.argument!.sources = [{ miniId: "S1", text: "Real source" }]
+                resp.argument!.sources = [
+                    {
+                        miniId: "S1",
+                        url: "https://example.com/real-source",
+                        text: "Real source",
+                    },
+                ]
                 resp.argument!.claims[0].sourceMiniIds = ["S1", "BOGUS"]
                 const result = parser.build(resp, { strict: false })
                 // Claim still created, one association wired, one skipped

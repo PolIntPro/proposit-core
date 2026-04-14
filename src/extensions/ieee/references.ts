@@ -41,6 +41,7 @@ export const ReferenceTypeSchema = Type.Union([
     Type.Literal("GovernmentPublication"),
     Type.Literal("Datasheet"),
     Type.Literal("ProductManual"),
+    Type.Literal("UnparsedURL"),
 ])
 export type TReferenceType = Static<typeof ReferenceTypeSchema>
 
@@ -1024,6 +1025,29 @@ export type TProductManualReference = Static<
 >
 
 // ---------------------------------------------------------------------------
+// Unparsed / deferred
+// ---------------------------------------------------------------------------
+export const UnparsedURLReferenceSchema = Type.Intersect([
+    BaseReferenceSchema,
+    Type.Object({
+        type: Type.Literal("UnparsedURL"),
+        url: Type.String({
+            format: "uri",
+            minLength: 1,
+            description: "URL to be processed into a proper reference later",
+        }),
+        text: Type.Optional(
+            Type.String({
+                minLength: 1,
+                description:
+                    "Link text or description (e.g. from markdown anchor text)",
+            })
+        ),
+    }),
+])
+export type TUnparsedURLReference = Static<typeof UnparsedURLReferenceSchema>
+
+// ---------------------------------------------------------------------------
 // Discriminated union of all reference types
 // ---------------------------------------------------------------------------
 export const IEEEReferenceSchema = Type.Union([
@@ -1060,6 +1084,7 @@ export const IEEEReferenceSchema = Type.Union([
     GovernmentPublicationReferenceSchema,
     DatasheetReferenceSchema,
     ProductManualReferenceSchema,
+    UnparsedURLReferenceSchema,
 ])
 export type TIEEEReference = Static<typeof IEEEReferenceSchema>
 
@@ -1100,4 +1125,5 @@ export const IEEEReferenceSchemaMap = {
     GovernmentPublication: GovernmentPublicationReferenceSchema,
     Datasheet: DatasheetReferenceSchema,
     ProductManual: ProductManualReferenceSchema,
+    UnparsedURL: UnparsedURLReferenceSchema,
 } as const satisfies Record<TReferenceType, TSchema>
